@@ -238,7 +238,10 @@ def update_content(
     ).scalar_one_or_none()
     if content is None:
         return None
-    if content.owner_id != requester.id:
+    is_admin = bool(requester.is_admin)
+    if content.owner_id is None:
+        content.owner_id = requester.id
+    elif content.owner_id != requester.id and not is_admin:
         return None
     data = updates.model_dump(exclude_unset=True)
     if "title" in data and data["title"] is not None:
@@ -249,9 +252,12 @@ def update_content(
         content.tags = json_dumps([tag.strip() for tag in data["tags"] if tag and tag.strip()])
     if "chronology" in data:
         chronology_value = data["chronology"]
-        content.chronology = (
-            json_dumps(chronology_value.model_dump(exclude_none=True)) if chronology_value is not None else None
-        )
+        if chronology_value is None:
+            content.chronology = None
+        else:
+            if isinstance(chronology_value, dict):
+                chronology_value = Chronology.model_validate(chronology_value)
+            content.chronology = json_dumps(chronology_value.model_dump(exclude_none=True))
     if "visibility" in data and data["visibility"] is not None:
         content.visibility = _normalize_visibility(data["visibility"], content.visibility)
     if "highlights" in data and data["highlights"] is not None:
@@ -412,7 +418,9 @@ def list_quizzes(
         if not is_admin and content.visibility == VisibilityEnum.PRIVATE and (
             requester is None or content.owner_id != requester.id
         ):
-            return [], 0
+            if requester is None:
+                return [], 0
+            conditions.append(or_(Quiz.owner_id == requester.id, Quiz.visibility == VisibilityEnum.PUBLIC))
         conditions.append(Quiz.content_id == content_id)
 
     if quiz_type is not None:
@@ -423,13 +431,18 @@ def list_quizzes(
 
     if not is_admin:
         if requester is None:
-            visibility_clause = Quiz.visibility == VisibilityEnum.PUBLIC
-            content_visibility_clause = Content.visibility == VisibilityEnum.PUBLIC
+            quiz_visibility_clause = Quiz.visibility == VisibilityEnum.PUBLIC
+            content_visibility_clause = or_(Content.visibility == VisibilityEnum.PUBLIC, Quiz.visibility == VisibilityEnum.PUBLIC)
         else:
-            visibility_clause = or_(Quiz.visibility == VisibilityEnum.PUBLIC, Quiz.owner_id == requester.id)
-            content_visibility_clause = or_(Content.visibility == VisibilityEnum.PUBLIC, Content.owner_id == requester.id)
-        base_count = base_count.where(visibility_clause, content_visibility_clause)
-        base_query = base_query.where(visibility_clause, content_visibility_clause)
+            quiz_visibility_clause = or_(Quiz.visibility == VisibilityEnum.PUBLIC, Quiz.owner_id == requester.id)
+            content_visibility_clause = or_(
+                Content.visibility == VisibilityEnum.PUBLIC,
+                Content.owner_id == requester.id,
+                Quiz.owner_id == requester.id,
+                Quiz.visibility == VisibilityEnum.PUBLIC,
+            )
+        base_count = base_count.where(quiz_visibility_clause, content_visibility_clause)
+        base_query = base_query.where(quiz_visibility_clause, content_visibility_clause)
 
     if conditions:
         base_count = base_count.where(*conditions)
@@ -469,9 +482,12 @@ def get_quiz(session: Session, quiz_id: int, requester: Optional[User]) -> Optio
         quiz.owner_id == requester.id or (content_owner_id is not None and content_owner_id == requester.id)
     )
     is_admin = bool(requester and requester.is_admin)
+    if quiz.visibility == VisibilityEnum.PRIVATE and not (is_owner or is_admin):
+        return None
     if (
-        (quiz.visibility == VisibilityEnum.PRIVATE or (content and content.visibility == VisibilityEnum.PRIVATE))
-        and not (is_owner or is_admin)
+        content is not None
+        and content.visibility == VisibilityEnum.PRIVATE
+        and not (is_owner or is_admin or quiz.visibility == VisibilityEnum.PUBLIC)
     ):
         return None
     return QuizOut(

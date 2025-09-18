@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  fetchContent,
   createStudySession,
   fetchQuizzes,
   fetchStudySessions,
@@ -299,6 +300,21 @@ export default function QuizListPage() {
   const canGoPrev = page > 1;
   const canGoNext = page < totalPages;
 
+  const handleNavigateToContent = async (quiz: QuizItem) => {
+    try {
+      await fetchContent(quiz.content_id);
+      navigate(`/contents/${quiz.content_id}`);
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 404 || status === 403) {
+        alert('비공개 콘텐츠입니다.');
+        return;
+      }
+      const message = err?.response?.data?.detail ?? err?.message ?? '콘텐츠를 불러오지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    }
+  };
+
   const renderModal = () => {
     if (!normalizedTargetCard) {
       return null;
@@ -520,7 +536,9 @@ export default function QuizListPage() {
               <div
                 key={quiz.id}
                 className="relative cursor-pointer rounded-lg border border-slate-200 bg-white p-4 transition hover:border-primary-500"
-                onClick={() => navigate(`/contents/${quiz.content_id}`)}
+                onClick={() => {
+                  void handleNavigateToContent(quiz);
+                }}
               >
                 <div className="absolute left-3 top-3">
                   <input
