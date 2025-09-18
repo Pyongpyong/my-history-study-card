@@ -6,9 +6,14 @@ function resolveApiBaseUrl(): string {
     return override.trim();
   }
   if (typeof window !== 'undefined') {
-    const { protocol, hostname } = window.location;
-    const port = import.meta.env.VITE_API_PORT ?? '8000';
-    return `${protocol}//${hostname}:${port}`;
+    const { protocol, host, hostname } = window.location;
+    const apiPort = import.meta.env.VITE_API_PORT;
+    const isLocalHost = ['localhost', '127.0.0.1'].includes(hostname);
+    const targetPort = apiPort && apiPort.toString().trim().length ? apiPort.toString().trim() : '8000';
+    if (isLocalHost) {
+      return `${protocol}//${hostname}:${targetPort}`;
+    }
+    return `${protocol}//${host || hostname}`;
   }
   return 'http://localhost:8000';
 }
