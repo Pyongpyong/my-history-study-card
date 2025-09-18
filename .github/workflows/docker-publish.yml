@@ -88,9 +88,7 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_REPOSITORY }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha
+            type=raw,value=latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
