@@ -8,6 +8,7 @@ import {
   updateQuizRequest,
   type ContentDetail,
   type QuizItem,
+  type Visibility,
 } from '../api';
 import { getQuizTypeLabel } from '../utils/quiz';
 
@@ -106,6 +107,7 @@ export default function QuizEditPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [visibility, setVisibility] = useState<Visibility>('PRIVATE');
 
   useEffect(() => {
     const load = async () => {
@@ -115,6 +117,7 @@ export default function QuizEditPage() {
       try {
         const quizItem = await fetchQuiz(id);
         setQuiz(quizItem);
+        setVisibility(quizItem.visibility);
         try {
           const detail = await fetchContent(quizItem.content_id);
           setContent(detail);
@@ -146,6 +149,7 @@ export default function QuizEditPage() {
       type: quiz.type,
       content_id: quiz.content_id,
       created_at: quiz.created_at,
+      visibility: quiz.visibility,
     };
   }, [quiz]);
 
@@ -153,7 +157,7 @@ export default function QuizEditPage() {
     if (!id || !quiz) return;
     setSubmitting(true);
     try {
-      await updateQuizRequest(id, payload);
+      await updateQuizRequest(id, { ...payload, visibility });
       alert('퀴즈가 수정되었습니다.');
       const contentParam = searchParams.get('content');
       const targetContentId = contentParam ?? String(quiz.content_id);
@@ -168,11 +172,11 @@ export default function QuizEditPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-300">불러오는 중…</p>;
+    return <p className="text-sm text-slate-600">불러오는 중…</p>;
   }
 
   if (error || !quiz) {
-    return <p className="text-sm text-rose-400">{error ?? '퀴즈를 찾을 수 없습니다.'}</p>;
+    return <p className="text-sm text-rose-600">{error ?? '퀴즈를 찾을 수 없습니다.'}</p>;
   }
 
   return (
@@ -181,39 +185,50 @@ export default function QuizEditPage() {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="text-xs text-primary-300 hover:text-primary-200"
+          className="text-xs text-primary-600 hover:text-primary-700"
         >
           ← 이전으로
         </button>
-        <h1 className="text-2xl font-semibold text-primary-300">퀴즈 수정</h1>
-        <p className="text-sm text-slate-400">
+        <h1 className="text-2xl font-semibold text-primary-600">퀴즈 수정</h1>
+        <p className="text-sm text-slate-500">
           형식: {getQuizTypeLabel(quiz.type)} ( {quiz.type} )
         </p>
         {submitting ? (
-          <p className="text-xs text-primary-300">저장 중…</p>
+          <p className="text-xs text-primary-600">저장 중…</p>
         ) : null}
       </header>
 
-      <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-5">
+      <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
+        <label className="flex w-full flex-col gap-2 text-sm text-slate-600">
+          공개 범위
+          <select
+            value={visibility}
+            onChange={(event) => setVisibility(event.target.value as Visibility)}
+            className="max-w-xs rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          >
+            <option value="PRIVATE">비공개 (나만 보기)</option>
+            <option value="PUBLIC">공개 (모두 보기)</option>
+          </select>
+        </label>
         <QuizForm type={quiz.type} initial={initialPayload} submitLabel="퀴즈 수정" onSubmit={handleSubmit} />
       </div>
 
-      <section className="space-y-6 rounded-lg border border-slate-800 bg-slate-900/60 p-6">
+      <section className="space-y-6 rounded-lg border border-slate-200 bg-slate-50 p-6">
         <header className="space-y-2">
-          <h2 className="text-lg font-semibold text-primary-200">관련 정보</h2>
-          <p className="text-xs text-slate-400">수정 시 참고용으로 콘텐츠/퀴즈 미리보기 정보를 제공합니다.</p>
+          <h2 className="text-lg font-semibold text-primary-600">관련 정보</h2>
+          <p className="text-xs text-slate-500">수정 시 참고용으로 콘텐츠/퀴즈 미리보기 정보를 제공합니다.</p>
         </header>
         {content ? (
-          <article className="space-y-4 text-sm leading-relaxed text-slate-200">
+          <article className="space-y-4 text-sm leading-relaxed text-slate-700">
             <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-xl font-semibold text-primary-300">{content.title}</h3>
-              <span className="text-xs text-slate-400">{new Date(content.created_at).toLocaleString()}</span>
+              <h3 className="text-xl font-semibold text-primary-600">{content.title}</h3>
+              <span className="text-xs text-slate-500">{new Date(content.created_at).toLocaleString()}</span>
             </div>
             <p className="whitespace-pre-wrap">{content.content}</p>
             {content.highlights?.length ? (
               <div className="flex flex-wrap gap-2">
                 {content.highlights.map((highlight) => (
-                  <span key={highlight} className="rounded bg-primary-500/20 px-3 py-1 text-xs text-primary-200">
+                  <span key={highlight} className="rounded bg-primary-100 px-3 py-1 text-xs text-primary-600">
                     {highlight}
                   </span>
                 ))}
@@ -221,12 +236,12 @@ export default function QuizEditPage() {
             ) : null}
           </article>
         ) : (
-          <p className="text-xs text-slate-400">콘텐츠 정보를 불러오지 못했습니다.</p>
+          <p className="text-xs text-slate-500">콘텐츠 정보를 불러오지 못했습니다.</p>
         )}
         {previewCard ? (
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-primary-200">현재 퀴즈</h3>
-            <div className="rounded border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-200">
+            <h3 className="text-sm font-semibold text-primary-600">현재 퀴즈</h3>
+            <div className="rounded border border-slate-200 bg-white p-4 text-sm text-slate-700">
               <CardPreview card={previewCard} />
             </div>
           </div>

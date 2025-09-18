@@ -76,16 +76,18 @@ def test_import_json(client: TestClient):
     response = client.post("/import/json", json=EXAMPLE_PAYLOAD)
     assert response.status_code == 201
     data = response.json()
-    assert data["counts"] == {"highlights": 5, "cards": 6}
+    assert data["counts"] == {"highlights": 5, "quizzes": 6, "cards": 6}
     assert isinstance(data["content_id"], int)
     assert len(data["highlight_ids"]) == 5
-    assert len(data["card_ids"]) == 6
+    assert len(data["quiz_ids"]) == 6
 
     summary = client.get(f"/contents/{data['content_id']}")
     assert summary.status_code == 200
     summary_payload = summary.json()
     assert summary_payload["title"] == EXAMPLE_PAYLOAD["title"]
     assert len(summary_payload["highlights"]) == 5
+    assert summary_payload["visibility"] == "PUBLIC"
+    assert summary_payload["owner_id"] is None
 
     cards_response = client.get(f"/contents/{data['content_id']}/cards")
     assert cards_response.status_code == 200
@@ -99,7 +101,7 @@ def test_import_json_file(client: TestClient):
     response = client.post("/import/json-file", files=files)
     assert response.status_code == 201
     data = response.json()
-    assert data["counts"] == {"highlights": 5, "cards": 6}
+    assert data["counts"] == {"highlights": 5, "quizzes": 6, "cards": 6}
     assert isinstance(data["content_id"], int)
 
     # Clean up by deleting content

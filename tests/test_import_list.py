@@ -71,11 +71,22 @@ def client():
 
 
 def test_import_and_list(client: TestClient):
-    response = client.post("/import/json", json=SAMPLE_PAYLOAD)
+    register = client.post(
+        "/users",
+        json={"email": "tester@example.com", "password": "secret123"},
+    )
+    assert register.status_code == 201
+    auth = register.json()
+    api_key = auth["api_key"]
+    headers = {"X-API-Key": api_key}
+
+    payload = {**SAMPLE_PAYLOAD, "visibility": "PUBLIC"}
+
+    response = client.post("/import/json", json=payload, headers=headers)
     assert response.status_code == 201
     data = response.json()
     content_id = data["content_id"]
-    assert data["counts"] == {"highlights": 5, "quizzes": 6}
+    assert data["counts"] == {"highlights": 5, "quizzes": 6, "cards": 6}
 
     list_response = client.get("/contents")
     assert list_response.status_code == 200
@@ -88,6 +99,8 @@ def test_import_and_list(client: TestClient):
     detail = detail_response.json()
     assert detail["title"] == SAMPLE_PAYLOAD["title"]
     assert len(detail["highlights"]) == 5
+    assert detail["visibility"] == "PUBLIC"
+    assert detail["owner_id"] == auth["user"]["id"]
 
     quizzes_response = client.get(f"/contents/{content_id}/quizzes")
     assert quizzes_response.status_code == 200
@@ -104,8 +117,59 @@ def test_import_and_list(client: TestClient):
     assert filtered_data["meta"]["total"] >= 1
     assert all(item["type"] == "MCQ" for item in filtered_data["items"])
 
-    delete_response = client.delete(f"/contents/{content_id}")
+    delete_response = client.delete(f"/contents/{content_id}", headers=headers)
     assert delete_response.status_code == 204
 
     missing = client.get(f"/contents/{content_id}")
     assert missing.status_code == 404
+
+
+def test_private_content_requires_auth(client: TestClient):
+    owner_resp = client.post(
+        "/users",
+        json={"email": "owner@example.com", "password": "secret123"},
+    )
+    assert owner_resp.status_code == 201
+    owner_auth = owner_resp.json()
+    owner_headers = {"X-API-Key": owner_auth["api_key"]}
+
+    payload = {
+        **SAMPLE_PAYLOAD,
+        "title": "비공개 콘텐츠",
+        "visibility": "PRIVATE",
+    }
+
+    create_resp = client.post("/import/json", json=payload, headers=owner_headers)
+    assert create_resp.status_code == 201
+    created = create_resp.json()
+    content_id = created["content_id"]
+
+    public_list = client.get("/contents")
+    assert public_list.status_code == 200
+    assert all(item["id"] != content_id for item in public_list.json()["items"])
+
+    unauthorized_detail = client.get(f"/contents/{content_id}")
+    assert unauthorized_detail.status_code == 404
+
+    unauthorized_quizzes = client.get(f"/contents/{content_id}/quizzes")
+    assert unauthorized_quizzes.status_code == 404
+
+    owner_detail = client.get(f"/contents/{content_id}", headers=owner_headers)
+    assert owner_detail.status_code == 200
+    assert owner_detail.json()["visibility"] == "PRIVATE"
+
+    other_resp = client.post(
+        "/users",
+        json={"email": "other@example.com", "password": "secret123"},
+    )
+    assert other_resp.status_code == 201
+    other_headers = {"X-API-Key": other_resp.json()["api_key"]}
+
+    forbidden_detail = client.get(f"/contents/{content_id}", headers=other_headers)
+    assert forbidden_detail.status_code == 404
+
+    delete_forbidden = client.delete(f"/contents/{content_id}", headers=other_headers)
+    assert delete_forbidden.status_code == 404
+
+    owner_delete = client.delete(f"/contents/{content_id}", headers=owner_headers)
+    assert owner_delete.status_code == 204

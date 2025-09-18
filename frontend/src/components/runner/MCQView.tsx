@@ -34,8 +34,8 @@ export default function MCQView({ card, disabled, onSubmit }: MCQViewProps) {
   }, [card.question]);
 
   return (
-    <div className="space-y-4 text-sm text-slate-100">
-      <p className="text-lg font-semibold text-primary-200">{card.question ?? '질문 없음'}</p>
+    <div className="space-y-4 text-sm text-slate-900">
+      <p className="text-lg font-semibold text-primary-600">{card.question ?? '질문 없음'}</p>
       <div className="grid gap-2">
         {options.map((option, index) => {
           const isCorrect = index === Number(card.answer_index);
@@ -45,10 +45,10 @@ export default function MCQView({ card, disabled, onSubmit }: MCQViewProps) {
               ? 'border-emerald-500 bg-emerald-500/10'
               : isSelected
               ? 'border-rose-500 bg-rose-500/10'
-              : 'border-slate-700'
+              : 'border-slate-300'
             : isSelected
-            ? 'border-primary-500 bg-primary-500/10'
-            : 'border-slate-700 hover:border-primary-500';
+            ? 'border-primary-500 bg-primary-50'
+            : 'border-slate-300 hover:border-primary-500';
           return (
             <button
               key={`${option}-${index}`}
@@ -57,7 +57,7 @@ export default function MCQView({ card, disabled, onSubmit }: MCQViewProps) {
               onClick={() => handleSelect(index)}
               disabled={disabled}
             >
-              <span className="mr-2 text-xs text-slate-400">{index + 1}.</span>
+              <span className="mr-2 text-xs text-slate-500">{index + 1}.</span>
               {option}
             </button>
           );

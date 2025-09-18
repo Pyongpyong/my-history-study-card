@@ -33,7 +33,7 @@ export default function ClozeView({ card, disabled, onSubmit }: ClozeViewProps) 
         const match = segment.match(/\{\{(c\d+)\}\}/);
         if (!match) {
           return (
-            <span key={`text-${index}`} className="text-slate-100">
+            <span key={`text-${index}`} className="text-slate-900">
               {segment}
             </span>
           );
@@ -45,25 +45,25 @@ export default function ClozeView({ card, disabled, onSubmit }: ClozeViewProps) 
             value={values[key] ?? ''}
             onChange={(event) => setValues((prev) => ({ ...prev, [key]: event.target.value }))}
             disabled={disabled}
-            className="mx-1 w-24 rounded border-b border-primary-500 bg-transparent text-center text-sm text-primary-200 focus:outline-none"
+            className="mx-1 w-24 rounded border-b border-primary-500 bg-transparent text-center text-sm text-primary-600 focus:outline-none"
           />
         );
       });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-sm text-slate-100">
-      <p className="text-lg font-semibold text-primary-200">빈칸을 채워보세요</p>
+    <form onSubmit={handleSubmit} className="space-y-4 text-sm text-slate-900">
+      <p className="text-lg font-semibold text-primary-600">빈칸을 채워보세요</p>
       <div className="flex flex-wrap items-center gap-2 text-base leading-relaxed">{renderWithInputs()}</div>
       <button
         type="submit"
         disabled={disabled}
-        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         제출
       </button>
       {disabled ? (
-        <div className="text-xs text-slate-400">
+        <div className="text-xs text-slate-500">
           {placeholders.map((key) => (
             <p key={key}>
               {key}: {clozes[key]}

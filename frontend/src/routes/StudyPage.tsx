@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   fetchContent,
   fetchContentCards,
@@ -11,6 +11,7 @@ import {
 import CardRunner from '../components/CardRunner';
 import ProgressBar from '../components/ProgressBar';
 import { getQuizTypeLabel } from '../utils/quiz';
+import { useAuth } from '../context/AuthContext';
 
 interface QuizResult {
   correct: boolean;
@@ -21,6 +22,8 @@ export default function StudyPage() {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session');
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   const [content, setContent] = useState<any | null>(null);
   const [cards, setCards] = useState<StudySessionCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +39,10 @@ export default function StudyPage() {
   useEffect(() => {
     const load = async () => {
       if (!id) return;
+      if (sessionId && !user) {
+        navigate('/auth', { state: { from: location } });
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
@@ -93,7 +100,7 @@ export default function StudyPage() {
       }
     };
     load();
-  }, [id, sessionId]);
+  }, [id, sessionId, user, location, navigate]);
 
   const score = useMemo(() => results.filter((item) => item?.correct).length, [results]);
 
@@ -142,7 +149,7 @@ export default function StudyPage() {
   const cardsCount = cards.length;
 
   useEffect(() => {
-    if (!sessionId) {
+    if (!sessionId || !user) {
       return;
     }
     if (!completed) {
@@ -173,34 +180,34 @@ export default function StudyPage() {
         console.error('학습 결과 저장 실패', err);
         hasSyncedResult.current = false;
       });
-  }, [sessionId, completed, cardsCount, cards, results]);
+  }, [sessionId, completed, cardsCount, cards, results, user]);
 
   if (!id) {
-    return <p className="text-sm text-rose-400">잘못된 경로입니다.</p>;
+    return <p className="text-sm text-rose-600">잘못된 경로입니다.</p>;
   }
 
   if (loading) {
-    return <p className="text-sm text-slate-300">불러오는 중…</p>;
+    return <p className="text-sm text-slate-600">불러오는 중…</p>;
   }
 
   if (error || !content) {
-    return <p className="text-sm text-rose-400">{error ?? '콘텐츠를 찾을 수 없습니다.'}</p>;
+    return <p className="text-sm text-rose-600">{error ?? '콘텐츠를 찾을 수 없습니다.'}</p>;
   }
 
   if (!cards.length) {
     return (
       <div className="space-y-4">
-        <p className="text-sm text-slate-300">학습할 카드가 없습니다.</p>
+        <p className="text-sm text-slate-600">학습할 카드가 없습니다.</p>
         {sessionId ? (
           <button
             type="button"
             onClick={() => navigate('/studies', { state: { refresh: Date.now() } })}
-            className="text-sm text-primary-300 hover:text-primary-200"
+            className="text-sm text-primary-600 hover:text-primary-700"
           >
             학습 리스트로 돌아가기
           </button>
         ) : (
-          <Link to={`/contents/${id}`} className="text-sm text-primary-300 hover:text-primary-200">
+          <Link to={`/contents/${id}`} className="text-sm text-primary-600 hover:text-primary-700">
             콘텐츠 상세로 돌아가기
           </Link>
         )}
@@ -210,22 +217,22 @@ export default function StudyPage() {
 
   if (finished) {
     return (
-      <section className="space-y-6 rounded-lg border border-slate-800 bg-slate-900/70 p-6 text-center">
-        <h2 className="text-2xl font-semibold text-primary-300">학습 완료!</h2>
-        <p className="text-sm text-slate-200">
+      <section className="space-y-6 rounded-lg border border-slate-200 bg-white p-6 text-center">
+        <h2 className="text-2xl font-semibold text-primary-600">학습 완료!</h2>
+        <p className="text-sm text-slate-700">
           점수: {score} / {cards.length}
         </p>
-        <div className="text-sm text-slate-300">
+        <div className="text-sm text-slate-600">
           {cards.map((card, idx) => (
             <div
               key={`${card.type}-${idx}`}
-              className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 py-2 text-xs"
+              className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 py-2 text-xs"
             >
               <span>{idx + 1}. {getQuizTypeLabel(card.type)}</span>
-              <span className={results[idx]?.correct ? 'text-emerald-300' : 'text-rose-300'}>
+              <span className={results[idx]?.correct ? 'text-emerald-600' : 'text-rose-600'}>
                 {results[idx]?.correct ? '정답' : '오답'}
               </span>
-              <span className="text-slate-400">시도 {card?.attempts ?? 0} · 정답 {card?.correct ?? 0}</span>
+              <span className="text-slate-500">시도 {card?.attempts ?? 0} · 정답 {card?.correct ?? 0}</span>
             </div>
           ))}
         </div>
@@ -247,7 +254,7 @@ export default function StudyPage() {
             <button
               type="button"
               onClick={() => navigate('/studies', { state: { refresh: Date.now() } })}
-              className="rounded border border-primary-500 px-4 py-2 text-sm font-semibold text-primary-300 transition hover:bg-primary-500/10"
+              className="rounded border border-primary-500 px-4 py-2 text-sm font-semibold text-primary-600 transition hover:bg-primary-50"
             >
               학습 리스트로 돌아가기
             </button>
@@ -258,38 +265,38 @@ export default function StudyPage() {
   }
 
   return (
-    <section className="space-y-6 rounded-lg border border-slate-800 bg-slate-900/70 p-6">
+    <section className="space-y-6 rounded-lg border border-slate-200 bg-white p-6">
       <header className="space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-primary-300">학습 중: {content.title}</h2>
+          <h2 className="text-xl font-semibold text-primary-600">학습 중: {content.title}</h2>
           {sessionId ? (
             content.contentIds?.length === 1 && content.contentIds[0] > 0 ? (
               <Link
                 to={`/contents/${content.contentIds[0]}`}
-                className="text-xs text-primary-300 hover:text-primary-200"
+                className="text-xs text-primary-600 hover:text-primary-700"
               >
                 관련 콘텐츠 보기
               </Link>
             ) : (
-              <Link to="/studies" className="text-xs text-primary-300 hover:text-primary-200">
+              <Link to="/studies" className="text-xs text-primary-600 hover:text-primary-700">
                 학습 리스트로 돌아가기
               </Link>
             )
           ) : (
-            <Link to={`/contents/${id}`} className="text-xs text-primary-300 hover:text-primary-200">
+            <Link to={`/contents/${id}`} className="text-xs text-primary-600 hover:text-primary-700">
               콘텐츠 보기
             </Link>
           )}
         </div>
-        <p className="text-xs uppercase tracking-wide text-slate-400">
+        <p className="text-xs uppercase tracking-wide text-slate-500">
           진행도 {index + 1} / {cards.length}
         </p>
         {sessionTags.length ? (
-          <div className="text-xs text-slate-300">
-            <p className="font-semibold text-primary-200">학습 태그</p>
+          <div className="text-xs text-slate-600">
+            <p className="font-semibold text-primary-600">학습 태그</p>
             <div className="mt-1 flex flex-wrap gap-2">
               {sessionTags.map((tag) => (
-                <span key={tag} className="rounded border border-primary-500/40 bg-primary-500/10 px-2 py-1">
+                <span key={tag} className="rounded border border-primary-500/40 bg-primary-50 px-2 py-1">
                   #{tag}
                 </span>
               ))}
@@ -297,29 +304,29 @@ export default function StudyPage() {
           </div>
         ) : null}
         {sessionRewards.length ? (
-          <div className="text-xs text-slate-300">
-            <p className="font-semibold text-primary-200">보상</p>
+          <div className="text-xs text-slate-600">
+            <p className="font-semibold text-primary-600">보상</p>
             <div className="mt-1 flex flex-wrap gap-2">
               {sessionRewards.map((reward) => (
-                <span key={reward.id} className="rounded border border-slate-700 bg-slate-900/60 px-2 py-1">
+                <span key={reward.id} className="rounded border border-slate-300 bg-slate-50 px-2 py-1">
                   {reward.title} · {reward.duration}
                 </span>
               ))}
             </div>
           </div>
         ) : null}
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-500">
           시도: {currentCard?.attempts ?? 0}회 · 정답: {currentCard?.correct ?? 0}회
         </p>
         <ProgressBar current={index + (submitted ? 1 : 0)} total={cards.length} />
       </header>
       <CardRunner card={currentCard} disabled={submitted} onSubmit={handleSubmit} />
       {submitted ? (
-        <div className="rounded border border-slate-800 bg-slate-900/80 p-4 text-sm">
-          <p className={lastCorrect ? 'text-emerald-300' : 'text-rose-300'}>
+        <div className="rounded border border-slate-200 bg-slate-100 p-4 text-sm">
+          <p className={lastCorrect ? 'text-emerald-600' : 'text-rose-600'}>
             {lastCorrect ? '정답입니다!' : '틀렸습니다.'}
           </p>
-          {currentCard.explain ? <p className="mt-2 text-slate-200">{currentCard.explain}</p> : null}
+          {currentCard.explain ? <p className="mt-2 text-slate-700">{currentCard.explain}</p> : null}
           <button
             type="button"
             onClick={handleNext}

@@ -39,30 +39,30 @@ export default function UploadJSONPage() {
 
   return (
     <section className="space-y-4">
-      <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-6">
-        <h2 className="text-xl font-semibold text-primary-300">JSON 업로드</h2>
-        <p className="mt-2 text-sm text-slate-300">생성된 플래시카드를 포함한 JSON 파일을 업로드하세요.</p>
+      <div className="rounded-lg border border-slate-200 bg-white p-6">
+        <h2 className="text-xl font-semibold text-primary-600">JSON 업로드</h2>
+        <p className="mt-2 text-sm text-slate-600">생성된 플래시카드를 포함한 JSON 파일을 업로드하세요.</p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
             type="file"
             accept="application/json"
             onChange={handleFileChange}
-            className="w-full rounded border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-100"
+            className="w-full rounded border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900"
           />
           <button
             type="button"
             onClick={handleUpload}
             disabled={loading}
-            className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+            className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             {loading ? '업로드 중…' : 'JSON 업로드'}
           </button>
         </div>
-        {error ? <p className="mt-3 text-sm text-rose-400">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}
         {result ? (
           <div className="mt-4 space-y-2 text-sm text-emerald-200">
             <p>총 {result.length}개의 콘텐츠가 생성되었습니다.</p>
-            <ul className="space-y-1 text-xs text-primary-200">
+            <ul className="space-y-1 text-xs text-primary-600">
               {result.map((entry) => (
                 <li key={entry.content_id}>
                   <button

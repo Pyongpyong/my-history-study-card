@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   deleteContent,
   fetchContent,
@@ -14,6 +14,7 @@ import {
 import Badge from '../components/Badge';
 import CardPreview from '../components/CardPreview';
 import { getQuizTypeLabel } from '../utils/quiz';
+import { useAuth } from '../context/AuthContext';
 
 export default function ContentDetailPage() {
   const { id } = useParams();
@@ -34,6 +35,8 @@ export default function ContentDetailPage() {
   const [showQuizTypeModal, setShowQuizTypeModal] = useState(false);
   const [selectedQuizType, setSelectedQuizType] = useState<string>('MCQ');
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
 
   const loadContent = useCallback(async () => {
     if (!id) return;
@@ -121,6 +124,11 @@ export default function ContentDetailPage() {
   };
 
   const handleOpenModal = (card: any) => {
+    if (!user) {
+      alert('학습 기능을 사용하려면 로그인해주세요.');
+      navigate('/auth', { state: { from: location } });
+      return;
+    }
     setTargetCard(card);
     setSelection('existing');
     setSelectedSessionId(null);
@@ -226,20 +234,23 @@ export default function ContentDetailPage() {
   }, [showModal, sessionsLoading, sessionError, studySessions]);
 
   if (loading) {
-    return <p className="text-sm text-slate-300">불러오는 중…</p>;
+    return <p className="text-sm text-slate-600">불러오는 중…</p>;
   }
 
   if (error || !content) {
-    return <p className="text-sm text-rose-400">{error ?? '콘텐츠를 찾을 수 없습니다.'}</p>;
+    return <p className="text-sm text-rose-600">{error ?? '콘텐츠를 찾을 수 없습니다.'}</p>;
   }
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-slate-800 bg-slate-900/70 p-6">
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
         <header className="flex items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold text-primary-300">{content.title}</h1>
+              <h1 className="text-2xl font-semibold text-primary-600">{content.title}</h1>
+              <Badge color={content.visibility === 'PUBLIC' ? 'success' : 'default'}>
+                {content.visibility === 'PUBLIC' ? '공개' : '비공개'}
+              </Badge>
               {content.tags?.length ? (
                 <div className="flex flex-wrap gap-2 text-xs">
                   {content.tags.map((tag) => (
@@ -250,33 +261,35 @@ export default function ContentDetailPage() {
                 </div>
               ) : null}
             </div>
-            <time className="block text-xs text-slate-400">{new Date(content.created_at).toLocaleString()}</time>
+            <time className="block text-xs text-slate-500">{new Date(content.created_at).toLocaleString()}</time>
           </div>
-          <div className="flex flex-col gap-2 text-xs md:flex-row">
-            <button
-              type="button"
-              onClick={() => navigate(`/contents/${content.id}/edit`)}
-              className="rounded border border-primary-500 px-3 py-1 font-semibold text-primary-300 transition hover:bg-primary-500/10"
-            >
-              콘텐츠 수정
-            </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="rounded border border-rose-500 px-3 py-1 font-semibold text-rose-300 transition hover:bg-rose-500/10"
-            >
-              삭제
-            </button>
-          </div>
+          {user?.id === content.owner_id ? (
+            <div className="flex flex-col gap-2 text-xs md:flex-row">
+              <button
+                type="button"
+                onClick={() => navigate(`/contents/${content.id}/edit`)}
+                className="rounded border border-primary-500 px-3 py-1 font-semibold text-primary-600 transition hover:bg-primary-50"
+              >
+                콘텐츠 수정
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="rounded border border-rose-500 px-3 py-1 font-semibold text-rose-600 transition hover:bg-rose-500/10"
+              >
+                삭제
+              </button>
+            </div>
+          ) : null}
         </header>
-        <article className="mt-4 text-sm leading-relaxed text-slate-200 whitespace-pre-wrap">
+        <article className="mt-4 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
           {displayContent}
         </article>
         {content.content.length > 300 ? (
           <button
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
-            className="mt-2 text-xs font-semibold text-primary-300 hover:text-primary-200"
+            className="mt-2 text-xs font-semibold text-primary-600 hover:text-primary-700"
           >
             {expanded ? '접기' : '더 보기'}
           </button>
@@ -289,26 +302,26 @@ export default function ContentDetailPage() {
           </div>
         ) : null}
         {content.chronology ? (
-          <div className="mt-6 space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-            <div className="flex items-center justify-between text-sm text-slate-200">
-              <span className="font-semibold text-primary-200">연표</span>
-              <span className="text-xs text-slate-400">
+          <div className="mt-6 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between text-sm text-slate-700">
+              <span className="font-semibold text-primary-600">연표</span>
+              <span className="text-xs text-slate-500">
                 {content.chronology.start_year ?? '알 수 없음'}
                 {' '}–{' '}
                 {content.chronology.end_year ?? '알 수 없음'}
               </span>
             </div>
             {chronologyEvents.length ? (
-              <ul className="space-y-2 text-xs text-slate-300">
+              <ul className="space-y-2 text-xs text-slate-600">
                 {chronologyEvents.map((event) => (
                   <li key={`${event.year}-${event.label}`} className="flex items-start gap-3">
-                    <span className="font-semibold text-primary-300">{event.year}</span>
+                    <span className="font-semibold text-primary-600">{event.year}</span>
                     <span>{event.label}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-slate-400">등록된 사건이 없습니다.</p>
+              <p className="text-xs text-slate-500">등록된 사건이 없습니다.</p>
             )}
           </div>
         ) : null}
@@ -316,85 +329,91 @@ export default function ContentDetailPage() {
 
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-primary-300">퀴즈</h2>
-          <button
-            type="button"
-            onClick={() => setShowQuizTypeModal(true)}
-            className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-300 transition hover:bg-primary-500/10"
-          >
-            퀴즈 추가
-          </button>
+          <h2 className="text-lg font-semibold text-primary-600">퀴즈</h2>
+          {user?.id === content.owner_id ? (
+            <button
+              type="button"
+              onClick={() => setShowQuizTypeModal(true)}
+              className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
+            >
+              퀴즈 추가
+            </button>
+          ) : null}
         </div>
         {cards.length ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {cards.map((card, index) => (
-              <div key={`${card.type}-${index}`} className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/70 p-4">
+              <div key={`${card.type}-${index}`} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
                 <CardPreview card={card} />
-                <div className="flex items-center justify-between text-xs text-slate-400">
+                <div className="flex items-center justify-between text-xs text-slate-500">
                   <span>{getQuizTypeLabel(card.type)}</span>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => handleOpenModal(card)}
-                      className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-300 transition hover:bg-primary-500/10"
+                      className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
                     >
                       학습에 추가
                     </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        navigate(`/quizzes/${card.id}/edit?content=${content.id}`);
-                      }}
-                      className="rounded border border-sky-500 px-3 py-1 text-xs font-semibold text-sky-300 transition hover:bg-sky-500/10"
-                    >
-                      편집
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleDeleteQuiz(card.id);
-                      }}
-                      className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/10"
-                    >
-                      삭제
-                    </button>
+                    {user?.id === content.owner_id ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(`/quizzes/${card.id}/edit?content=${content.id}`);
+                          }}
+                          className="rounded border border-sky-500 px-3 py-1 text-xs font-semibold text-sky-600 transition hover:bg-sky-500/10"
+                        >
+                          편집
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDeleteQuiz(card.id);
+                          }}
+                          className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
+                        >
+                          삭제
+                        </button>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-300">등록된 카드가 없습니다.</p>
+          <p className="text-sm text-slate-600">등록된 카드가 없습니다.</p>
         )}
       </section>
 
       {showModal && normalizedCard ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-lg space-y-4 rounded-lg border border-slate-800 bg-slate-900 p-6 text-slate-100 shadow-xl">
+          <div className="w-full max-w-lg space-y-4 rounded-lg border border-slate-200 bg-white p-6 text-slate-900 shadow-xl">
             <header className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-primary-300">학습에 추가</h3>
-                <p className="text-xs text-slate-400">{getQuizTypeLabel(normalizedCard.type)} · #{normalizedCard.id}</p>
+                <h3 className="text-lg font-semibold text-primary-600">학습에 추가</h3>
+                <p className="text-xs text-slate-500">{getQuizTypeLabel(normalizedCard.type)} · #{normalizedCard.id}</p>
               </div>
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="text-sm text-slate-400 transition hover:text-slate-200"
+                className="text-sm text-slate-500 transition hover:text-slate-700"
               >
                 닫기
               </button>
             </header>
 
-            <div className="rounded border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-200">
+            <div className="rounded border border-slate-200 bg-white p-4 text-sm text-slate-700">
               <CardPreview card={normalizedCard} />
             </div>
 
             <div className="space-y-3">
-              <p className="text-sm font-semibold text-primary-200">학습 세트 선택</p>
+              <p className="text-sm font-semibold text-primary-600">학습 세트 선택</p>
               <div className="space-y-2">
-                <label className="flex items-start gap-2 text-xs text-slate-300">
+                <label className="flex items-start gap-2 text-xs text-slate-600">
                   <input
                     type="radio"
                     name="study-session-mode"
@@ -405,14 +424,14 @@ export default function ContentDetailPage() {
                   <span>기존 학습 세트에 추가</span>
                 </label>
                 {selection === 'existing' ? (
-                  <div className="max-h-40 space-y-2 overflow-y-auto rounded border border-slate-800 p-2 text-xs">
+                  <div className="max-h-40 space-y-2 overflow-y-auto rounded border border-slate-200 p-2 text-xs">
                     {sessionsLoading ? (
-                      <p className="text-slate-400">학습 목록을 불러오는 중…</p>
+                      <p className="text-slate-500">학습 목록을 불러오는 중…</p>
                     ) : sessionError ? (
-                      <p className="text-rose-400">{sessionError}</p>
+                      <p className="text-rose-600">{sessionError}</p>
                     ) : studySessions.length ? (
                       studySessions.map((session) => (
-                        <label key={session.id} className="flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-slate-800">
+                        <label key={session.id} className="flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-slate-100">
                           <span className="flex items-center gap-2">
                             <input
                               type="radio"
@@ -421,20 +440,20 @@ export default function ContentDetailPage() {
                               checked={selectedSessionId === session.id}
                               onChange={() => setSelectedSessionId(session.id)}
                             />
-                            <span className="font-medium text-slate-100">{session.title}</span>
+                            <span className="font-medium text-slate-900">{session.title}</span>
                           </span>
-                          <span className="text-[11px] text-slate-400">카드 {session.cards.length}개</span>
+                          <span className="text-[11px] text-slate-500">카드 {session.cards.length}개</span>
                         </label>
                       ))
                     ) : (
-                      <p className="text-slate-400">등록된 학습 세트가 없습니다.</p>
+                      <p className="text-slate-500">등록된 학습 세트가 없습니다.</p>
                     )}
                   </div>
                 ) : null}
               </div>
 
               <div className="space-y-2">
-                <label className="flex items-start gap-2 text-xs text-slate-300">
+                <label className="flex items-start gap-2 text-xs text-slate-600">
                   <input
                     type="radio"
                     name="study-session-mode"
@@ -450,7 +469,7 @@ export default function ContentDetailPage() {
                     value={newSessionTitle}
                     onChange={(event) => setNewSessionTitle(event.target.value)}
                     placeholder="새 학습 세트 이름"
-                    className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
                 ) : null}
               </div>
@@ -460,7 +479,7 @@ export default function ContentDetailPage() {
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="rounded border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:bg-slate-800"
+                className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-100"
                 disabled={submitting}
               >
                 취소
@@ -468,7 +487,7 @@ export default function ContentDetailPage() {
               <button
                 type="button"
                 onClick={handleSubmitToStudy}
-                className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+                className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
                 disabled={submitting}
               >
                 {submitting ? '처리 중…' : '추가하기'}
@@ -479,13 +498,13 @@ export default function ContentDetailPage() {
       ) : null}
       {showQuizTypeModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-md space-y-4 rounded-lg border border-slate-800 bg-slate-900 p-6 text-slate-100 shadow-xl">
+          <div className="w-full max-w-md space-y-4 rounded-lg border border-slate-200 bg-white p-6 text-slate-900 shadow-xl">
             <header className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-primary-300">추가할 퀴즈 형식</h3>
+              <h3 className="text-lg font-semibold text-primary-600">추가할 퀴즈 형식</h3>
               <button
                 type="button"
                 onClick={() => setShowQuizTypeModal(false)}
-                className="text-sm text-slate-400 transition hover:text-slate-200"
+                className="text-sm text-slate-500 transition hover:text-slate-700"
               >
                 닫기
               </button>
@@ -494,7 +513,7 @@ export default function ContentDetailPage() {
               {quizTypeOptions.map((option) => (
                 <label
                   key={option.type}
-                  className="flex items-center justify-between gap-3 rounded border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm"
+                  className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
                 >
                   <span>{option.label}</span>
                   <input
@@ -512,7 +531,7 @@ export default function ContentDetailPage() {
               <button
                 type="button"
                 onClick={() => setShowQuizTypeModal(false)}
-                className="rounded border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:bg-slate-800"
+                className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-100"
               >
                 취소
               </button>

@@ -13,10 +13,10 @@ _dotenv_path = find_dotenv()
 if _dotenv_path:
     load_dotenv(_dotenv_path)
 
+DB_PATH = Path(__file__).resolve().parent / "app.db"
+
 def _build_sqlite_engine() -> tuple[str, dict | None]:
-    base_dir = Path(__file__).resolve().parent
-    db_path = base_dir / "app.db"
-    return f"sqlite:///{db_path}", {"check_same_thread": False}
+    return f"sqlite:///{DB_PATH}", {"check_same_thread": False}
 
 
 def _create_mysql_database_if_needed(base_url: URL, database: str) -> None:

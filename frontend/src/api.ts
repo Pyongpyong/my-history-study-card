@@ -22,6 +22,22 @@ export const api = axios.create({
   baseURL: resolveApiBaseUrl(),
 });
 
+let apiKey: string | null = null;
+
+export function setApiKey(value: string | null) {
+  apiKey = value;
+}
+
+api.interceptors.request.use((config) => {
+  if (apiKey) {
+    config.headers = config.headers ?? {};
+    config.headers['X-API-Key'] = apiKey;
+  }
+  return config;
+});
+
+export type Visibility = 'PUBLIC' | 'PRIVATE';
+
 export interface ContentItem {
   id: number;
   title: string;
@@ -29,6 +45,8 @@ export interface ContentItem {
   tags: string[];
   chronology?: ContentChronology | null;
   created_at: string;
+  visibility: Visibility;
+  owner_id?: number | null;
 }
 
 export interface ContentListResponse {
@@ -63,6 +81,8 @@ export interface QuizItem {
   type: QuizType;
   payload: Record<string, any>;
   created_at: string;
+  visibility: Visibility;
+  owner_id?: number | null;
 }
 
 export interface QuizListResponse {
@@ -91,6 +111,7 @@ export interface StudySession {
   completed_at?: string | null;
   tags: string[];
   rewards: Reward[];
+  owner_id: number;
 }
 
 export interface StudySessionListResponse {
@@ -109,6 +130,7 @@ export interface Reward {
   created_at: string;
   valid_until?: string | null;
   used: boolean;
+  owner_id: number;
 }
 
 export interface RewardListResponse {
@@ -135,6 +157,8 @@ export async function fetchContentCards(id: number | string): Promise<any[]> {
     type: item.type,
     content_id: item.content_id,
     created_at: item.created_at,
+    visibility: item.visibility,
+    owner_id: item.owner_id,
   }));
 }
 
@@ -260,5 +284,58 @@ export async function updateQuizRequest<T extends Record<string, any>>(
   payload: T,
 ): Promise<QuizItem> {
   const { data } = await api.patch<QuizItem>(`/quizzes/${id}`, payload);
+  return data;
+}
+
+export interface UserProfile {
+  id: number;
+  email: string;
+  created_at: string;
+  is_admin: boolean;
+}
+
+export interface AuthResponse {
+  user: UserProfile;
+  api_key: string;
+}
+
+export async function registerUserRequest(payload: { email: string; password: string }): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>('/users', payload);
+  return data;
+}
+
+export async function loginUserRequest(payload: { email: string; password: string }): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>('/auth/login', payload);
+  return data;
+}
+
+export async function fetchCurrentUser(): Promise<UserProfile> {
+  const { data } = await api.get<UserProfile>('/users/me');
+  return data;
+}
+
+export async function changePasswordRequest(payload: {
+  current_password: string;
+  new_password: string;
+}): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>('/users/me/password', payload);
+  return data;
+}
+
+export async function deleteAccountRequest(payload: { password: string }): Promise<void> {
+  await api.request({ method: 'delete', url: '/users/me', data: payload });
+}
+
+export async function fetchAllUsersRequest(): Promise<UserProfile[]> {
+  const { data } = await api.get<UserProfile[]>('/admin/users');
+  return data;
+}
+
+export async function createAdminUserRequest(payload: {
+  email: string;
+  password: string;
+  is_admin?: boolean;
+}): Promise<UserProfile> {
+  const { data } = await api.post<UserProfile>('/admin/users', payload);
   return data;
 }

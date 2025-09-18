@@ -1,7 +1,8 @@
-import { MouseEvent, useEffect, useMemo, useState } from 'react';
+import { MouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { deleteContent, fetchContents, exportContents } from '../api';
 import Badge from '../components/Badge';
+import { useAuth } from '../context/AuthContext';
 
 export default function ContentListPage() {
   const [contents, setContents] = useState<Awaited<ReturnType<typeof fetchContents>>['items']>([]);
@@ -10,8 +11,9 @@ export default function ContentListPage() {
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const navigate = useNavigate();
   const [exporting, setExporting] = useState(false);
+  const { user } = useAuth();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -24,11 +26,11 @@ export default function ContentListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const handleDelete = async (event: MouseEvent, id: number) => {
     event.preventDefault();
@@ -125,39 +127,41 @@ export default function ContentListPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-300">불러오는 중…</p>;
+    return <p className="text-sm text-slate-600">불러오는 중…</p>;
   }
 
   if (error) {
-    return <p className="text-sm text-rose-400">{error}</p>;
+    return <p className="text-sm text-rose-600">{error}</p>;
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-primary-300">콘텐츠 리스트</h1>
-        <button
-          type="button"
-          onClick={() => navigate('/contents/new')}
-          className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-300 transition hover:bg-primary-500/10"
-        >
-          콘텐츠 추가
-        </button>
+        <h1 className="text-xl font-semibold text-primary-600">콘텐츠 리스트</h1>
+        {user ? (
+          <button
+            type="button"
+            onClick={() => navigate('/contents/new')}
+            className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
+          >
+            콘텐츠 추가
+          </button>
+        ) : null}
       </div>
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-400">총 {contents.length}개의 콘텐츠</p>
+        <p className="text-sm text-slate-500">총 {contents.length}개의 콘텐츠</p>
         <button
           type="button"
           onClick={handleExport}
           disabled={exporting || !contents.length}
-          className="rounded border border-slate-700 px-3 py-1 text-xs text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {exporting ? '내보내는 중…' : 'JSON 내보내기'}
         </button>
       </div>
 
       {!contents.length ? (
-        <p className="text-sm text-slate-300">아직 등록된 콘텐츠가 없습니다.</p>
+        <p className="text-sm text-slate-600">아직 등록된 콘텐츠가 없습니다.</p>
       ) : null}
 
       {availableTags.length ? (
@@ -171,8 +175,8 @@ export default function ContentListPage() {
                 onClick={() => toggleTag(tag)}
                 className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                   active
-                    ? 'border border-primary-500 bg-primary-500/20 text-primary-200'
-                    : 'border border-slate-700 text-slate-300 hover:bg-slate-800'
+                    ? 'border border-primary-500 bg-primary-100 text-primary-600'
+                    : 'border border-slate-300 text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 #{tag}
@@ -183,7 +187,7 @@ export default function ContentListPage() {
             <button
               type="button"
               onClick={() => setActiveTags([])}
-              className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 transition hover:bg-slate-800"
+              className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 transition hover:bg-slate-100"
             >
               태그 초기화
             </button>
@@ -196,22 +200,29 @@ export default function ContentListPage() {
           <Link
             key={item.id}
             to={`/contents/${item.id}`}
-            className="block rounded-lg border border-slate-800 bg-slate-900/70 p-4 transition hover:border-primary-500"
+            className="block rounded-lg border border-slate-200 bg-white p-4 transition hover:border-primary-500"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-primary-300">{item.title}</h2>
-                <time className="text-xs text-slate-400">{new Date(item.created_at).toLocaleString()}</time>
+                <h2 className="text-lg font-semibold text-primary-600">{item.title}</h2>
+                <time className="text-xs text-slate-500">{new Date(item.created_at).toLocaleString()}</time>
+                <div className="mt-1">
+                  <Badge color={item.visibility === 'PUBLIC' ? 'success' : 'default'}>
+                    {item.visibility === 'PUBLIC' ? '공개' : '비공개'}
+                  </Badge>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={(event) => handleDelete(event, item.id)}
-                className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/10"
-              >
-                삭제
-              </button>
+              {user && item.owner_id === user.id ? (
+                <button
+                  type="button"
+                  onClick={(event) => handleDelete(event, item.id)}
+                  className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
+                >
+                  삭제
+                </button>
+              ) : null}
             </div>
-            <p className="mt-2 text-sm text-slate-200">
+            <p className="mt-2 text-sm text-slate-700">
               {item.content.length > 120 ? `${item.content.slice(0, 120)}…` : item.content}
             </p>
             {item.tags?.length ? (
@@ -226,7 +237,7 @@ export default function ContentListPage() {
           </Link>
         ))
       ) : (
-        <p className="text-sm text-slate-300">선택한 태그에 해당하는 콘텐츠가 없습니다.</p>
+        <p className="text-sm text-slate-600">선택한 태그에 해당하는 콘텐츠가 없습니다.</p>
       )}
     </div>
   );

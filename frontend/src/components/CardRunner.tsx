@@ -26,6 +26,6 @@ export default function CardRunner({ card, disabled, onSubmit }: CardRunnerProps
     case 'MATCH':
       return <MatchView card={card} disabled={disabled} onSubmit={onSubmit} />;
     default:
-      return <p className="text-sm text-slate-300">지원하지 않는 카드 유형입니다: {card?.type}</p>;
+      return <p className="text-sm text-slate-600">지원하지 않는 카드 유형입니다: {card?.type}</p>;
   }
 }

@@ -71,23 +71,23 @@ function MCQForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shared
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         질문
         <textarea
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
-          className="h-24 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-24 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
           required
         />
       </label>
       <div className="space-y-3">
-        <div className="flex items-center justify-between text-sm text-primary-200">
+        <div className="flex items-center justify-between text-sm text-primary-600">
           <span>보기</span>
           <button
             type="button"
             onClick={addOption}
             disabled={options.length >= 6}
-            className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-300 transition hover:bg-primary-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             보기 추가
           </button>
@@ -99,7 +99,7 @@ function MCQForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shared
               onChange={(event) =>
                 setOptions((prev) => prev.map((item, idx) => (idx === index ? event.target.value : item)))
               }
-              className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
               placeholder={`보기 ${index + 1}`}
               required
             />
@@ -107,7 +107,7 @@ function MCQForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shared
               <button
                 type="button"
                 onClick={() => removeOption(index)}
-                className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 transition hover:bg-slate-800"
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 transition hover:bg-slate-100"
               >
                 삭제
               </button>
@@ -115,12 +115,12 @@ function MCQForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shared
           </div>
         ))}
       </div>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         정답
         <select
           value={answerIndex}
           onChange={(event) => setAnswerIndex(Number(event.target.value))}
-          className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         >
           {options.map((_, idx) => (
             <option key={idx} value={idx}>
@@ -129,26 +129,26 @@ function MCQForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shared
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         해설
         <textarea
           value={explain}
           onChange={(event) => setExplain(event.target.value)}
-          className="h-20 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         태그 (콤마로 구분)
         <input
           value={tagsInput}
           onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
       <button
         type="submit"
         disabled={!canSubmit || submitting}
-        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         {submitting ? '저장 중…' : submitLabel}
       </button>
@@ -197,53 +197,53 @@ function ShortForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         질문
         <textarea
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          className="h-20 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
           required
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         정답
         <textarea
           value={answer}
           onChange={(event) => setAnswer(event.target.value)}
-          className="h-20 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
           required
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         허용되는 대체 답안 (콤마 구분)
         <input
           value={aliases}
           onChange={(event) => setAliases(event.target.value)}
-          className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
           placeholder="예) 수양, 수양대"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         해설
         <textarea
           value={explain}
           onChange={(event) => setExplain(event.target.value)}
-          className="h-20 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         태그 (콤마로 구분)
         <input
           value={tagsInput}
           onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
       <button
         type="submit"
         disabled={submitting}
-        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         {submitting ? '저장 중…' : submitLabel}
       </button>
@@ -290,46 +290,46 @@ function OxForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: SharedF
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         문장
         <textarea
           value={statement}
           onChange={(event) => setStatement(event.target.value)}
-          className="h-24 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-24 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
           required
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         정답
         <select
           value={answer ? 'true' : 'false'}
           onChange={(event) => setAnswer(event.target.value === 'true')}
-          className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         >
           <option value="true">O (참)</option>
           <option value="false">X (거짓)</option>
         </select>
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         해설
         <textarea
           value={explain}
           onChange={(event) => setExplain(event.target.value)}
-          className="h-20 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         태그 (콤마로 구분)
         <input
           value={tagsInput}
           onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
       <button
         type="submit"
         disabled={submitting}
-        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         {submitting ? '저장 중…' : submitLabel}
       </button>
@@ -400,53 +400,53 @@ function ClozeForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         본문 (빈칸은 {'{{c1}}'}, {'{{c2}}'} 처럼 표기)
         <textarea
           value={text}
           onChange={(event) => setText(event.target.value)}
-          className="h-32 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-32 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
           required
         />
       </label>
       {placeholders.length ? (
-        <div className="space-y-2 text-sm text-slate-300">
-          <p className="font-semibold text-primary-200">빈칸 정답</p>
+        <div className="space-y-2 text-sm text-slate-600">
+          <p className="font-semibold text-primary-600">빈칸 정답</p>
           {placeholders.map((key) => (
-            <label key={key} className="flex flex-col gap-1 text-xs text-slate-300">
+            <label key={key} className="flex flex-col gap-1 text-xs text-slate-600">
               {key}
               <input
                 value={clozeValues[key] ?? ''}
                 onChange={(event) =>
                   setClozeValues((prev) => ({ ...prev, [key]: event.target.value }))
                 }
-                className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 required
               />
             </label>
           ))}
         </div>
       ) : null}
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         해설
         <textarea
           value={explain}
           onChange={(event) => setExplain(event.target.value)}
-          className="h-20 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         태그 (콤마로 구분)
         <input
           value={tagsInput}
           onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
       <button
         type="submit"
         disabled={submitting}
-        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         {submitting ? '저장 중…' : submitLabel}
       </button>
@@ -499,12 +499,12 @@ function OrderForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-3">
-        <div className="flex items-center justify-between text-sm text-primary-200">
+        <div className="flex items-center justify-between text-sm text-primary-600">
           <span>항목</span>
           <button
             type="button"
             onClick={addItem}
-            className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-300 transition hover:bg-primary-500/10"
+            className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
           >
             항목 추가
           </button>
@@ -516,7 +516,7 @@ function OrderForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
               onChange={(event) =>
                 setItems((prev) => prev.map((value, idx) => (idx === index ? event.target.value : value)))
               }
-              className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
               placeholder={`항목 ${index + 1}`}
               required
             />
@@ -524,7 +524,7 @@ function OrderForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
               <button
                 type="button"
                 onClick={() => removeItem(index)}
-                className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 transition hover:bg-slate-800"
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 transition hover:bg-slate-100"
               >
                 삭제
               </button>
@@ -532,26 +532,26 @@ function OrderForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
           </div>
         ))}
       </div>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         해설
         <textarea
           value={explain}
           onChange={(event) => setExplain(event.target.value)}
-          className="h-20 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         태그 (콤마로 구분)
         <input
           value={tagsInput}
           onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
       <button
         type="submit"
         disabled={submitting}
-        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         {submitting ? '저장 중…' : submitLabel}
       </button>
@@ -613,12 +613,12 @@ function MatchForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-3">
-        <div className="flex items-center justify-between text-sm text-primary-200">
+        <div className="flex items-center justify-between text-sm text-primary-600">
           <span>연결 항목</span>
           <button
             type="button"
             onClick={addPair}
-            className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-300 transition hover:bg-primary-500/10"
+            className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
           >
             항목 추가
           </button>
@@ -632,7 +632,7 @@ function MatchForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
                   prev.map((item, idx) => (idx === index ? { ...item, left: event.target.value } : item)),
                 )
               }
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
               placeholder="왼쪽 항목"
               required
             />
@@ -644,7 +644,7 @@ function MatchForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
                     prev.map((item, idx) => (idx === index ? { ...item, right: event.target.value } : item)),
                   )
                 }
-                className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 placeholder="오른쪽 항목"
                 required
               />
@@ -652,7 +652,7 @@ function MatchForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
                 <button
                   type="button"
                   onClick={() => removePair(index)}
-                  className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 transition hover:bg-slate-800"
+                  className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 transition hover:bg-slate-100"
                 >
                   삭제
                 </button>
@@ -661,26 +661,26 @@ function MatchForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
           </div>
         ))}
       </div>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         해설
         <textarea
           value={explain}
           onChange={(event) => setExplain(event.target.value)}
-          className="h-20 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-300">
+      <label className="flex flex-col gap-2 text-sm text-slate-600">
         태그 (콤마로 구분)
         <input
           value={tagsInput}
           onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
       <button
         type="submit"
         disabled={submitting}
-        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         {submitting ? '저장 중…' : submitLabel}
       </button>
@@ -710,7 +710,7 @@ export function QuizForm({ type, onSubmit, submitLabel, initial }: QuizFormProps
     case 'MATCH':
       return <MatchForm onSubmit={onSubmit} submitLabel={submitLabel} initial={initial} />;
     default:
-      return <p className="text-sm text-rose-400">지원하지 않는 퀴즈 형식입니다: {type}</p>;
+      return <p className="text-sm text-rose-600">지원하지 않는 퀴즈 형식입니다: {type}</p>;
   }
 }
 

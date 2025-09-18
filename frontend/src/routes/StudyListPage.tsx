@@ -137,15 +137,15 @@ export default function StudyListPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-300">불러오는 중…</p>;
+    return <p className="text-sm text-slate-600">불러오는 중…</p>;
   }
 
   if (error) {
-    return <p className="text-sm text-rose-400">{error}</p>;
+    return <p className="text-sm text-rose-600">{error}</p>;
   }
 
   if (!sessions.length) {
-    return <p className="text-sm text-slate-300">저장된 학습 세트가 없습니다.</p>;
+    return <p className="text-sm text-slate-600">저장된 학습 세트가 없습니다.</p>;
   }
 
   return (
@@ -161,8 +161,8 @@ export default function StudyListPage() {
                 onClick={() => toggleTag(tag)}
                 className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                   active
-                    ? 'border border-primary-500 bg-primary-500/20 text-primary-200'
-                    : 'border border-slate-700 text-slate-300 hover:bg-slate-800'
+                    ? 'border border-primary-500 bg-primary-100 text-primary-600'
+                    : 'border border-slate-300 text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 #{tag}
@@ -173,7 +173,7 @@ export default function StudyListPage() {
             <button
               type="button"
               onClick={() => setActiveTags([])}
-              className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 transition hover:bg-slate-800"
+              className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 transition hover:bg-slate-100"
             >
               태그 초기화
             </button>
@@ -184,7 +184,7 @@ export default function StudyListPage() {
       {filteredSessions.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {filteredSessions.map((session, index) => (
-            <div key={session.id} className="rounded-lg border border-slate-800 bg-slate-900/70 p-5">
+            <div key={session.id} className="rounded-lg border border-slate-200 bg-white p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <input
@@ -197,40 +197,40 @@ export default function StudyListPage() {
                   )
                 }
                 onBlur={(event) => handleTitleBlur(session, event.target.value, index)}
-                className="w-full rounded bg-transparent text-lg font-semibold text-primary-300 focus:outline-none"
+                className="w-full rounded bg-transparent text-lg font-semibold text-primary-600 focus:outline-none"
               />
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 생성일: {new Date(session.created_at).toLocaleString()}
               </p>
             </div>
             <button
               type="button"
               onClick={() => handleDelete(session.id)}
-              className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/10"
+              className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
             >
               삭제
             </button>
               </div>
-              <p className="mt-3 text-sm text-slate-100">퀴즈 수: {session.cards.length}</p>
+              <p className="mt-3 text-sm text-slate-900">퀴즈 수: {session.cards.length}</p>
               {session.tags?.length ? (
-                <div className="mt-2 flex flex-wrap gap-2 text-xs text-primary-200">
+                <div className="mt-2 flex flex-wrap gap-2 text-xs text-primary-600">
                   {session.tags.map((tag) => (
-                    <span key={`${session.id}-${tag}`} className="rounded border border-primary-500/40 bg-primary-500/10 px-2 py-1">
+                    <span key={`${session.id}-${tag}`} className="rounded border border-primary-500/40 bg-primary-50 px-2 py-1">
                       #{tag}
                     </span>
                   ))}
                 </div>
               ) : null}
               {session.rewards?.length ? (
-                <div className="mt-2 space-y-1 text-xs text-slate-300">
-                  <p className="font-semibold text-primary-200">보상</p>
+                <div className="mt-2 space-y-1 text-xs text-slate-600">
+                  <p className="font-semibold text-primary-600">보상</p>
               <ul className="space-y-1">
                 {session.rewards.map((reward) => (
-                  <li key={reward.id} className="flex items-center justify-between gap-2 rounded border border-slate-800 bg-slate-900/60 px-3 py-2">
+                  <li key={reward.id} className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-slate-50 px-3 py-2">
                     <span>
                       {reward.title} · {reward.duration}
                     </span>
-                    <span className={reward.used ? 'text-emerald-300' : 'text-amber-300'}>
+                    <span className={reward.used ? 'text-emerald-600' : 'text-amber-300'}>
                       {reward.used ? '사용됨' : '미사용'}
                     </span>
                   </li>
@@ -238,17 +238,17 @@ export default function StudyListPage() {
               </ul>
             </div>
           ) : (
-            <p className="mt-2 text-xs text-slate-400">보상이 아직 없습니다.</p>
+            <p className="mt-2 text-xs text-slate-500">보상이 아직 없습니다.</p>
           )}
           {session.score != null && session.total ? (
-            <div className="mt-2 text-xs text-slate-400">
+            <div className="mt-2 text-xs text-slate-500">
               <p>마지막 정답률: {Math.round((session.score / session.total) * 100)}%</p>
               {session.completed_at ? (
                 <p>학습일: {new Date(session.completed_at).toLocaleString()}</p>
               ) : null}
             </div>
           ) : (
-            <p className="mt-2 text-xs text-slate-400">이전 정답률: 0%</p>
+            <p className="mt-2 text-xs text-slate-500">이전 정답률: 0%</p>
           )}
           <div className="mt-4 flex gap-2 text-sm">
             <button
@@ -263,7 +263,7 @@ export default function StudyListPage() {
             <button
               type="button"
               onClick={() => openRewardModal(session)}
-              className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-300 transition hover:bg-primary-500/10"
+              className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50"
             >
               보상 추가
             </button>
@@ -272,43 +272,43 @@ export default function StudyListPage() {
         ))}
         </div>
       ) : (
-        <p className="text-sm text-slate-300">선택한 태그에 해당하는 학습 세트가 없습니다.</p>
+        <p className="text-sm text-slate-600">선택한 태그에 해당하는 학습 세트가 없습니다.</p>
       )}
       {rewardModalSession ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-lg space-y-4 rounded-lg border border-slate-800 bg-slate-900 p-6 text-slate-100 shadow-xl">
+          <div className="w-full max-w-lg space-y-4 rounded-lg border border-slate-200 bg-white p-6 text-slate-900 shadow-xl">
             <header className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-primary-300">보상 추가</h3>
-                <p className="text-xs text-slate-400">{rewardModalSession.title}</p>
+                <h3 className="text-lg font-semibold text-primary-600">보상 추가</h3>
+                <p className="text-xs text-slate-500">{rewardModalSession.title}</p>
               </div>
               <button
                 type="button"
                 onClick={closeRewardModal}
-                className="text-sm text-slate-400 transition hover:text-slate-200"
+                className="text-sm text-slate-500 transition hover:text-slate-700"
               >
                 닫기
               </button>
             </header>
             {rewardsLoading ? (
-              <p className="text-sm text-slate-300">보상 목록을 불러오는 중…</p>
+              <p className="text-sm text-slate-600">보상 목록을 불러오는 중…</p>
             ) : rewardsError ? (
-              <p className="text-sm text-rose-400">{rewardsError}</p>
+              <p className="text-sm text-rose-600">{rewardsError}</p>
             ) : rewards.length ? (
               <ul className="max-h-60 space-y-2 overflow-y-auto">
                 {rewards.map((reward) => {
                   const alreadyAssigned = rewardModalSession.rewards?.some((item) => item.id === reward.id);
                   return (
                     <li key={reward.id}>
-                      <label className="flex items-center justify-between gap-3 rounded border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm">
+                      <label className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
                         <div>
-                          <p className="font-semibold text-primary-200">{reward.title}</p>
-                          <p className="text-xs text-slate-400">기간: {reward.duration}</p>
+                          <p className="font-semibold text-primary-600">{reward.title}</p>
+                          <p className="text-xs text-slate-500">기간: {reward.duration}</p>
                           <p className="text-[11px] text-slate-500">
                             유효기간: {reward.valid_until ? new Date(reward.valid_until).toLocaleString() : '—'}
                           </p>
                           {alreadyAssigned ? (
-                            <p className="text-[11px] text-emerald-300">이미 추가된 보상</p>
+                            <p className="text-[11px] text-emerald-600">이미 추가된 보상</p>
                           ) : null}
                         </div>
                         <input
@@ -326,13 +326,13 @@ export default function StudyListPage() {
                 })}
               </ul>
             ) : (
-              <p className="text-sm text-slate-300">등록된 보상이 없습니다. 먼저 보상을 생성해주세요.</p>
+              <p className="text-sm text-slate-600">등록된 보상이 없습니다. 먼저 보상을 생성해주세요.</p>
             )}
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={closeRewardModal}
-                className="rounded border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:bg-slate-800"
+                className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-100"
               >
                 취소
               </button>

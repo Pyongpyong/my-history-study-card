@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 CardType = Literal["MCQ", "SHORT", "OX", "CLOZE", "ORDER", "MATCH"]
+VisibilityType = Literal["PUBLIC", "PRIVATE"]
 
 
 class CardBase(BaseModel):
@@ -216,6 +217,7 @@ class ImportPayload(BaseModel):
     tags: List[str] = Field(default_factory=list)
     chronology: Optional[Chronology] = None
     cards: List[CardUnion] = Field(default_factory=list)
+    visibility: Optional[VisibilityType] = Field(default=None)
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -270,6 +272,8 @@ class ContentOut(BaseModel):
     tags: List[str]
     chronology: Optional[Chronology]
     created_at: datetime
+    visibility: VisibilityType
+    owner_id: Optional[int]
 
 
 class ContentUpdate(BaseModel):
@@ -278,6 +282,7 @@ class ContentUpdate(BaseModel):
     highlights: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     chronology: Optional[Chronology] = None
+    visibility: Optional[VisibilityType] = None
 
 
 class ContentListOut(BaseModel):
@@ -291,6 +296,8 @@ class QuizOut(BaseModel):
     type: CardType
     payload: Dict[str, object]
     created_at: datetime
+    visibility: VisibilityType
+    owner_id: Optional[int]
 
 
 class QuizListOut(BaseModel):
@@ -325,6 +332,7 @@ class RewardOut(BaseModel):
     created_at: datetime
     valid_until: Optional[datetime]
     used: bool
+    owner_id: int
 
 
 class RewardListOut(BaseModel):
@@ -360,6 +368,7 @@ class StudySessionOut(BaseModel):
     completed_at: Optional[datetime]
     tags: List[str]
     rewards: List[RewardOut]
+    owner_id: int
 
 
 class StudySessionListOut(BaseModel):
@@ -374,3 +383,61 @@ class StudySessionUpdate(BaseModel):
     score: Optional[int] = None
     total: Optional[int] = None
     completed_at: Optional[datetime] = None
+
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if len(value.strip()) < 6:
+            raise ValueError("password must be at least 6 characters")
+        return value
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserProfile(BaseModel):
+    id: int
+    email: EmailStr
+    created_at: datetime
+    is_admin: bool
+
+
+class UserAuthResponse(BaseModel):
+    user: UserProfile
+    api_key: str
+
+
+class UserPasswordUpdate(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        if len(value.strip()) < 6:
+            raise ValueError("password must be at least 6 characters")
+        return value
+
+
+class UserDeleteRequest(BaseModel):
+    password: str
+
+
+class AdminUserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    is_admin: bool = True
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if len(value.strip()) < 6:
+            raise ValueError("password must be at least 6 characters")
+        return value

@@ -96,56 +96,56 @@ export default function RewardListPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-300">불러오는 중…</p>;
+    return <p className="text-sm text-slate-600">불러오는 중…</p>;
   }
 
   if (error) {
-    return <p className="text-sm text-rose-400">{error}</p>;
+    return <p className="text-sm text-rose-600">{error}</p>;
   }
 
   return (
     <section className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold text-primary-300">보상 리스트</h1>
-        <p className="text-sm text-slate-400">보상을 생성하고 학습 세트에 추가할 수 있습니다.</p>
+        <h1 className="text-2xl font-semibold text-primary-600">보상 리스트</h1>
+        <p className="text-sm text-slate-500">보상을 생성하고 학습 세트에 추가할 수 있습니다.</p>
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-        <h2 className="text-lg font-semibold text-primary-200">새 보상 추가</h2>
+      <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="text-lg font-semibold text-primary-600">새 보상 추가</h2>
         <div className="grid gap-3 md:grid-cols-3">
-          <label className="flex flex-col gap-1 text-xs text-slate-300">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
             제목
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
               placeholder="예) 30분 휴식"
               required
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-300">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
             기간
             <input
               value={duration}
               onChange={(event) => setDuration(event.target.value)}
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
               placeholder="예) 30분"
               required
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-300">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
             유효기간
             <input
               type="datetime-local"
               value={validUntil}
               onChange={(event) => setValidUntil(event.target.value)}
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           </label>
         </div>
         <button
           type="submit"
-          className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+          className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
           disabled={saving}
         >
           {saving ? '추가 중…' : '보상 추가'}
@@ -157,30 +157,30 @@ export default function RewardListPage() {
           sortedRewards.map((reward) => (
             <div
               key={reward.id}
-              className="rounded-lg border border-slate-800 bg-slate-900/70 p-4"
+              className="rounded-lg border border-slate-200 bg-white p-4"
             >
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-primary-200">{reward.title}</h3>
-                  <p className="text-sm text-slate-300">기간: {reward.duration}</p>
-                  <p className="text-xs text-slate-400">생성일: {formatDate(reward.created_at)}</p>
-                  <p className="text-xs text-slate-400">유효기간: {formatDate(reward.valid_until)}</p>
+                  <h3 className="text-lg font-semibold text-primary-600">{reward.title}</h3>
+                  <p className="text-sm text-slate-600">기간: {reward.duration}</p>
+                  <p className="text-xs text-slate-500">생성일: {formatDate(reward.created_at)}</p>
+                  <p className="text-xs text-slate-500">유효기간: {formatDate(reward.valid_until)}</p>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-300">
-                  <span className={reward.used ? 'text-emerald-300' : 'text-amber-300'}>
+                <div className="flex items-center gap-3 text-xs text-slate-600">
+                  <span className={reward.used ? 'text-emerald-600' : 'text-amber-300'}>
                     {reward.used ? '사용됨' : '미사용'}
                   </span>
                   <button
                     type="button"
                     onClick={() => toggleUsage(reward)}
-                    className="rounded border border-slate-700 px-3 py-1 text-xs text-slate-200 transition hover:bg-slate-800"
+                    className="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 transition hover:bg-slate-100"
                   >
                     {reward.used ? '미사용으로 변경' : '사용 완료 처리'}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(reward)}
-                    className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/10"
+                    className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
                   >
                     삭제
                   </button>
@@ -189,7 +189,7 @@ export default function RewardListPage() {
             </div>
           ))
         ) : (
-          <p className="text-sm text-slate-300">등록된 보상이 없습니다.</p>
+          <p className="text-sm text-slate-600">등록된 보상이 없습니다.</p>
         )}
       </div>
     </section>

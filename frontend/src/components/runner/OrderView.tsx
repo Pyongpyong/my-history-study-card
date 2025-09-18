@@ -46,19 +46,19 @@ export default function OrderView({ card, disabled, onSubmit }: OrderViewProps) 
   };
 
   return (
-    <div className="space-y-4 text-sm text-slate-100">
-      <p className="text-lg font-semibold text-primary-200">올바른 순서를 맞춰보세요</p>
-      <p className="text-xs text-slate-400">항목을 드래그하여 순서를 변경한 뒤, 순서 확인 버튼을 눌러주세요.</p>
+    <div className="space-y-4 text-sm text-slate-900">
+      <p className="text-lg font-semibold text-primary-600">올바른 순서를 맞춰보세요</p>
+      <p className="text-xs text-slate-500">항목을 드래그하여 순서를 변경한 뒤, 순서 확인 버튼을 눌러주세요.</p>
       <ul className="space-y-2">
         {order.map((originalIndex, position) => (
           <li
             key={`${items[originalIndex]}-${originalIndex}`}
             className={`flex items-center justify-between rounded border px-3 py-2 transition ${
               dragIndex === position
-                ? 'cursor-grabbing border-primary-500 bg-primary-900/20'
+                ? 'cursor-grabbing border-primary-500 bg-primary-100'
                 : hoverIndex === position
-                ? 'border-primary-500 bg-primary-900/10'
-                : 'border-slate-700 bg-slate-900'
+                ? 'border-primary-500 bg-primary-50'
+                : 'border-slate-300 bg-white'
             } ${disabled ? 'cursor-default' : 'cursor-grab hover:border-primary-500'}`}
             draggable={!disabled}
             onDragStart={() => {
@@ -88,7 +88,7 @@ export default function OrderView({ card, disabled, onSubmit }: OrderViewProps) 
             }}
           >
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-xs text-slate-300">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 text-xs text-primary-700">
                 {position + 1}
               </span>
               <span>{items[originalIndex]}</span>
@@ -97,8 +97,8 @@ export default function OrderView({ card, disabled, onSubmit }: OrderViewProps) 
         ))}
         {!disabled ? (
           <li
-            className={`flex items-center justify-center rounded border px-3 py-2 text-xs text-slate-400 transition ${
-              hoverIndex === order.length ? 'border-primary-500 bg-primary-900/10 text-primary-200' : 'border-dashed border-slate-700'
+            className={`flex items-center justify-center rounded border px-3 py-2 text-xs text-slate-500 transition ${
+              hoverIndex === order.length ? 'border-primary-500 bg-primary-50 text-primary-600' : 'border-dashed border-slate-300'
             }`}
             onDragOver={(event) => {
               event.preventDefault();
@@ -130,12 +130,12 @@ export default function OrderView({ card, disabled, onSubmit }: OrderViewProps) 
         type="button"
         onClick={handleSubmit}
         disabled={disabled}
-        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         순서 확인
       </button>
       {disabled ? (
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-500">
           정답: {answerOrder.map((value) => items[value]).join(' → ')}
         </p>
       ) : null}
