@@ -21,7 +21,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <Header />
-      <main className="mx-auto max-w-6xl px-6 py-8">
+      <main className="app-container mx-auto max-w-6xl px-6 py-8">
         <Routes>
           <Route path="/" element={<Navigate to="/contents" replace />} />
           <Route path="/contents" element={<ContentListPage />} />

@@ -13,9 +13,9 @@ export default function Header() {
 
   return (
     <header className="border-b border-slate-200 bg-slate-100">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+      <div className="header-wrapper mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <span className="text-lg font-semibold text-primary-600">HistudyCard</span>
-        <nav className="flex items-center gap-2">
+        <nav className="nav-links flex items-center gap-2">
           <NavLink to="/contents" className={navClass} end>
             콘텐츠 리스트
           </NavLink>
@@ -44,7 +44,7 @@ export default function Header() {
             </>
           ) : null}
         </nav>
-        <div className="flex items-center gap-3">
+        <div className="header-actions flex items-center gap-3">
           {user ? (
             <>
               <span className="text-sm text-slate-700">{user.email}</span>
