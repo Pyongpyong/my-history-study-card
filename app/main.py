@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 from fastapi import Body, Depends, FastAPI, File, HTTPException, Response, Security, UploadFile, status
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import APIKeyHeader
@@ -176,6 +177,30 @@ def _ensure_default_admin() -> None:
 def on_startup() -> None:
     init_db()
     _ensure_default_admin()
+
+
+def _spa_index_path() -> Path | None:
+    raw_path = os.getenv("FRONTEND_DIST", "frontend/dist")
+    if not raw_path:
+        return None
+    candidate = Path(raw_path).resolve() / "index.html"
+    if candidate.exists():
+        return candidate
+    return None
+
+
+@app.middleware("http")
+async def spa_fallback(request, call_next):
+    accept = request.headers.get("accept", "")
+    is_html_request = request.method == "GET" and "text/html" in accept
+    is_api_docs = request.url.path.startswith("/docs") or request.url.path.startswith("/redoc")
+    has_extension = "." in request.url.path.split("/")[-1]
+
+    if is_html_request and not is_api_docs and not has_extension:
+        index_path = _spa_index_path()
+        if index_path is not None:
+            return HTMLResponse(index_path.read_text(encoding="utf-8"))
+    return await call_next(request)
 
 
 @app.post("/import/json", response_model=ImportResponse, status_code=status.HTTP_201_CREATED)
