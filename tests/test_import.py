@@ -28,6 +28,39 @@ EXAMPLE_PAYLOAD = {
     "title": "세종대왕",
     "content": "세종대왕은 조선의 네 번째 왕으로, 훈민정음을 창제하여 백성이 쉽게 글을 배울 수 있도록 했다. 집현전 학자들의 도움으로 측우기와 같은 과학 기술도 발전시켰다. 그의 치세는 조선 전성기의 기반을 마련했다.",
     "highlights": ["세종대왕", "조선", "훈민정음", "집현전", "측우기"],
+    "tags": ["조선", "왕"],
+    "keywords": ["세종", "훈민정음", "집현전"],
+    "timeline": [
+        {
+            "title": "무신집권기(12~13세기)",
+            "description": "문학과 행정 능력을 겸비한 ‘능문능리’가 등장해 신진사대부의 전신이 됨.",
+        },
+        {
+            "title": "충선왕 시기(14세기 초)",
+            "description": "만권당을 통해 고려 지식인들이 원나라 학자들과 교류하며 성리학을 심도 있게 배우기 시작함.",
+        },
+        {
+            "title": "14세기 중반",
+            "description": "이제현이 백문보·이곡·이색 등을 길러 성리학 기반을 확대함.",
+        },
+        {
+            "title": "공민왕·우왕 시기(1350~1380년대)",
+            "description": "이색과 문인들이 신돈의 권력과 친원정책을 비판하며 신진사대부가 정치세력화됨.",
+        },
+        {
+            "title": "1388년(위화도 회군)",
+            "description": "요동정벌을 둘러싸고 급진파(이성계)와 온건파(이색)로 분열됨.",
+        },
+        {
+            "title": "1392년",
+            "description": "급진파가 주도하여 고려를 무너뜨리고 조선을 건국함.",
+        },
+    ],
+    "categories": ["인물", "세종대왕"],
+    "eras": [
+        {"period": "조선", "detail": "조선-초기"},
+        {"period": "고려 말기", "detail": "조선 건국 직전"},
+    ],
     "cards": [
         {
             "type": "MCQ",
@@ -86,6 +119,11 @@ def test_import_json(client: TestClient):
     summary_payload = summary.json()
     assert summary_payload["title"] == EXAMPLE_PAYLOAD["title"]
     assert len(summary_payload["highlights"]) == 5
+    expected_keywords = EXAMPLE_PAYLOAD["keywords"] + EXAMPLE_PAYLOAD["tags"]
+    assert summary_payload["keywords"] == expected_keywords
+    assert summary_payload["timeline"] == EXAMPLE_PAYLOAD["timeline"]
+    assert summary_payload["categories"] == EXAMPLE_PAYLOAD["categories"]
+    assert summary_payload["eras"] == EXAMPLE_PAYLOAD["eras"]
     assert summary_payload["visibility"] == "PUBLIC"
     assert summary_payload["owner_id"] is None
 

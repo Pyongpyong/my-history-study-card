@@ -1,9 +1,47 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchContent, updateContentRequest, type ContentDetail, type Visibility } from '../api';
+import { fetchContent, updateContentRequest, type ContentDetail, type EraEntry, type TimelineEntry, type Visibility } from '../api';
 
 function listToTextarea(values: string[] | undefined): string {
   return (values ?? []).join('\n');
+}
+
+function timelineEntriesToTextarea(entries: TimelineEntry[] | undefined): string {
+  if (!entries?.length) {
+    return '';
+  }
+  return entries
+    .map((entry) =>
+      entry.description ? `${entry.title} – ${entry.description}` : entry.title,
+    )
+    .join('\n');
+}
+
+function parseTimelineEntries(value: string): TimelineEntry[] {
+  const lines = value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const separators = [' – ', ' — ', ' - ', '–', '—', '-'];
+  return lines
+    .map((line) => {
+      let normalized = line;
+      while (normalized && ['•', '-', '*', '●', '▪'].includes(normalized[0])) {
+        normalized = normalized.slice(1).trimStart();
+      }
+      for (const sep of separators) {
+        const index = normalized.indexOf(sep);
+        if (index !== -1) {
+          const title = normalized.slice(0, index).trim();
+          const description = normalized.slice(index + sep.length).trim();
+          if (title) {
+            return { title, description };
+          }
+        }
+      }
+      return normalized ? { title: normalized.trim(), description: '' } : null;
+    })
+    .filter((entry): entry is TimelineEntry => Boolean(entry && entry.title));
 }
 
 export default function ContentEditPage() {
@@ -12,8 +50,14 @@ export default function ContentEditPage() {
   const [content, setContent] = useState<ContentDetail | null>(null);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
+  const [keywordsInput, setKeywordsInput] = useState('');
   const [highlightsInput, setHighlightsInput] = useState('');
+  const [timelineInput, setTimelineInput] = useState('');
+  const [categoryInput, setCategoryInput] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [eraPeriodInput, setEraPeriodInput] = useState('');
+  const [eraDetailInput, setEraDetailInput] = useState('');
+  const [eraEntries, setEraEntries] = useState<EraEntry[]>([]);
   const [chronologyStart, setChronologyStart] = useState('');
   const [chronologyEnd, setChronologyEnd] = useState('');
   const [chronologyEvents, setChronologyEvents] = useState('');
@@ -32,8 +76,11 @@ export default function ContentEditPage() {
         setContent(detail);
         setTitle(detail.title);
         setBody(detail.content);
-        setTagsInput(listToTextarea(detail.tags));
+        setKeywordsInput(listToTextarea(detail.keywords));
         setHighlightsInput(listToTextarea(detail.highlights));
+        setTimelineInput(timelineEntriesToTextarea(detail.timeline));
+        setCategories(detail.categories ?? []);
+        setEraEntries(detail.eras ? detail.eras.map((entry) => ({ ...entry })) : []);
         setChronologyStart(detail.chronology?.start_year ? String(detail.chronology.start_year) : '');
         setChronologyEnd(detail.chronology?.end_year ? String(detail.chronology.end_year) : '');
         if (detail.chronology?.events?.length) {
@@ -55,15 +102,67 @@ export default function ContentEditPage() {
     load();
   }, [id]);
 
-  const tags = useMemo(
-    () => Array.from(new Set(tagsInput.split(/\n|,/).map((item) => item.trim()).filter(Boolean))),
-    [tagsInput],
-  );
-
   const highlights = useMemo(
     () => highlightsInput.split('\n').map((item) => item.trim()).filter(Boolean),
     [highlightsInput],
   );
+
+  const keywords = useMemo(
+    () => Array.from(new Set(keywordsInput.split(/\n|,/).map((item) => item.trim()).filter(Boolean))),
+    [keywordsInput],
+  );
+
+  const addCategory = () => {
+    const raw = categoryInput;
+    if (!raw.trim()) {
+      setCategoryInput('');
+      return;
+    }
+    const candidates = raw
+      .split(/,|\n/)
+      .map((item) => item.trim().replace(/\s+/g, ' '))
+      .filter(Boolean);
+    if (!candidates.length) {
+      setCategoryInput('');
+      return;
+    }
+    setCategories((prev) => {
+      const next = [...prev];
+      for (const item of candidates) {
+        if (!next.includes(item)) {
+          next.push(item);
+        }
+      }
+      return next;
+    });
+    setCategoryInput('');
+  };
+
+  const handleCategoryKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      addCategory();
+    }
+  };
+
+  const removeCategory = (target: string) => {
+    setCategories((prev) => prev.filter((item) => item !== target));
+  };
+
+  const timeline = useMemo(() => parseTimelineEntries(timelineInput), [timelineInput]);
+
+  const addEraEntry = () => {
+    const period = eraPeriodInput.trim().replace(/\s+/g, ' ');
+    const detail = eraDetailInput.trim();
+    if (!period) return;
+    setEraEntries((prev) => [...prev, { period, detail }]);
+    setEraPeriodInput('');
+    setEraDetailInput('');
+  };
+
+  const removeEraEntry = (index: number) => {
+    setEraEntries((prev) => prev.filter((_, idx) => idx !== index));
+  };
 
   const eventsList = useMemo(() => {
     return chronologyEvents
@@ -92,8 +191,8 @@ export default function ContentEditPage() {
       const payload: Record<string, unknown> = {
         title: title.trim(),
         content: body.trim(),
-        tags,
         highlights,
+        keywords,
         visibility,
       };
       const startYear = chronologyStart ? Number(chronologyStart) : null;
@@ -108,6 +207,9 @@ export default function ContentEditPage() {
       } else {
         payload.chronology = null;
       }
+      payload.timeline = timeline;
+      payload.categories = categories;
+      payload.eras = eraEntries;
       await updateContentRequest(id, payload);
       alert('콘텐츠가 수정되었습니다.');
       navigate(`/contents/${id}`);
@@ -164,10 +266,10 @@ export default function ContentEditPage() {
         </label>
 
         <label className="flex flex-col gap-2 text-sm text-slate-600">
-          태그 (쉼표 또는 줄바꿈으로 구분)
+          키워드 (쉼표 또는 줄바꿈으로 구분)
           <textarea
-            value={tagsInput}
-            onChange={(event) => setTagsInput(event.target.value)}
+            value={keywordsInput}
+            onChange={(event) => setKeywordsInput(event.target.value)}
             className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
         </label>
@@ -180,6 +282,123 @@ export default function ContentEditPage() {
             className="h-24 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
         </label>
+
+        <label className="flex flex-col gap-2 text-sm text-slate-600">
+          타임라인 (줄바꿈으로 구분)
+          <textarea
+            value={timelineInput}
+            onChange={(event) => setTimelineInput(event.target.value)}
+            className="h-24 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+        </label>
+
+        <label className="flex flex-col gap-2 text-sm text-slate-600">
+          분류 추가
+          <div className="flex gap-2">
+            <input
+              value={categoryInput}
+              onChange={(event) => setCategoryInput(event.target.value)}
+              onKeyDown={handleCategoryKeyDown}
+              className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+            <button
+              type="button"
+              onClick={addCategory}
+              className="rounded bg-primary-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-primary-500"
+            >
+              추가
+            </button>
+          </div>
+          {categories.length ? (
+            <div className="flex flex-wrap gap-2 pt-2">
+              {categories.map((item) => (
+                <span
+                  key={item}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700"
+                >
+                  {item}
+                  <button
+                    type="button"
+                    onClick={() => removeCategory(item)}
+                    className="text-slate-500 hover:text-rose-500"
+                    aria-label={`${item} 제거`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">쉼표, 줄바꿈 또는 추가 버튼을 사용해 분류를 등록하세요.</p>
+          )}
+        </label>
+
+        <div className="space-y-2 text-sm text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>연대 · 세부 연대</span>
+            <span className="text-xs text-slate-400">(Ctrl/⌘ + Enter 로 빠르게 추가)</span>
+          </div>
+          <div className="flex flex-col gap-2 rounded border border-slate-200 p-4">
+            <div className="grid gap-2 md:grid-cols-[220px_1fr_auto]">
+              <input
+                value={eraPeriodInput}
+                onChange={(event) => setEraPeriodInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                    event.preventDefault();
+                    addEraEntry();
+                  }
+                }}
+                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                placeholder="연대 (예: 고려 말기부터 조선 초기)"
+              />
+              <textarea
+                value={eraDetailInput}
+                onChange={(event) => setEraDetailInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                    event.preventDefault();
+                    addEraEntry();
+                  }
+                }}
+                className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                placeholder="세부 연대 (예: 1392년 조선 건국 이후 초기 개혁기)"
+              />
+              <button
+                type="button"
+                onClick={addEraEntry}
+                className="rounded bg-primary-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-primary-500"
+              >
+                연대 추가
+              </button>
+            </div>
+            {eraEntries.length ? (
+              <ul className="space-y-2">
+                {eraEntries.map((entry, index) => (
+                  <li
+                    key={`${entry.period}-${index}`}
+                    className="flex items-start justify-between gap-3 rounded border border-slate-200 bg-white p-3 text-xs text-slate-700"
+                  >
+                    <div className="flex-1">
+                      <p className="font-semibold text-primary-600">{entry.period}</p>
+                      {entry.detail ? <p className="mt-1 text-slate-600">{entry.detail}</p> : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeEraEntry(index)}
+                      className="text-xs text-slate-400 transition hover:text-rose-500"
+                      aria-label="연대 항목 삭제"
+                    >
+                      삭제
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-slate-500">연대와 세부 연대를 입력해 추가하세요.</p>
+            )}
+          </div>
+        </div>
 
         <fieldset className="space-y-3 rounded border border-slate-200 p-4">
           <legend className="px-2 text-sm font-semibold text-primary-600">연표 (선택)</legend>

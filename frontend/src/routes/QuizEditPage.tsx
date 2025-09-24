@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import CardPreview from '../components/CardPreview';
+import ContentSnapshot from '../components/ContentSnapshot';
 import QuizForm from '../components/QuizForm';
 import {
   fetchContent,
@@ -141,6 +142,28 @@ export default function QuizEditPage() {
     return buildInitialPayload(quiz);
   }, [quiz]);
 
+  const keywordOptions = useMemo(() => {
+    const base = content?.keywords ?? [];
+    const set = new Set<string>();
+    base.forEach((keyword) => {
+      if (typeof keyword !== 'string') return;
+      const trimmed = keyword.trim();
+      if (trimmed) {
+        set.add(trimmed);
+      }
+    });
+    if (initialPayload && Array.isArray((initialPayload as any).tags)) {
+      (initialPayload as any).tags.forEach((tag: unknown) => {
+        if (typeof tag !== 'string') return;
+        const trimmed = tag.trim();
+        if (trimmed) {
+          set.add(trimmed);
+        }
+      });
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [content, initialPayload]);
+
   const previewCard = useMemo(() => {
     if (!quiz) return null;
     return {
@@ -210,7 +233,13 @@ export default function QuizEditPage() {
             <option value="PUBLIC">공개 (모두 보기)</option>
           </select>
         </label>
-        <QuizForm type={quiz.type} initial={initialPayload} submitLabel="퀴즈 수정" onSubmit={handleSubmit} />
+        <QuizForm
+          type={quiz.type}
+          initial={initialPayload}
+          submitLabel="퀴즈 수정"
+          onSubmit={handleSubmit}
+          keywordOptions={keywordOptions}
+        />
       </div>
 
       <section className="space-y-6 rounded-lg border border-slate-200 bg-slate-50 p-6">
@@ -219,22 +248,7 @@ export default function QuizEditPage() {
           <p className="text-xs text-slate-500">수정 시 참고용으로 콘텐츠/퀴즈 미리보기 정보를 제공합니다.</p>
         </header>
         {content ? (
-          <article className="space-y-4 text-sm leading-relaxed text-slate-700">
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-xl font-semibold text-primary-600">{content.title}</h3>
-              <span className="text-xs text-slate-500">{new Date(content.created_at).toLocaleString()}</span>
-            </div>
-            <p className="whitespace-pre-wrap">{content.content}</p>
-            {content.highlights?.length ? (
-              <div className="flex flex-wrap gap-2">
-                {content.highlights.map((highlight) => (
-                  <span key={highlight} className="rounded bg-primary-100 px-3 py-1 text-xs text-primary-600">
-                    {highlight}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </article>
+          <ContentSnapshot content={content} />
         ) : (
           <p className="text-xs text-slate-500">콘텐츠 정보를 불러오지 못했습니다.</p>
         )}

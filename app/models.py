@@ -40,8 +40,11 @@ class Content(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
-    tags: Mapped[str] = mapped_column(Text, nullable=False, default=lambda: "[]")
+    keywords: Mapped[str] = mapped_column(Text, nullable=False, default=lambda: "[]")
+    timeline: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     chronology: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    category: Mapped[str] = mapped_column(Text, nullable=False, default=lambda: "[]")
+    eras: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     visibility: Mapped[VisibilityEnum] = mapped_column(
         SqlEnum(VisibilityEnum, name="content_visibility_enum"),
         nullable=False,

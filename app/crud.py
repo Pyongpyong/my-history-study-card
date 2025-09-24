@@ -12,6 +12,8 @@ from .schemas import (
     ContentUpdate,
     Chronology,
     ImportPayload,
+    EraEntry,
+    TimelineEntry,
     PageMeta,
     QuizOut,
     RewardCreate,
@@ -21,7 +23,80 @@ from .schemas import (
     StudySessionCreate,
     StudySessionOut,
 )
-from .utils import json_dumps, json_loads
+from .utils import (
+    json_dumps,
+    json_loads,
+    parse_timeline_entry,
+    safe_json_loads,
+    ensure_list_of_strings,
+)
+
+
+def _serialize_timeline(entries: list[TimelineEntry]) -> str | None:
+    if not entries:
+        return None
+    payload = [entry.model_dump(exclude_none=True) for entry in entries if entry.title]
+    return json_dumps(payload) if payload else None
+
+
+def _deserialize_timeline(raw: str | None) -> list[TimelineEntry]:
+    if not raw:
+        return []
+    try:
+        data = json_loads(raw)
+    except Exception:
+        return []
+    entries: list[TimelineEntry] = []
+    for item in data:
+        if isinstance(item, dict):
+            title = str(item.get("title", "")).strip()
+            description = str(item.get("description", "")).strip()
+            if not title and description:
+                title, description = description, ""
+            if title:
+                entries.append(TimelineEntry(title=title, description=description))
+        elif isinstance(item, str):
+            entry_dict = parse_timeline_entry(item)
+            if entry_dict["title"]:
+                entries.append(TimelineEntry(**entry_dict))
+    return entries
+
+
+def _serialize_eras(entries: list[EraEntry]) -> str | None:
+    payload = [entry.model_dump(exclude_none=True) for entry in entries if entry.period]
+    return json_dumps(payload)
+
+
+def _deserialize_eras(raw: str | None) -> list[EraEntry]:
+    if not raw:
+        return []
+    data = safe_json_loads(raw, [])
+    entries: list[EraEntry] = []
+    for item in data:
+        if isinstance(item, dict):
+            try:
+                entries.append(EraEntry.model_validate(item))
+            except Exception:
+                continue
+    return entries
+
+
+def _serialize_categories(categories: list[str]) -> str:
+    normalized = [item.strip() for item in categories if item and item.strip()]
+    unique: list[str] = []
+    for item in normalized:
+        if item not in unique:
+            unique.append(item)
+    return json_dumps(unique)
+
+
+def _deserialize_categories(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    data = safe_json_loads(raw, None)
+    if data is None:
+        data = raw
+    return ensure_list_of_strings(data)
 
 
 def _normalize_visibility(raw_value: Optional[str | VisibilityEnum], default: VisibilityEnum = VisibilityEnum.PUBLIC) -> VisibilityEnum:
@@ -151,13 +226,22 @@ def create_content_with_related(
 ) -> Tuple[int, list[int], list[int]]:
     default_visibility = VisibilityEnum.PRIVATE if owner is not None else VisibilityEnum.PUBLIC
     content_visibility = _normalize_visibility(getattr(payload, "visibility", None), default_visibility)
+    keywords = list(payload.keywords)
+    extra_tags = getattr(payload, "tags", [])
+    for tag in extra_tags:
+        if tag not in keywords:
+            keywords.append(tag)
+
     content = Content(
         title=payload.title.strip(),
         body=payload.content.strip(),
-        tags=json_dumps(payload.tags),
+        keywords=json_dumps(keywords),
         chronology=json_dumps(payload.chronology.model_dump(exclude_none=True))
         if payload.chronology is not None
         else None,
+        timeline=_serialize_timeline(payload.timeline),
+        category=_serialize_categories(payload.categories),
+        eras=_serialize_eras(payload.eras),
         visibility=content_visibility,
         owner_id=owner.id if owner is not None else None,
     )
@@ -217,8 +301,11 @@ def get_content(
         title=content.title,
         content=content.body,
         highlights=[highlight.text for highlight in content.highlights],
-        tags=json_loads(content.tags) if content.tags else [],
+        keywords=json_loads(content.keywords) if content.keywords else [],
         chronology=chronology_obj,
+        timeline=_deserialize_timeline(content.timeline),
+        categories=_deserialize_categories(content.category),
+        eras=_deserialize_eras(content.eras),
         created_at=content.created_at,
         visibility=content.visibility.value,
         owner_id=content.owner_id,
@@ -248,8 +335,8 @@ def update_content(
         content.title = data["title"].strip()
     if "content" in data and data["content"] is not None:
         content.body = data["content"].strip()
-    if "tags" in data and data["tags"] is not None:
-        content.tags = json_dumps([tag.strip() for tag in data["tags"] if tag and tag.strip()])
+    if "keywords" in data and data["keywords"] is not None:
+        content.keywords = json_dumps([keyword.strip() for keyword in data["keywords"] if keyword and keyword.strip()])
     if "chronology" in data:
         chronology_value = data["chronology"]
         if chronology_value is None:
@@ -258,6 +345,39 @@ def update_content(
             if isinstance(chronology_value, dict):
                 chronology_value = Chronology.model_validate(chronology_value)
             content.chronology = json_dumps(chronology_value.model_dump(exclude_none=True))
+    if "timeline" in data:
+        timeline_value = data["timeline"]
+        if timeline_value is None:
+            content.timeline = None
+        else:
+            entries: list[TimelineEntry] = []
+            for item in timeline_value:
+                if isinstance(item, TimelineEntry):
+                    entries.append(item)
+                elif isinstance(item, dict):
+                    entries.append(TimelineEntry.model_validate(item))
+                else:
+                    entry_dict = parse_timeline_entry(str(item))
+                    if entry_dict["title"]:
+                        entries.append(TimelineEntry(**entry_dict))
+            content.timeline = _serialize_timeline(entries)
+    if "category" in data and data["category"] is not None:
+        single_category = [item.strip() for item in ensure_list_of_strings(data["category"]) if item.strip()]
+        content.category = _serialize_categories(single_category)
+    if "categories" in data and data["categories"] is not None:
+        content.category = _serialize_categories(data["categories"])
+    if "eras" in data:
+        eras_value = data["eras"]
+        if eras_value is None:
+            content.eras = None
+        else:
+            entries: list[EraEntry] = []
+            for item in eras_value:
+                if isinstance(item, EraEntry):
+                    entries.append(item)
+                elif isinstance(item, dict):
+                    entries.append(EraEntry.model_validate(item))
+            content.eras = _serialize_eras(entries)
     if "visibility" in data and data["visibility"] is not None:
         content.visibility = _normalize_visibility(data["visibility"], content.visibility)
     if "highlights" in data and data["highlights"] is not None:
@@ -322,8 +442,11 @@ def list_contents(
                 title=item.title,
                 content=item.body,
                 highlights=[highlight.text for highlight in item.highlights],
-                tags=json_loads(item.tags) if item.tags else [],
+                keywords=json_loads(item.keywords) if item.keywords else [],
                 chronology=chronology_obj,
+                timeline=_deserialize_timeline(item.timeline),
+                categories=_deserialize_categories(item.category),
+                eras=_deserialize_eras(item.eras),
                 created_at=item.created_at,
                 visibility=item.visibility.value,
                 owner_id=item.owner_id,
@@ -347,8 +470,11 @@ def export_contents(session: Session, requester: Optional[User]) -> list[dict]:
                 "title": item.title,
                 "content": item.body,
                 "highlights": [highlight.text for highlight in item.highlights],
-                "tags": json_loads(item.tags) if item.tags else [],
+                "keywords": json_loads(item.keywords) if item.keywords else [],
                 "chronology": chronology,
+                "timeline": [entry.model_dump(exclude_none=True) for entry in _deserialize_timeline(item.timeline)],
+                "categories": _deserialize_categories(item.category),
+                "eras": [entry.model_dump(exclude_none=True) for entry in _deserialize_eras(item.eras)],
                 "visibility": item.visibility.value,
                 "cards": [json_loads(quiz.payload) | {"visibility": quiz.visibility.value} for quiz in item.quizzes],
             }

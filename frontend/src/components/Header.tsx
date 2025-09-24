@@ -31,7 +31,7 @@ export default function Header() {
                 보상 리스트
               </NavLink>
               <NavLink to="/upload" className={navClass}>
-                Upload JSON
+                JSON 가져오기
               </NavLink>
               <NavLink to="/settings" className={navClass}>
                 사용자 설정
