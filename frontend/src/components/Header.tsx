@@ -22,6 +22,11 @@ export default function Header() {
           <NavLink to="/quizzes" className={navClass}>
             퀴즈 리스트
           </NavLink>
+          {user?.is_admin ? (
+            <NavLink to="/ai" className={navClass}>
+              AI 생성 테스트
+            </NavLink>
+          ) : null}
           {user ? (
             <>
               <NavLink to="/studies" className={navClass}>

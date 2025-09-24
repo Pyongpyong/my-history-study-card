@@ -88,6 +88,73 @@ export interface ContentDetail extends ContentItem {
 
 export type QuizType = 'MCQ' | 'SHORT' | 'OX' | 'CLOZE' | 'ORDER' | 'MATCH';
 
+export type AiDifficulty = 'easy' | 'medium' | 'hard';
+
+export interface AiMeta {
+  cached: boolean;
+  tokens_in: number;
+  tokens_out: number;
+  latency_ms: number;
+}
+
+export interface AiGenerateRequest {
+  content: string;
+  highlights: string[];
+  types: QuizType[];
+  difficulty: AiDifficulty;
+  no_cache?: boolean;
+  focus_mode?: 'highlight' | 'timeline';
+  timeline?: AiChronologyEvent[];
+}
+
+export interface AiGenerateResponse {
+  cards: Array<Record<string, any>>;
+  facts: Record<string, any>;
+  meta: AiMeta;
+}
+
+export interface AiTaxonomy {
+  era?: string | null;
+  sub_era?: string | null;
+  topic?: string[];
+  entity?: string[];
+  region?: string[];
+  keywords?: string[];
+}
+
+export interface AiChronoPoint {
+  year: number;
+  precision?: 'year' | 'month' | 'day';
+}
+
+export interface AiChronologyEvent {
+  year: number;
+  label: string;
+}
+
+export interface AiChronology {
+  start?: AiChronoPoint | null;
+  end?: AiChronoPoint | null;
+  events?: AiChronologyEvent[];
+}
+
+export interface AiGenerateAndImportRequest extends AiGenerateRequest {
+  title: string;
+  tags: string[];
+  taxonomy?: AiTaxonomy | null;
+  chronology?: AiChronology | null;
+  visibility?: Visibility;
+  upsert?: boolean;
+}
+
+export interface AiGenerateAndImportResponse extends AiGenerateResponse {
+  content_id: number;
+  highlight_ids: number[];
+  quiz_ids: number[];
+  counts: Record<string, number>;
+  generated_count: number;
+}
+
 export interface QuizItem {
   id: number;
   content_id: number;
@@ -353,5 +420,17 @@ export async function createAdminUserRequest(payload: {
   is_admin?: boolean;
 }): Promise<UserProfile> {
   const { data } = await api.post<UserProfile>('/admin/users', payload);
+  return data;
+}
+
+export async function aiGenerateRequest(payload: AiGenerateRequest): Promise<AiGenerateResponse> {
+  const { data } = await api.post<AiGenerateResponse>('/ai/generate', payload);
+  return data;
+}
+
+export async function aiGenerateAndImportRequest(
+  payload: AiGenerateAndImportRequest,
+): Promise<AiGenerateAndImportResponse> {
+  const { data } = await api.post<AiGenerateAndImportResponse>('/ai/generate-and-import', payload);
   return data;
 }

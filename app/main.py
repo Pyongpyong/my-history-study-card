@@ -72,9 +72,12 @@ from .schemas import (
     UserDeleteRequest,
 )
 from .security import generate_api_key, generate_password_hash, verify_password
+from .routers.ai import router as ai_router
 from .validators import validate_payload
 
 app = FastAPI(title="Flashcard Storage Service", version="0.1.0")
+
+app.include_router(ai_router)
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 

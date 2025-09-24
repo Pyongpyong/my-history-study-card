@@ -66,6 +66,25 @@ export default function ContentEditPage() {
   const [submitting, setSubmitting] = useState(false);
   const [visibility, setVisibility] = useState<Visibility>('PRIVATE');
 
+  const handleAddHighlight = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return;
+    }
+    const normalized = trimmed.toLowerCase();
+    setHighlightItems((prev) => {
+      if (prev.some((item) => item.value.toLowerCase() === normalized)) {
+        return prev;
+      }
+      return [...prev, { value: trimmed, selected: true }];
+    });
+  };
+
+  const handleRemoveHighlight = (value: string) => {
+    const normalized = value.trim().toLowerCase();
+    setHighlightItems((prev) => prev.filter((item) => item.value.toLowerCase() !== normalized));
+  };
+
   useEffect(() => {
     const load = async () => {
       if (!id) return;
@@ -103,8 +122,8 @@ export default function ContentEditPage() {
   }, [id]);
 
   const highlights = useMemo(
-    () => highlightsInput.split('\n').map((item) => item.trim()).filter(Boolean),
-    [highlightsInput],
+    () => highlightItems.map((item) => item.value),
+    [highlightItems],
   );
 
   const keywords = useMemo(
@@ -275,11 +294,13 @@ export default function ContentEditPage() {
         </label>
 
         <label className="flex flex-col gap-2 text-sm text-slate-600">
-          하이라이트 (줄바꿈으로 구분)
-          <textarea
-            value={highlightsInput}
-            onChange={(event) => setHighlightsInput(event.target.value)}
-            className="h-24 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          하이라이트
+          <HighlightInput
+            highlights={highlightItems}
+            onAdd={handleAddHighlight}
+            onRemove={handleRemoveHighlight}
+            allowToggle={false}
+            placeholder="예) 세종대왕"
           />
         </label>
 

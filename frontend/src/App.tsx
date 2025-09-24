@@ -16,6 +16,7 @@ import ContentCreatePage from './routes/ContentCreatePage';
 import AuthPage from './routes/AuthPage';
 import UserSettingsPage from './routes/UserSettingsPage';
 import AdminPage from './routes/AdminPage';
+import AiTestPage from './routes/AiTestPage';
 
 export default function App() {
   return (
@@ -51,6 +52,14 @@ export default function App() {
             )}
           />
           <Route path="/quizzes" element={<QuizListPage />} />
+          <Route
+            path="/ai"
+            element={(
+              <RequireAdmin>
+                <AiTestPage />
+              </RequireAdmin>
+            )}
+          />
           <Route
             path="/quizzes/:id/edit"
             element={(

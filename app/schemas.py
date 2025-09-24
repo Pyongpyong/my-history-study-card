@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
@@ -181,35 +181,74 @@ class MatchCard(CardBase):
 CardUnion = Union[MCQCard, ShortCard, OXCard, ClozeCard, OrderCard, MatchCard]
 
 
-class ChronologyEvent(BaseModel):
-    year: int
-    label: str
+class Taxonomy(BaseModel):
+    era: Optional[str] = None
+    sub_era: Optional[str] = None
+    topic: List[str] = Field(default_factory=list)
+    entity: List[str] = Field(default_factory=list)
+    region: List[str] = Field(default_factory=list)
+    keywords: List[str] = Field(default_factory=list)
 
-    @field_validator("label")
+    @field_validator("topic", "entity", "region", "keywords")
     @classmethod
-    def validate_label(cls, value: str) -> str:
-        if not value or not value.strip():
-            raise ValueError("event label must not be empty")
-        return value.strip()
+    def _normalize_taxonomy(cls, value: List[str]) -> List[str]:
+        normalized: List[str] = []
+        for item in value:
+            if not item or not item.strip():
+                raise ValueError("taxonomy entries must be non-empty strings")
+            candidate = item.strip()
+            if candidate not in normalized:
+                normalized.append(candidate)
+        return normalized
+
+
+class ChronoPoint(BaseModel):
+    year: int
+    precision: Literal["year", "month", "day"] = "year"
+
+    @field_validator("year")
+    @classmethod
+    def validate_year(cls, value: int) -> int:
+        if value < -10000 or value > 100000:
+            raise ValueError("year out of supported bounds")
+        return value
 
 
 class Chronology(BaseModel):
-    start_year: Optional[int] = None
-    end_year: Optional[int] = None
-    events: List[ChronologyEvent] = Field(default_factory=list)
+    start: Optional[ChronoPoint] = None
+    end: Optional[ChronoPoint] = None
+    events: List[Dict[str, Union[int, str]]] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_adapter(cls, data):
+        if not isinstance(data, dict):
+            return data
+        if "start" in data or "end" in data:
+            return data
+        transformed: Dict[str, object] = {}
+        if (start_year := data.get("start_year")) is not None:
+            transformed["start"] = {"year": start_year, "precision": "year"}
+        if (end_year := data.get("end_year")) is not None:
+            transformed["end"] = {"year": end_year, "precision": "year"}
+        if "events" in data:
+            transformed["events"] = data.get("events")
+        return transformed
 
     @field_validator("events")
     @classmethod
-    def validate_events(cls, value: List[ChronologyEvent]) -> List[ChronologyEvent]:
-        return value
-
-    @field_validator("end_year")
-    @classmethod
-    def validate_year_range(cls, value: Optional[int], info: Field) -> Optional[int]:
-        start_year = info.data.get("start_year")
-        if value is not None and start_year is not None and value < start_year:
-            raise ValueError("end_year must be greater than or equal to start_year")
-        return value
+    def validate_events(cls, value: List[Dict[str, Union[int, str]]]) -> List[Dict[str, Union[int, str]]]:
+        normalized: List[Dict[str, Union[int, str]]] = []
+        for event in value:
+            if not isinstance(event, dict):
+                raise ValueError("events must be dictionaries")
+            if "year" not in event or not isinstance(event["year"], int):
+                raise ValueError("event year must be an integer")
+            label = str(event.get("label", "")).strip()
+            if not label:
+                raise ValueError("event label must be a non-empty string")
+            normalized.append({"year": event["year"], "label": label})
+        return normalized
 
 
 class TimelineEntry(BaseModel):

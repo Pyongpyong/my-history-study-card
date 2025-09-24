@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, ForeignKey, Integer, String, Text, func, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -36,6 +36,7 @@ class User(Base):
 
 class Content(Base):
     __tablename__ = "contents"
+    __table_args__ = (Index("idx_contents_era_sub", "era", "sub_era"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -94,6 +95,11 @@ class Quiz(Base):
 
     content: Mapped[Content] = relationship("Content", back_populates="quizzes")
     owner: Mapped[Optional[User]] = relationship("User", back_populates="quizzes")
+    tag_links: Mapped[list["QuizTag"]] = relationship(
+        "QuizTag",
+        back_populates="quiz",
+        cascade="all, delete-orphan",
+    )
 
 
 class StudySession(Base):
@@ -148,3 +154,17 @@ class StudySessionReward(Base):
         Integer, ForeignKey("rewards.id", ondelete="CASCADE"), primary_key=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class QuizTag(Base):
+    __tablename__ = "quiz_tags"
+    __table_args__ = (
+        Index("idx_quiz_tags_tag", "tag"),
+    )
+
+    quiz_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("quizzes.id", ondelete="CASCADE"), primary_key=True
+    )
+    tag: Mapped[str] = mapped_column(String(255), primary_key=True)
+
+    quiz: Mapped[Quiz] = relationship("Quiz", back_populates="tag_links")

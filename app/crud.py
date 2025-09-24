@@ -5,12 +5,13 @@ from typing import Optional, Tuple
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from .models import Content, Highlight, Quiz, Reward, StudySession, User, VisibilityEnum
+from .models import Content, Highlight, Quiz, QuizTag, Reward, StudySession, User, VisibilityEnum
 from .schemas import (
     CardUnion,
     ContentOut,
     ContentUpdate,
     Chronology,
+    Taxonomy,
     ImportPayload,
     EraEntry,
     TimelineEntry,
@@ -135,6 +136,56 @@ def _extract_tags_from_cards(cards: list[dict]) -> list[str]:
     return tags
 
 
+def _taxonomy_to_json(taxonomy: Optional[Taxonomy]) -> Optional[str]:
+    if taxonomy is None:
+        return None
+    return json_dumps(taxonomy.model_dump(exclude_none=True))
+
+
+def _chronology_to_json(chronology: Optional[Chronology]) -> Optional[str]:
+    if chronology is None:
+        return None
+    return json_dumps(chronology.model_dump(exclude_none=True))
+
+
+def _extract_taxonomy_fields(taxonomy: Optional[Taxonomy]) -> tuple[Optional[str], Optional[str]]:
+    if taxonomy is None:
+        return None, None
+    era = taxonomy.era.strip() if taxonomy.era else None
+    sub_era = taxonomy.sub_era.strip() if taxonomy.sub_era else None
+    return era, sub_era
+
+
+def _extract_chronology_years(chronology: Optional[Chronology]) -> tuple[Optional[int], Optional[int]]:
+    if chronology is None:
+        return None, None
+    start_year = chronology.start.year if chronology.start is not None else None
+    end_year = chronology.end.year if chronology.end is not None else None
+    return start_year, end_year
+
+
+def _quiz_tags_for_card(card_dict: dict, taxonomy: Optional[Taxonomy]) -> list[str]:
+    raw_tags = card_dict.get("tags") if isinstance(card_dict.get("tags"), list) else []
+    normalized_tags: list[str] = []
+    for tag in raw_tags:
+        if not isinstance(tag, str):
+            continue
+        label = tag.strip()
+        if label and label not in normalized_tags:
+            normalized_tags.append(label)
+    if normalized_tags:
+        return normalized_tags
+    if taxonomy is None:
+        return []
+    fallback = []
+    for pool in (taxonomy.topic, taxonomy.entity):
+        for item in pool:
+            label = item.strip()
+            if label and label not in fallback:
+                fallback.append(label)
+    return fallback
+
+
 def _reward_to_out(reward: Reward) -> RewardOut:
     return RewardOut(
         id=reward.id,
@@ -252,25 +303,34 @@ def create_content_with_related(
     if highlight_models:
         session.add_all(highlight_models)
 
-    quiz_models = []
+    quiz_models: list[tuple[Quiz, list[str]]] = []
     for card in payload.cards:
         card_dict = card.model_dump(mode="json", exclude_none=True)
+        card_tags = _quiz_tags_for_card(card_dict, taxonomy_obj)
+        card_dict["tags"] = card_tags
         quiz_visibility = _normalize_visibility(card_dict.pop("visibility", None), content_visibility)
-        quiz_models.append(
-            Quiz(
-                content_id=content.id,
-                type=card_dict.get("type"),
-                payload=json_dumps(card_dict),
-                visibility=quiz_visibility,
-                owner_id=owner.id if owner is not None else None,
-            )
+        quiz_model = Quiz(
+            content_id=content.id,
+            type=card_dict.get("type"),
+            payload=json_dumps(card_dict),
+            visibility=quiz_visibility,
+            owner_id=owner.id if owner is not None else None,
         )
+        session.add(quiz_model)
+        quiz_models.append((quiz_model, card_tags))
+
+    session.flush()
     if quiz_models:
-        session.add_all(quiz_models)
+        tag_models: list[QuizTag] = []
+        for quiz_model, tags in quiz_models:
+            for tag in tags:
+                tag_models.append(QuizTag(quiz_id=quiz_model.id, tag=tag))
+        if tag_models:
+            session.add_all(tag_models)
 
     session.flush()
     highlight_ids = [highlight.id for highlight in highlight_models]
-    quiz_ids = [quiz.id for quiz in quiz_models]
+    quiz_ids = [quiz.id for quiz, _ in quiz_models]
 
     session.commit()
     return content.id, highlight_ids, quiz_ids
@@ -296,6 +356,10 @@ def get_content(
     chronology_obj: Optional[Chronology] = None
     if chronology is not None:
         chronology_obj = Chronology.model_validate(chronology)
+    taxonomy_data = json_loads(content.taxonomy) if content.taxonomy else None
+    taxonomy_obj: Optional[Taxonomy] = None
+    if taxonomy_data is not None:
+        taxonomy_obj = Taxonomy.model_validate(taxonomy_data)
     return ContentOut(
         id=content.id,
         title=content.title,
@@ -341,6 +405,8 @@ def update_content(
         chronology_value = data["chronology"]
         if chronology_value is None:
             content.chronology = None
+            content.start_year = None
+            content.end_year = None
         else:
             if isinstance(chronology_value, dict):
                 chronology_value = Chronology.model_validate(chronology_value)
@@ -436,6 +502,8 @@ def list_contents(
     for item in items:
         chronology_data = json_loads(item.chronology) if item.chronology else None
         chronology_obj = Chronology.model_validate(chronology_data) if chronology_data is not None else None
+        taxonomy_data = json_loads(item.taxonomy) if item.taxonomy else None
+        taxonomy_obj = Taxonomy.model_validate(taxonomy_data) if taxonomy_data is not None else None
         results.append(
             ContentOut(
                 id=item.id,
@@ -465,6 +533,7 @@ def export_contents(session: Session, requester: Optional[User]) -> list[dict]:
     exported = []
     for item in contents:
         chronology = json_loads(item.chronology) if item.chronology else None
+        taxonomy = json_loads(item.taxonomy) if item.taxonomy else None
         exported.append(
             {
                 "title": item.title,
@@ -637,6 +706,8 @@ def create_quiz_for_content(
     if content is None or content.owner_id != requester.id:
         return None
     card_dict = card.model_dump(mode="json", exclude_none=True)
+    card_tags = _quiz_tags_for_card(card_dict, None)
+    card_dict["tags"] = card_tags
     quiz_visibility = _normalize_visibility(card_dict.pop("visibility", None), content.visibility)
     quiz = Quiz(
         content_id=content_id,
@@ -646,6 +717,9 @@ def create_quiz_for_content(
         owner_id=requester.id,
     )
     session.add(quiz)
+    session.flush()
+    if card_tags:
+        session.add_all([QuizTag(quiz_id=quiz.id, tag=tag) for tag in card_tags])
     session.commit()
     session.refresh(quiz)
     return QuizOut(
@@ -888,10 +962,13 @@ def update_quiz(session: Session, quiz_id: int, card: CardUnion, requester: User
     if quiz is None or quiz.owner_id != requester.id:
         return None
     card_dict = card.model_dump(mode="json", exclude_none=True)
+    card_tags = _quiz_tags_for_card(card_dict, None)
+    card_dict["tags"] = card_tags
     visibility = _normalize_visibility(card_dict.pop("visibility", None), quiz.visibility)
     quiz.type = card_dict.get("type")
     quiz.payload = json_dumps(card_dict)
     quiz.visibility = visibility
+    quiz.tag_links = [QuizTag(quiz_id=quiz_id, tag=tag) for tag in card_tags]
     _update_quiz_in_sessions(session, quiz_id, card_dict, requester.id)
     session.commit()
     session.refresh(quiz)
