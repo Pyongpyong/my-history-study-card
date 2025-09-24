@@ -42,8 +42,11 @@ export interface ContentItem {
   id: number;
   title: string;
   content: string;
-  tags: string[];
+  keywords: string[];
   chronology?: ContentChronology | null;
+  timeline: TimelineEntry[];
+  categories: string[];
+  eras: EraEntry[];
   created_at: string;
   visibility: Visibility;
   owner_id?: number | null;
@@ -67,6 +70,16 @@ export interface ContentChronology {
   start_year?: number | null;
   end_year?: number | null;
   events: ContentChronologyEvent[];
+}
+
+export interface TimelineEntry {
+  title: string;
+  description: string;
+}
+
+export interface EraEntry {
+  period: string;
+  detail: string;
 }
 
 export interface ContentDetail extends ContentItem {
@@ -265,9 +278,12 @@ export async function updateContentRequest(
   updates: Partial<{
     title: string;
     content: string;
-    tags: string[];
     highlights: string[];
     chronology: any;
+    keywords: string[];
+    timeline: TimelineEntry[] | null;
+    eras: EraEntry[] | null;
+    categories: string[] | null;
   }> ,
 ): Promise<ContentDetail> {
   const { data } = await api.patch<ContentDetail>(`/contents/${id}`, updates);

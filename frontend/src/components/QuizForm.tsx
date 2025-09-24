@@ -1,27 +1,90 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import type { QuizType } from '../api';
-
-type TagsState = string;
 
 type SharedFormProps = {
   onSubmit: (payload: Record<string, any>) => Promise<void>;
   submitLabel?: string;
   initial?: Record<string, any> | null;
+  keywordOptions: string[];
+  initialKeywords: string[];
+};
+type KeywordSelectorProps = {
+  options: string[];
+  selected: string[];
+  onToggle: (keyword: string) => void;
 };
 
-function parseTags(text: TagsState): string[] {
+function parseCommaSeparatedList(text: string): string[] {
   return Array.from(new Set(text.split(',').map((item) => item.trim()).filter(Boolean)));
 }
 
-function MCQForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: SharedFormProps) {
+function KeywordSelector({ options, selected, onToggle }: KeywordSelectorProps) {
+  if (!options.length) {
+    return null;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((keyword) => {
+        const active = selected.includes(keyword);
+        return (
+          <button
+            key={keyword}
+            type="button"
+            onClick={() => onToggle(keyword)}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+              active
+                ? 'bg-primary-600 text-white'
+                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+            }`}
+          >
+            {keyword}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function useKeywordSelectionState(initialKeywords: string[], keywordOptions: string[]) {
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>(initialKeywords);
+
+  useEffect(() => {
+    setSelectedKeywords(initialKeywords);
+  }, [initialKeywords]);
+
+  useEffect(() => {
+    setSelectedKeywords((prev) => prev.filter((keyword) => keywordOptions.includes(keyword)));
+  }, [keywordOptions]);
+
+  const toggleKeyword = (keyword: string) => {
+    setSelectedKeywords((prev) =>
+      prev.includes(keyword)
+        ? prev.filter((item) => item !== keyword)
+        : [...prev, keyword],
+    );
+  };
+
+  return { selectedKeywords, toggleKeyword };
+}
+
+function MCQForm({
+  onSubmit,
+  submitLabel = '퀴즈 만들기',
+  initial,
+  keywordOptions,
+  initialKeywords,
+}: SharedFormProps) {
   const [question, setQuestion] = useState(initial?.question ?? '');
   const [options, setOptions] = useState<string[]>(
     initial?.options && initial.options.length ? [...initial.options] : ['', '', '', ''],
   );
   const [answerIndex, setAnswerIndex] = useState(initial?.answer_index ?? 0);
   const [explain, setExplain] = useState(initial?.explain ?? '');
-  const [tagsInput, setTagsInput] = useState((initial?.tags ?? []).join(','));
   const [submitting, setSubmitting] = useState(false);
+  const { selectedKeywords, toggleKeyword } = useKeywordSelectionState(
+    initialKeywords,
+    keywordOptions,
+  );
 
   useEffect(() => {
     if (!initial) return;
@@ -29,7 +92,6 @@ function MCQForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shared
     setOptions(initial.options && initial.options.length ? [...initial.options] : ['', '', '', '']);
     setAnswerIndex(initial.answer_index ?? 0);
     setExplain(initial.explain ?? '');
-    setTagsInput((initial.tags ?? []).join(','));
   }, [initial]);
 
   const canSubmit = question.trim().length > 0 && options.every((option) => option.trim().length > 0);
@@ -62,7 +124,7 @@ function MCQForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shared
         options: options.map((option) => option.trim()),
         answer_index: answerIndex,
         explain: explain.trim() || undefined,
-        tags: parseTags(tagsInput),
+        tags: selectedKeywords,
       });
     } finally {
       setSubmitting(false);
@@ -137,14 +199,21 @@ function MCQForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shared
           className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-600">
-        태그 (콤마로 구분)
-        <input
-          value={tagsInput}
-          onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-      </label>
+      <div className="space-y-2 text-sm text-slate-600">
+        <span>키워드</span>
+        {keywordOptions.length ? (
+          <>
+            <KeywordSelector
+              options={keywordOptions}
+              selected={selectedKeywords}
+              onToggle={toggleKeyword}
+            />
+            <p className="text-xs text-slate-500">버튼을 눌러 선택/해제하세요.</p>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">콘텐츠에 등록된 키워드가 없습니다.</p>
+        )}
+      </div>
       <button
         type="submit"
         disabled={!canSubmit || submitting}
@@ -156,13 +225,22 @@ function MCQForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shared
   );
 }
 
-function ShortForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: SharedFormProps) {
+function ShortForm({
+  onSubmit,
+  submitLabel = '퀴즈 만들기',
+  initial,
+  keywordOptions,
+  initialKeywords,
+}: SharedFormProps) {
   const [prompt, setPrompt] = useState(initial?.prompt ?? '');
   const [answer, setAnswer] = useState(initial?.answer ?? '');
   const [aliases, setAliases] = useState((initial?.rubric?.aliases ?? []).join(','));
   const [explain, setExplain] = useState(initial?.explain ?? '');
-  const [tagsInput, setTagsInput] = useState((initial?.tags ?? []).join(','));
   const [submitting, setSubmitting] = useState(false);
+  const { selectedKeywords, toggleKeyword } = useKeywordSelectionState(
+    initialKeywords,
+    keywordOptions,
+  );
 
   useEffect(() => {
     if (!initial) return;
@@ -170,7 +248,6 @@ function ShortForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
     setAnswer(initial.answer ?? '');
     setAliases((initial.rubric?.aliases ?? []).join(','));
     setExplain(initial.explain ?? '');
-    setTagsInput((initial.tags ?? []).join(','));
   }, [initial]);
 
   const handleSubmit = async (event: FormEvent) => {
@@ -181,13 +258,13 @@ function ShortForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
     }
     setSubmitting(true);
     try {
-      const aliasesList = parseTags(aliases);
+      const aliasesList = parseCommaSeparatedList(aliases);
       await onSubmit({
         type: 'SHORT',
         prompt: prompt.trim(),
         answer: answer.trim(),
         explain: explain.trim() || undefined,
-        tags: parseTags(tagsInput),
+        tags: selectedKeywords,
         rubric: aliasesList.length ? { aliases: aliasesList } : undefined,
       });
     } finally {
@@ -232,14 +309,21 @@ function ShortForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
           className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-600">
-        태그 (콤마로 구분)
-        <input
-          value={tagsInput}
-          onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-      </label>
+      <div className="space-y-2 text-sm text-slate-600">
+        <span>키워드</span>
+        {keywordOptions.length ? (
+          <>
+            <KeywordSelector
+              options={keywordOptions}
+              selected={selectedKeywords}
+              onToggle={toggleKeyword}
+            />
+            <p className="text-xs text-slate-500">버튼을 눌러 선택/해제하세요.</p>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">콘텐츠에 등록된 키워드가 없습니다.</p>
+        )}
+      </div>
       <button
         type="submit"
         disabled={submitting}
@@ -251,21 +335,29 @@ function ShortForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
   );
 }
 
-function OxForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: SharedFormProps) {
+function OxForm({
+  onSubmit,
+  submitLabel = '퀴즈 만들기',
+  initial,
+  keywordOptions,
+  initialKeywords,
+}: SharedFormProps) {
   const [statement, setStatement] = useState(initial?.statement ?? '');
   const [answer, setAnswer] = useState(
     typeof initial?.answer === 'boolean' ? initial.answer : true,
   );
   const [explain, setExplain] = useState(initial?.explain ?? '');
-  const [tagsInput, setTagsInput] = useState((initial?.tags ?? []).join(','));
   const [submitting, setSubmitting] = useState(false);
+  const { selectedKeywords, toggleKeyword } = useKeywordSelectionState(
+    initialKeywords,
+    keywordOptions,
+  );
 
   useEffect(() => {
     if (!initial) return;
     setStatement(initial.statement ?? '');
     setAnswer(typeof initial.answer === 'boolean' ? initial.answer : true);
     setExplain(initial.explain ?? '');
-    setTagsInput((initial.tags ?? []).join(','));
   }, [initial]);
 
   const handleSubmit = async (event: FormEvent) => {
@@ -281,7 +373,7 @@ function OxForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: SharedF
         statement: statement.trim(),
         answer,
         explain: explain.trim() || undefined,
-        tags: parseTags(tagsInput),
+        tags: selectedKeywords,
       });
     } finally {
       setSubmitting(false);
@@ -318,14 +410,21 @@ function OxForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: SharedF
           className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-600">
-        태그 (콤마로 구분)
-        <input
-          value={tagsInput}
-          onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-      </label>
+      <div className="space-y-2 text-sm text-slate-600">
+        <span>키워드</span>
+        {keywordOptions.length ? (
+          <>
+            <KeywordSelector
+              options={keywordOptions}
+              selected={selectedKeywords}
+              onToggle={toggleKeyword}
+            />
+            <p className="text-xs text-slate-500">버튼을 눌러 선택/해제하세요.</p>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">콘텐츠에 등록된 키워드가 없습니다.</p>
+        )}
+      </div>
       <button
         type="submit"
         disabled={submitting}
@@ -337,15 +436,24 @@ function OxForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: SharedF
   );
 }
 
-function ClozeForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: SharedFormProps) {
+function ClozeForm({
+  onSubmit,
+  submitLabel = '퀴즈 만들기',
+  initial,
+  keywordOptions,
+  initialKeywords,
+}: SharedFormProps) {
   const [text, setText] = useState(initial?.text ?? '');
   const [explain, setExplain] = useState(initial?.explain ?? '');
-  const [tagsInput, setTagsInput] = useState((initial?.tags ?? []).join(','));
   const [placeholders, setPlaceholders] = useState<string[]>([]);
   const [clozeValues, setClozeValues] = useState<Record<string, string>>(
     (initial?.clozes as Record<string, string>) ?? {},
   );
   const [submitting, setSubmitting] = useState(false);
+  const { selectedKeywords, toggleKeyword } = useKeywordSelectionState(
+    initialKeywords,
+    keywordOptions,
+  );
 
   useEffect(() => {
     const matches = Array.from(text.matchAll(/\{\{(.*?)\}\}/g)) as RegExpMatchArray[];
@@ -366,7 +474,6 @@ function ClozeForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
     if (!initial) return;
     setText(initial.text ?? '');
     setExplain(initial.explain ?? '');
-    setTagsInput((initial.tags ?? []).join(','));
     setClozeValues((initial.clozes as Record<string, string>) ?? {});
   }, [initial]);
 
@@ -391,7 +498,7 @@ function ClozeForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
           placeholders.map((key) => [key, clozeValues[key]?.trim() ?? ''])
         ),
         explain: explain.trim() || undefined,
-        tags: parseTags(tagsInput),
+        tags: selectedKeywords,
       });
     } finally {
       setSubmitting(false);
@@ -435,14 +542,21 @@ function ClozeForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
           className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-600">
-        태그 (콤마로 구분)
-        <input
-          value={tagsInput}
-          onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-      </label>
+      <div className="space-y-2 text-sm text-slate-600">
+        <span>키워드</span>
+        {keywordOptions.length ? (
+          <>
+            <KeywordSelector
+              options={keywordOptions}
+              selected={selectedKeywords}
+              onToggle={toggleKeyword}
+            />
+            <p className="text-xs text-slate-500">버튼을 눌러 선택/해제하세요.</p>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">콘텐츠에 등록된 키워드가 없습니다.</p>
+        )}
+      </div>
       <button
         type="submit"
         disabled={submitting}
@@ -454,19 +568,27 @@ function ClozeForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
   );
 }
 
-function OrderForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: SharedFormProps) {
+function OrderForm({
+  onSubmit,
+  submitLabel = '퀴즈 만들기',
+  initial,
+  keywordOptions,
+  initialKeywords,
+}: SharedFormProps) {
   const [items, setItems] = useState<string[]>(
     initial?.items && initial.items.length ? [...initial.items] : [''],
   );
   const [explain, setExplain] = useState(initial?.explain ?? '');
-  const [tagsInput, setTagsInput] = useState((initial?.tags ?? []).join(','));
   const [submitting, setSubmitting] = useState(false);
+  const { selectedKeywords, toggleKeyword } = useKeywordSelectionState(
+    initialKeywords,
+    keywordOptions,
+  );
 
   useEffect(() => {
     if (!initial) return;
     setItems(initial.items && initial.items.length ? [...initial.items] : ['']);
     setExplain(initial.explain ?? '');
-    setTagsInput((initial.tags ?? []).join(','));
   }, [initial]);
 
   const addItem = () => setItems((prev) => [...prev, '']);
@@ -489,7 +611,7 @@ function OrderForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
         items: cleaned,
         answer_order: cleaned.map((_, idx) => idx),
         explain: explain.trim() || undefined,
-        tags: parseTags(tagsInput),
+        tags: selectedKeywords,
       });
     } finally {
       setSubmitting(false);
@@ -540,14 +662,21 @@ function OrderForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
           className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-600">
-        태그 (콤마로 구분)
-        <input
-          value={tagsInput}
-          onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-      </label>
+      <div className="space-y-2 text-sm text-slate-600">
+        <span>키워드</span>
+        {keywordOptions.length ? (
+          <>
+            <KeywordSelector
+              options={keywordOptions}
+              selected={selectedKeywords}
+              onToggle={toggleKeyword}
+            />
+            <p className="text-xs text-slate-500">버튼을 눌러 선택/해제하세요.</p>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">콘텐츠에 등록된 키워드가 없습니다.</p>
+        )}
+      </div>
       <button
         type="submit"
         disabled={submitting}
@@ -559,15 +688,24 @@ function OrderForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
   );
 }
 
-function MatchForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: SharedFormProps) {
+function MatchForm({
+  onSubmit,
+  submitLabel = '퀴즈 만들기',
+  initial,
+  keywordOptions,
+  initialKeywords,
+}: SharedFormProps) {
   const [pairs, setPairs] = useState<Array<{ left: string; right: string }>>(
     initial?.left && initial?.right
       ? initial.left.map((left: string, index: number) => ({ left, right: initial.right[index] }))
       : [{ left: '', right: '' }],
   );
   const [explain, setExplain] = useState(initial?.explain ?? '');
-  const [tagsInput, setTagsInput] = useState((initial?.tags ?? []).join(','));
   const [submitting, setSubmitting] = useState(false);
+  const { selectedKeywords, toggleKeyword } = useKeywordSelectionState(
+    initialKeywords,
+    keywordOptions,
+  );
 
   useEffect(() => {
     if (!initial) return;
@@ -577,7 +715,6 @@ function MatchForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
       setPairs([{ left: '', right: '' }]);
     }
     setExplain(initial.explain ?? '');
-    setTagsInput((initial.tags ?? []).join(','));
   }, [initial]);
 
   const addPair = () => setPairs((prev) => [...prev, { left: '', right: '' }]);
@@ -603,7 +740,7 @@ function MatchForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
         right: cleaned.map((pair) => pair.right),
         pairs: cleaned.map((_, idx) => [idx, idx]),
         explain: explain.trim() || undefined,
-        tags: parseTags(tagsInput),
+        tags: selectedKeywords,
       });
     } finally {
       setSubmitting(false);
@@ -669,14 +806,21 @@ function MatchForm({ onSubmit, submitLabel = '퀴즈 만들기', initial }: Shar
           className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm text-slate-600">
-        태그 (콤마로 구분)
-        <input
-          value={tagsInput}
-          onChange={(event) => setTagsInput(event.target.value)}
-          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-      </label>
+      <div className="space-y-2 text-sm text-slate-600">
+        <span>키워드</span>
+        {keywordOptions.length ? (
+          <>
+            <KeywordSelector
+              options={keywordOptions}
+              selected={selectedKeywords}
+              onToggle={toggleKeyword}
+            />
+            <p className="text-xs text-slate-500">버튼을 눌러 선택/해제하세요.</p>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">콘텐츠에 등록된 키워드가 없습니다.</p>
+        )}
+      </div>
       <button
         type="submit"
         disabled={submitting}
@@ -693,22 +837,113 @@ export type QuizFormProps = {
   onSubmit: (payload: Record<string, any>) => Promise<void>;
   submitLabel?: string;
   initial?: Record<string, any> | null;
+  keywordOptions?: string[];
 };
 
-export function QuizForm({ type, onSubmit, submitLabel, initial }: QuizFormProps) {
+export function QuizForm({
+  type,
+  onSubmit,
+  submitLabel,
+  initial,
+  keywordOptions = [],
+}: QuizFormProps) {
+  const normalizedOptions = useMemo(() => {
+    const set = new Set<string>();
+    keywordOptions.forEach((item) => {
+      if (typeof item !== 'string') return;
+      const trimmed = item.trim();
+      if (trimmed) {
+        set.add(trimmed);
+      }
+    });
+    if (initial && Array.isArray((initial as any).tags)) {
+      (initial as any).tags.forEach((tag: unknown) => {
+        if (typeof tag !== 'string') return;
+        const trimmed = tag.trim();
+        if (trimmed) {
+          set.add(trimmed);
+        }
+      });
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [keywordOptions, initial]);
+
+  const initialKeywords = useMemo(() => {
+    if (!initial || !Array.isArray((initial as any).tags)) {
+      return [] as string[];
+    }
+    const set = new Set<string>();
+    (initial as any).tags.forEach((tag: unknown) => {
+      if (typeof tag !== 'string') return;
+      const trimmed = tag.trim();
+      if (trimmed && normalizedOptions.includes(trimmed)) {
+        set.add(trimmed);
+      }
+    });
+    return Array.from(set);
+  }, [initial, normalizedOptions]);
+
   switch (type) {
     case 'MCQ':
-      return <MCQForm onSubmit={onSubmit} submitLabel={submitLabel} initial={initial} />;
+      return (
+        <MCQForm
+          onSubmit={onSubmit}
+          submitLabel={submitLabel}
+          initial={initial}
+          keywordOptions={normalizedOptions}
+          initialKeywords={initialKeywords}
+        />
+      );
     case 'SHORT':
-      return <ShortForm onSubmit={onSubmit} submitLabel={submitLabel} initial={initial} />;
+      return (
+        <ShortForm
+          onSubmit={onSubmit}
+          submitLabel={submitLabel}
+          initial={initial}
+          keywordOptions={normalizedOptions}
+          initialKeywords={initialKeywords}
+        />
+      );
     case 'OX':
-      return <OxForm onSubmit={onSubmit} submitLabel={submitLabel} initial={initial} />;
+      return (
+        <OxForm
+          onSubmit={onSubmit}
+          submitLabel={submitLabel}
+          initial={initial}
+          keywordOptions={normalizedOptions}
+          initialKeywords={initialKeywords}
+        />
+      );
     case 'CLOZE':
-      return <ClozeForm onSubmit={onSubmit} submitLabel={submitLabel} initial={initial} />;
+      return (
+        <ClozeForm
+          onSubmit={onSubmit}
+          submitLabel={submitLabel}
+          initial={initial}
+          keywordOptions={normalizedOptions}
+          initialKeywords={initialKeywords}
+        />
+      );
     case 'ORDER':
-      return <OrderForm onSubmit={onSubmit} submitLabel={submitLabel} initial={initial} />;
+      return (
+        <OrderForm
+          onSubmit={onSubmit}
+          submitLabel={submitLabel}
+          initial={initial}
+          keywordOptions={normalizedOptions}
+          initialKeywords={initialKeywords}
+        />
+      );
     case 'MATCH':
-      return <MatchForm onSubmit={onSubmit} submitLabel={submitLabel} initial={initial} />;
+      return (
+        <MatchForm
+          onSubmit={onSubmit}
+          submitLabel={submitLabel}
+          initial={initial}
+          keywordOptions={normalizedOptions}
+          initialKeywords={initialKeywords}
+        />
+      );
     default:
       return <p className="text-sm text-rose-600">지원하지 않는 퀴즈 형식입니다: {type}</p>;
   }

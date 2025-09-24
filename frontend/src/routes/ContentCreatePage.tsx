@@ -1,22 +1,141 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, KeyboardEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createContentRequest, type Visibility } from '../api';
+import { createContentRequest, type EraEntry, type TimelineEntry, type Visibility } from '../api';
 
-function parseList(value: string): string[] {
-  return Array.from(new Set(value.split('\n').map((item) => item.trim()).filter(Boolean)));
+function normalizeEntry(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
 }
 
 export default function ContentCreatePage() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [tags, setTags] = useState('');
-  const [highlights, setHighlights] = useState('');
-  const [chronologyStart, setChronologyStart] = useState('');
-  const [chronologyEnd, setChronologyEnd] = useState('');
-  const [chronologyEvents, setChronologyEvents] = useState('');
+  const [keywordInput, setKeywordInput] = useState('');
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [timelinePeriodInput, setTimelinePeriodInput] = useState('');
+  const [timelineDescriptionInput, setTimelineDescriptionInput] = useState('');
+  const [timelineEntries, setTimelineEntries] = useState<TimelineEntry[]>([]);
+  const [categoryInput, setCategoryInput] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [eraPeriodInput, setEraPeriodInput] = useState('');
+  const [eraDetailInput, setEraDetailInput] = useState('');
+  const [eraEntries, setEraEntries] = useState<EraEntry[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [visibility, setVisibility] = useState<Visibility>('PRIVATE');
+
+  const addKeyword = () => {
+    const raw = keywordInput;
+    if (!raw.trim()) {
+      setKeywordInput('');
+      return;
+    }
+    const candidates = raw
+      .split(/,|\n/)
+      .map((item) => normalizeEntry(item))
+      .filter(Boolean);
+    if (!candidates.length) {
+      setKeywordInput('');
+      return;
+    }
+    setKeywords((prev) => {
+      const next = [...prev];
+      for (const item of candidates) {
+        if (!next.includes(item)) {
+          next.push(item);
+        }
+      }
+      return next;
+    });
+    setKeywordInput('');
+  };
+
+  const handleKeywordKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      addKeyword();
+    }
+  };
+
+  const removeKeyword = (target: string) => {
+    setKeywords((prev) => prev.filter((item) => item !== target));
+  };
+
+  const addCategory = () => {
+    const raw = categoryInput;
+    if (!raw.trim()) {
+      setCategoryInput('');
+      return;
+    }
+    const candidates = raw
+      .split(/,|\n/)
+      .map((item) => normalizeEntry(item))
+      .filter(Boolean);
+    if (!candidates.length) {
+      setCategoryInput('');
+      return;
+    }
+    setCategories((prev) => {
+      const next = [...prev];
+      for (const item of candidates) {
+        if (!next.includes(item)) {
+          next.push(item);
+        }
+      }
+      return next;
+    });
+    setCategoryInput('');
+  };
+
+  const handleCategoryKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      addCategory();
+    }
+  };
+
+  const removeCategory = (target: string) => {
+    setCategories((prev) => prev.filter((item) => item !== target));
+  };
+
+  const addTimelineEntry = () => {
+    const period = normalizeEntry(timelinePeriodInput);
+    const description = timelineDescriptionInput.trim();
+    if (!period) return;
+    setTimelineEntries((prev) => [...prev, { title: period, description: description }]);
+    setTimelinePeriodInput('');
+    setTimelineDescriptionInput('');
+  };
+
+  const handleTimelineKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      addTimelineEntry();
+    }
+  };
+
+  const removeTimelineEntry = (index: number) => {
+    setTimelineEntries((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const addEraEntry = () => {
+    const period = normalizeEntry(eraPeriodInput);
+    const detail = eraDetailInput.trim();
+    if (!period) return;
+    setEraEntries((prev) => [...prev, { period, detail }]);
+    setEraPeriodInput('');
+    setEraDetailInput('');
+  };
+
+  const handleEraKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      addEraEntry();
+    }
+  };
+
+  const removeEraEntry = (index: number) => {
+    setEraEntries((prev) => prev.filter((_, idx) => idx !== index));
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -29,25 +148,14 @@ export default function ContentCreatePage() {
       const payload: any = {
         title: title.trim(),
         content: body.trim(),
-        tags: parseList(tags.replace(/,/g, '\n')),
-        highlights: parseList(highlights),
+        keywords,
+        highlights: [],
+        timeline: timelineEntries,
         cards: [],
         visibility,
+        categories,
       };
-      const eventsList = parseList(chronologyEvents).map((line) => {
-        const [yearPart, ...labelParts] = line.split(':');
-        const year = Number(yearPart.trim());
-        const label = labelParts.join(':').trim();
-        if (Number.isNaN(year) || !label) return null;
-        return { year, label };
-      }).filter(Boolean);
-      if (chronologyStart || chronologyEnd || eventsList.length) {
-        payload.chronology = {
-          start_year: chronologyStart ? Number(chronologyStart) : undefined,
-          end_year: chronologyEnd ? Number(chronologyEnd) : undefined,
-          events: eventsList,
-        };
-      }
+      payload.eras = eraEntries;
       const contentId = await createContentRequest(payload);
       alert('콘텐츠가 생성되었습니다.');
       navigate(`/contents/${contentId}`);
@@ -96,57 +204,202 @@ export default function ContentCreatePage() {
         </label>
 
         <label className="flex flex-col gap-2 text-sm text-slate-600">
-          태그 (쉼표 또는 줄바꿈으로 구분)
-          <textarea
-            value={tags}
-            onChange={(event) => setTags(event.target.value)}
-            className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            placeholder="예) 조선, 왕, 역사"
-          />
+          키워드 추가
+          <div className="flex gap-2">
+            <input
+              value={keywordInput}
+              onChange={(event) => setKeywordInput(event.target.value)}
+              onKeyDown={handleKeywordKeyDown}
+              className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              placeholder="예) 세종"
+            />
+            <button
+              type="button"
+              onClick={addKeyword}
+              className="rounded bg-primary-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-primary-500"
+            >
+              추가
+            </button>
+          </div>
+          {keywords.length ? (
+            <div className="flex flex-wrap gap-2 pt-2">
+              {keywords.map((keyword) => (
+                <span
+                  key={keyword}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700"
+                >
+                  {keyword}
+                  <button
+                    type="button"
+                    onClick={() => removeKeyword(keyword)}
+                    className="text-primary-600 hover:text-primary-800"
+                    aria-label={`${keyword} 제거`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">엔터 또는 추가 버튼으로 키워드를 등록하세요.</p>
+          )}
         </label>
+
+        <div className="space-y-2 text-sm text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>타임라인</span>
+            <span className="text-xs text-slate-400">(Ctrl/⌘ + Enter 로 빠르게 추가)</span>
+          </div>
+          <div className="flex flex-col gap-2 rounded border border-slate-200 p-4">
+            <div className="grid gap-2 md:grid-cols-[200px_1fr_auto]">
+              <input
+                value={timelinePeriodInput}
+                onChange={(event) => setTimelinePeriodInput(event.target.value)}
+                onKeyDown={handleTimelineKeyDown}
+                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                placeholder="연도/기간 (예: 1392년, 14세기, 1392~1400년)"
+              />
+              <textarea
+                value={timelineDescriptionInput}
+                onChange={(event) => setTimelineDescriptionInput(event.target.value)}
+                onKeyDown={handleTimelineKeyDown}
+                className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                placeholder="설명"
+              />
+              <button
+                type="button"
+                onClick={addTimelineEntry}
+                className="rounded bg-primary-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-primary-500"
+              >
+                타임라인 추가
+              </button>
+            </div>
+            {timelineEntries.length ? (
+              <ul className="space-y-2">
+                {timelineEntries.map((entry, index) => (
+                  <li
+                    key={`${entry.title}-${index}`}
+                    className="flex items-start justify-between gap-3 rounded border border-slate-200 bg-white p-3 text-xs text-slate-700"
+                  >
+                    <div className="flex-1">
+                      <p className="font-semibold text-primary-600">{entry.title}</p>
+                      {entry.description ? <p className="mt-1 text-slate-600">{entry.description}</p> : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeTimelineEntry(index)}
+                      className="text-xs text-slate-400 transition hover:text-rose-500"
+                      aria-label="타임라인 항목 삭제"
+                    >
+                      삭제
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-slate-500">연도와 설명을 입력하여 타임라인을 추가하세요.</p>
+            )}
+          </div>
+        </div>
 
         <label className="flex flex-col gap-2 text-sm text-slate-600">
-          하이라이트 (줄바꿈으로 구분)
-          <textarea
-            value={highlights}
-            onChange={(event) => setHighlights(event.target.value)}
-            className="h-24 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            placeholder={'예) 세조\n경국대전'}
-          />
+          분류 추가
+          <div className="flex gap-2">
+            <input
+              value={categoryInput}
+              onChange={(event) => setCategoryInput(event.target.value)}
+              onKeyDown={handleCategoryKeyDown}
+              className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              placeholder="예) 인물"
+            />
+            <button
+              type="button"
+              onClick={addCategory}
+              className="rounded bg-primary-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-primary-500"
+            >
+              추가
+            </button>
+          </div>
+          {categories.length ? (
+            <div className="flex flex-wrap gap-2 pt-2">
+              {categories.map((item) => (
+                <span
+                  key={item}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700"
+                >
+                  {item}
+                  <button
+                    type="button"
+                    onClick={() => removeCategory(item)}
+                    className="text-slate-500 hover:text-rose-500"
+                    aria-label={`${item} 제거`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">쉼표, 줄바꿈 또는 추가 버튼을 사용해 분류를 등록하세요.</p>
+          )}
         </label>
 
-        <fieldset className="space-y-3 rounded border border-slate-200 p-4">
-          <legend className="px-2 text-sm font-semibold text-primary-600">연표 (선택)</legend>
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="flex flex-col gap-2 text-xs text-slate-600">
-              시작 연도
-              <input
-                type="number"
-                value={chronologyStart}
-                onChange={(event) => setChronologyStart(event.target.value)}
-                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-xs text-slate-600">
-              종료 연도
-              <input
-                type="number"
-                value={chronologyEnd}
-                onChange={(event) => setChronologyEnd(event.target.value)}
-                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              />
-            </label>
+        <div className="space-y-2 text-sm text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>연대 · 세부 연대</span>
+            <span className="text-xs text-slate-400">(Ctrl/⌘ + Enter 로 빠르게 추가)</span>
           </div>
-          <label className="flex flex-col gap-2 text-xs text-slate-600">
-            사건 목록 (한 줄에 "연도: 설명" 형식)
-            <textarea
-              value={chronologyEvents}
-              onChange={(event) => setChronologyEvents(event.target.value)}
-              className="h-32 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              placeholder={'예) 1455: 단종 폐위\n1460: 경국대전 편찬 추진'}
-            />
-          </label>
-        </fieldset>
+          <div className="flex flex-col gap-2 rounded border border-slate-200 p-4">
+            <div className="grid gap-2 md:grid-cols-[220px_1fr_auto]">
+              <input
+                value={eraPeriodInput}
+                onChange={(event) => setEraPeriodInput(event.target.value)}
+                onKeyDown={handleEraKeyDown}
+                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                placeholder="연대 (예: 고려 말기부터 조선 초기)"
+              />
+              <textarea
+                value={eraDetailInput}
+                onChange={(event) => setEraDetailInput(event.target.value)}
+                onKeyDown={handleEraKeyDown}
+                className="h-20 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                placeholder="세부 연대 (예: 1392년 조선 건국 이후 초기 개혁기)"
+              />
+              <button
+                type="button"
+                onClick={addEraEntry}
+                className="rounded bg-primary-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-primary-500"
+              >
+                연대 추가
+              </button>
+            </div>
+            {eraEntries.length ? (
+              <ul className="space-y-2">
+                {eraEntries.map((entry, index) => (
+                  <li
+                    key={`${entry.period}-${index}`}
+                    className="flex items-start justify-between gap-3 rounded border border-slate-200 bg-white p-3 text-xs text-slate-700"
+                  >
+                    <div className="flex-1">
+                      <p className="font-semibold text-primary-600">{entry.period}</p>
+                      {entry.detail ? <p className="mt-1 text-slate-600">{entry.detail}</p> : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeEraEntry(index)}
+                      className="text-xs text-slate-400 transition hover:text-rose-500"
+                      aria-label="연대 항목 삭제"
+                    >
+                      삭제
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-slate-500">연대와 세부 연대를 입력해 추가하세요.</p>
+            )}
+          </div>
+        </div>
 
         <label className="flex flex-col gap-2 text-sm text-slate-600">
           공개 범위

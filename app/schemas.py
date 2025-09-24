@@ -3,7 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+
+from .utils import parse_timeline_entry
 
 CardType = Literal["MCQ", "SHORT", "OX", "CLOZE", "ORDER", "MATCH"]
 VisibilityType = Literal["PUBLIC", "PRIVATE"]
@@ -210,12 +212,35 @@ class Chronology(BaseModel):
         return value
 
 
+class TimelineEntry(BaseModel):
+    title: str
+    description: str = ""
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("timeline title must not be empty")
+        return cleaned
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str) -> str:
+        return value.strip()
+
+
 class ImportPayload(BaseModel):
     title: str
     content: str
     highlights: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
+    keywords: List[str] = Field(default_factory=list)
     chronology: Optional[Chronology] = None
+    timeline: List[TimelineEntry] = Field(default_factory=list)
+    categories: List[str] = Field(default_factory=list)
+    eras: List[EraEntry] = Field(default_factory=list)
+    category: Optional[str] = None
     cards: List[CardUnion] = Field(default_factory=list)
     visibility: Optional[VisibilityType] = Field(default=None)
 
@@ -250,6 +275,94 @@ class ImportPayload(BaseModel):
                 normalized.append(candidate)
         return normalized
 
+    @field_validator("keywords")
+    @classmethod
+    def validate_keywords(cls, value: List[str]) -> List[str]:
+        normalized = []
+        for item in value:
+            if not item or not item.strip():
+                raise ValueError("keywords entries must be non-empty strings")
+            candidate = item.strip()
+            if candidate not in normalized:
+                normalized.append(candidate)
+        return normalized
+
+    @field_validator("timeline", mode="before")
+    @classmethod
+    def parse_timeline(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, list):
+            parsed: List[TimelineEntry] = []
+            for item in value:
+                if isinstance(item, TimelineEntry):
+                    parsed.append(item)
+                elif isinstance(item, dict):
+                    parsed.append(TimelineEntry.model_validate(item))
+                else:
+                    entry = parse_timeline_entry(str(item))
+                    if entry["title"]:
+                        parsed.append(TimelineEntry(**entry))
+            return parsed
+        if isinstance(value, str):
+            lines = [line.strip() for line in value.splitlines() if line.strip()]
+            results: List[TimelineEntry] = []
+            for line in lines:
+                entry = parse_timeline_entry(line)
+                if entry["title"]:
+                    results.append(TimelineEntry(**entry))
+            return results
+        return value
+
+    @field_validator("categories")
+    @classmethod
+    def validate_categories(cls, value: List[str]) -> List[str]:
+        normalized = []
+        for item in value:
+            if not item or not item.strip():
+                raise ValueError("categories entries must be non-empty strings")
+            candidate = item.strip()
+            if candidate not in normalized:
+                normalized.append(candidate)
+        return normalized
+
+    @model_validator(mode="after")
+    def merge_category(cls, data: "ImportPayload") -> "ImportPayload":
+        if data.category and not data.categories:
+            candidate = data.category.strip()
+            if candidate:
+                data.categories = [candidate]
+        return data
+
+    @model_validator(mode="after")
+    def merge_legacy_tags(cls, data: "ImportPayload") -> "ImportPayload":
+        if data.tags:
+            for tag in data.tags:
+                if tag not in data.keywords:
+                    data.keywords.append(tag)
+            data.tags = []
+        return data
+
+    @field_validator("eras", mode="before")
+    @classmethod
+    def parse_eras(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, list):
+            results: List[EraEntry] = []
+            for item in value:
+                if isinstance(item, dict):
+                    results.append(EraEntry.model_validate(item))
+                elif isinstance(item, str):
+                    normalized = item.strip()
+                    if normalized:
+                        results.append(EraEntry(period=normalized))
+            return results
+        if isinstance(value, str):
+            normalized = value.strip()
+            return [EraEntry(period=normalized)] if normalized else []
+        return []
+
 
 class ImportResponse(BaseModel):
     content_id: int
@@ -269,8 +382,11 @@ class ContentOut(BaseModel):
     title: str
     content: str
     highlights: List[str]
-    tags: List[str]
+    keywords: List[str]
     chronology: Optional[Chronology]
+    timeline: List[TimelineEntry]
+    categories: List[str]
+    eras: List[EraEntry]
     created_at: datetime
     visibility: VisibilityType
     owner_id: Optional[int]
@@ -280,9 +396,78 @@ class ContentUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     highlights: Optional[List[str]] = None
-    tags: Optional[List[str]] = None
+    keywords: Optional[List[str]] = None
     chronology: Optional[Chronology] = None
+    timeline: Optional[List[TimelineEntry]] = None
+    category: Optional[str] = None
+    categories: Optional[List[str]] = None
+    eras: Optional[List[EraEntry]] = None
     visibility: Optional[VisibilityType] = None
+
+    @field_validator("timeline", mode="before")
+    @classmethod
+    def parse_update_timeline(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, list):
+            parsed: List[TimelineEntry] = []
+            for item in value:
+                if isinstance(item, TimelineEntry):
+                    parsed.append(item)
+                elif isinstance(item, dict):
+                    parsed.append(TimelineEntry.model_validate(item))
+                else:
+                    entry = parse_timeline_entry(str(item))
+                    if entry["title"]:
+                        parsed.append(TimelineEntry(**entry))
+            return parsed
+        if isinstance(value, str):
+            lines = [line.strip() for line in value.splitlines() if line.strip()]
+            results: List[TimelineEntry] = []
+            for line in lines:
+                entry = parse_timeline_entry(line)
+                if entry["title"]:
+                    results.append(TimelineEntry(**entry))
+            return results
+        return value
+
+    @field_validator("eras", mode="before")
+    @classmethod
+    def parse_update_eras(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, list):
+            results: List[EraEntry] = []
+            for item in value:
+                if isinstance(item, dict):
+                    results.append(EraEntry.model_validate(item))
+            return results
+        if isinstance(value, str):
+            normalized = value.strip()
+            return [EraEntry(period=normalized)] if normalized else []
+        return []
+
+    @field_validator("categories")
+    @classmethod
+    def validate_update_categories(cls, value: Optional[List[str]]) -> Optional[List[str]]:
+        if value is None:
+            return None
+        normalized = []
+        for item in value:
+            if not item or not item.strip():
+                raise ValueError("categories entries must be non-empty strings")
+            candidate = item.strip()
+            if candidate not in normalized:
+                normalized.append(candidate)
+        return normalized
+
+    @model_validator(mode="after")
+    def merge_update_category(cls, data: "ContentUpdate") -> "ContentUpdate":
+        if data.category and not data.categories:
+            candidate = data.category.strip()
+            if candidate:
+                data.categories = [candidate]
+        return data
 
 
 class ContentListOut(BaseModel):
@@ -441,3 +626,19 @@ class AdminUserCreate(BaseModel):
         if len(value.strip()) < 6:
             raise ValueError("password must be at least 6 characters")
         return value
+class EraEntry(BaseModel):
+    period: str
+    detail: str = ""
+
+    @field_validator("period")
+    @classmethod
+    def validate_period(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("period must not be empty")
+        return cleaned
+
+    @field_validator("detail")
+    @classmethod
+    def validate_detail(cls, value: str) -> str:
+        return value.strip()

@@ -4,10 +4,12 @@ import os
 from pathlib import Path
 import sqlite3
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, text, inspect
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from dotenv import load_dotenv, find_dotenv
+
+from .utils import json_dumps, safe_json_loads
 
 _dotenv_path = find_dotenv()
 if _dotenv_path:
@@ -94,3 +96,88 @@ def init_db() -> None:
     from . import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _ensure_content_extensions()
+
+
+def _ensure_content_extensions() -> None:
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        if "contents" not in inspector.get_table_names():
+            return
+        existing_columns = {column["name"] for column in inspector.get_columns("contents")}
+        if "tags" in existing_columns:
+            _migrate_content_tags_to_keywords(connection)
+            _drop_content_tags_column(connection)
+            existing_columns.discard("tags")
+        if "keywords" not in existing_columns:
+            connection.execute(text("ALTER TABLE contents ADD COLUMN keywords TEXT NOT NULL DEFAULT '[]'"))
+            connection.execute(text("UPDATE contents SET keywords = '[]' WHERE keywords IS NULL"))
+        if "timeline" not in existing_columns:
+            connection.execute(text("ALTER TABLE contents ADD COLUMN timeline TEXT"))
+        if "category" not in existing_columns:
+            connection.execute(text("ALTER TABLE contents ADD COLUMN category TEXT"))
+        else:
+            connection.execute(text(
+                "UPDATE contents SET category = '[]' WHERE category IS NULL"
+            ))
+        if "eras" not in existing_columns:
+            connection.execute(text("ALTER TABLE contents ADD COLUMN eras TEXT"))
+        connection.execute(text("UPDATE contents SET eras = '[]' WHERE eras IS NULL"))
+
+
+def _migrate_content_tags_to_keywords(connection) -> None:
+    rows = connection.execute(text("SELECT id, tags, keywords FROM contents")).mappings().all()
+    for row in rows:
+        existing_keywords = safe_json_loads(row.get("keywords"), [])
+        legacy_tags = safe_json_loads(row.get("tags"), [])
+        if not legacy_tags:
+            continue
+        combined: list[str] = []
+        for value in existing_keywords + legacy_tags:
+            if isinstance(value, str):
+                candidate = value.strip()
+                if candidate and candidate not in combined:
+                    combined.append(candidate)
+        if combined and combined != existing_keywords:
+            connection.execute(
+                text("UPDATE contents SET keywords = :keywords WHERE id = :id"),
+                {"keywords": json_dumps(combined), "id": row["id"]},
+            )
+
+
+def _drop_content_tags_column(connection) -> None:
+    try:
+        connection.execute(text("ALTER TABLE contents DROP COLUMN tags"))
+    except Exception:
+        if engine.dialect.name != "sqlite":
+            raise
+        _rebuild_sqlite_contents_without_tags(connection)
+
+
+def _rebuild_sqlite_contents_without_tags(connection) -> None:
+    connection.execute(text("ALTER TABLE contents RENAME TO contents_backup"))
+    from .models import Content  # Imported lazily to avoid circular imports
+
+    Content.__table__.create(bind=connection)
+
+    columns = [
+        "id",
+        "title",
+        "body",
+        "keywords",
+        "timeline",
+        "chronology",
+        "category",
+        "eras",
+        "visibility",
+        "owner_id",
+        "created_at",
+        "updated_at",
+    ]
+    column_list = ", ".join(columns)
+    connection.execute(
+        text(
+            f"INSERT INTO contents ({column_list}) SELECT {column_list} FROM contents_backup"
+        )
+    )
+    connection.execute(text("DROP TABLE contents_backup"))

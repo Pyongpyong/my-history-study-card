@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import CardPreview from '../components/CardPreview';
+import ContentSnapshot from '../components/ContentSnapshot';
 import QuizForm from '../components/QuizForm';
 import {
   createQuizForContent,
@@ -122,7 +123,11 @@ export default function QuizCreatePage() {
             <option value="PUBLIC">공개 (모두 보기)</option>
           </select>
         </label>
-        <QuizForm type={quizType} onSubmit={handleSubmit} />
+        <QuizForm
+          type={quizType}
+          onSubmit={handleSubmit}
+          keywordOptions={content.keywords ?? []}
+        />
       </div>
 
       <section className="space-y-6 rounded-lg border border-slate-200 bg-slate-50 p-6">
@@ -130,22 +135,7 @@ export default function QuizCreatePage() {
           <h2 className="text-lg font-semibold text-primary-600">콘텐츠 정보</h2>
           <p className="text-xs text-slate-500">새 퀴즈를 작성할 때 참고하세요.</p>
         </header>
-        <article className="space-y-4 text-sm leading-relaxed text-slate-700">
-          <div className="flex flex-wrap items-center gap-3">
-            <h3 className="text-xl font-semibold text-primary-600">{content.title}</h3>
-            <span className="text-xs text-slate-500">{new Date(content.created_at).toLocaleString()}</span>
-          </div>
-          <p className="whitespace-pre-wrap">{content.content}</p>
-          {content.highlights?.length ? (
-            <div className="flex flex-wrap gap-2">
-              {content.highlights.map((highlight) => (
-                <span key={highlight} className="rounded bg-primary-100 px-3 py-1 text-xs text-primary-600">
-                  {highlight}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </article>
+        <ContentSnapshot content={content} />
         {cards.length ? (
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-primary-600">기존 퀴즈 미리보기</h3>

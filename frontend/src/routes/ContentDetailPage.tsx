@@ -95,6 +95,7 @@ export default function ContentDetailPage() {
   const chronologyEvents = content?.chronology?.events
     ? [...content.chronology.events].sort((a, b) => a.year - b.year)
     : [];
+  const timelineEntries = content?.timeline ?? [];
 
   const loadStudySessions = async () => {
     setSessionsLoading(true);
@@ -251,15 +252,14 @@ export default function ContentDetailPage() {
               <Badge color={content.visibility === 'PUBLIC' ? 'success' : 'default'}>
                 {content.visibility === 'PUBLIC' ? '공개' : '비공개'}
               </Badge>
-              {content.tags?.length ? (
-                <div className="flex flex-wrap gap-2 text-xs">
-                  {content.tags.map((tag) => (
-                    <Badge key={tag} color="primary">
-                      #{tag}
+              {content.eras?.length
+                ? content.eras.map((entry, index) => (
+                    <Badge key={`${entry.period}-${index}`} color="primary">
+                      {entry.period}
+                      {entry.detail ? ` · ${entry.detail}` : ''}
                     </Badge>
-                  ))}
-                </div>
-              ) : null}
+                  ))
+                : null}
             </div>
             <time className="block text-xs text-slate-500">{new Date(content.created_at).toLocaleString()}</time>
           </div>
@@ -299,6 +299,56 @@ export default function ContentDetailPage() {
             {content.highlights.map((highlight: string) => (
               <Badge key={highlight}>{highlight}</Badge>
             ))}
+          </div>
+        ) : null}
+        {content.keywords?.length ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {content.keywords.map((keyword: string) => (
+              <Badge key={`keyword-${keyword}`} color="default">
+                {keyword}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+        {content.categories?.length ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {content.categories.map((category: string) => (
+              <Badge key={`category-${category}`} color="default">
+                {category}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+        {content.eras?.length ? (
+          <div className="mt-6 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <span className="text-sm font-semibold text-primary-600">연대</span>
+            <ul className="space-y-1 text-xs text-slate-600">
+              {content.eras.map((entry, index) => (
+                <li key={`${entry.period}-${index}`} className="flex items-start gap-3">
+                  <span className="font-semibold text-primary-600">{entry.period}</span>
+                  {entry.detail ? <span>{entry.detail}</span> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {timelineEntries.length ? (
+          <div className="mt-6 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <span className="text-sm font-semibold text-primary-600">타임라인</span>
+            <ul className="space-y-2 text-xs text-slate-600">
+              {timelineEntries.map((entry, index) => (
+                <li
+                  key={`${index}-${entry.title}-${entry.description}`}
+                  className="flex gap-3"
+                >
+                  <span className="text-primary-500">•</span>
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-primary-600">{entry.title}</span>
+                    {entry.description ? <span className="text-slate-600">{entry.description}</span> : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
         {content.chronology ? (
