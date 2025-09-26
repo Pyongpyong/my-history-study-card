@@ -261,17 +261,40 @@ export default function QuizListPage() {
       }
       setSubmitting(true);
       try {
-        const updated = await updateStudySessionRequest(session.id, {
-          quiz_ids: [...session.quiz_ids, normalizedTargetCard.id],
-          cards: [...session.cards, normalizedTargetCard],
-        });
-        setStudySessions((prev) => prev.map((item) => (item.id === session.id ? updated : item)));
+        // Create the update payload
+        const updatePayload: any = {
+          quiz_ids: [...session.quiz_ids, normalizedTargetCard.id]
+        };
+
+        // Only include cards if they exist in the session
+        if (Array.isArray(session.cards)) {
+          updatePayload.cards = [...session.cards, normalizedTargetCard];
+        }
+
+        console.log('Updating study session with:', updatePayload);
+        
+        const updated = await updateStudySessionRequest(session.id, updatePayload);
+        
+        // Update the local state with the updated session
+        setStudySessions((prev) => 
+          prev.map((item) => (item.id === session.id ? updated : item))
+        );
+        
         alert('학습 세트에 추가되었습니다.');
         handleCloseModal();
       } catch (err: any) {
-        console.error(err);
-        const message = err?.response?.data?.detail ?? '학습 세트 업데이트에 실패했습니다.';
-        alert(typeof message === 'string' ? message : JSON.stringify(message));
+        console.error('Error updating study session:', err);
+        let errorMessage = '학습 세트 업데이트에 실패했습니다.';
+        
+        if (err?.response?.data?.detail) {
+          errorMessage = typeof err.response.data.detail === 'string' 
+            ? err.response.data.detail 
+            : JSON.stringify(err.response.data.detail);
+        } else if (err.message) {
+          errorMessage = err.message;
+        }
+        
+        alert(errorMessage);
         setSubmitting(false);
       }
       return;

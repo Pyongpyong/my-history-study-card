@@ -33,7 +33,7 @@ export default function ContentDetailPage() {
   const [newSessionTitle, setNewSessionTitle] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showQuizTypeModal, setShowQuizTypeModal] = useState(false);
-  const [selectedQuizType, setSelectedQuizType] = useState<string>('MCQ');
+  const [selectedQuizTypeIndex, setSelectedQuizTypeIndex] = useState<number>(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -146,19 +146,22 @@ export default function ContentDetailPage() {
     setSelectedSessionId(null);
   };
 
-  const quizTypeOptions = [
-    { type: 'MCQ', label: '객관식' },
-    { type: 'SHORT', label: '주관식' },
-    { type: 'OX', label: 'OX' },
-    { type: 'CLOZE', label: '빈칸채우기' },
-    { type: 'ORDER', label: '순서맞추기' },
-    { type: 'MATCH', label: '짝맞추기' },
+  const quizTypeLabels = [
+    '객관식',
+    '주관식', 
+    'OX',
+    '빈칸채우기',
+    '순서맞추기',
+    '짝맞추기'
   ];
+
+  const quizTypeMapping = ['MCQ', 'SHORT', 'OX', 'CLOZE', 'ORDER', 'MATCH'];
 
   const handleQuizTypeConfirm = () => {
     if (!content?.id) return;
     setShowQuizTypeModal(false);
-    navigate(`/contents/${content.id}/quizzes/new?type=${selectedQuizType}`);
+    const selectedType = quizTypeMapping[selectedQuizTypeIndex];
+    navigate(`/contents/${content.id}/quizzes/new?type=${selectedType}`);
   };
 
   const handleSubmitToStudy = async () => {
@@ -302,34 +305,27 @@ export default function ContentDetailPage() {
           </div>
         ) : null}
         {content.keywords?.length ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {content.keywords.map((keyword: string) => (
-              <Badge key={`keyword-${keyword}`} color="default">
-                {keyword}
-              </Badge>
-            ))}
+          <div className="mt-4 space-y-2">
+            <span className="text-sm font-semibold text-primary-600">키워드</span>
+            <div className="flex flex-wrap gap-2">
+              {content.keywords.map((keyword: string) => (
+                <Badge key={`keyword-${keyword}`} color="default">
+                  {keyword}
+                </Badge>
+              ))}
+            </div>
           </div>
         ) : null}
         {content.categories?.length ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {content.categories.map((category: string) => (
-              <Badge key={`category-${category}`} color="default">
-                {category}
-              </Badge>
-            ))}
-          </div>
-        ) : null}
-        {content.eras?.length ? (
-          <div className="mt-6 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <span className="text-sm font-semibold text-primary-600">연대</span>
-            <ul className="space-y-1 text-xs text-slate-600">
-              {content.eras.map((entry, index) => (
-                <li key={`${entry.period}-${index}`} className="flex items-start gap-3">
-                  <span className="font-semibold text-primary-600">{entry.period}</span>
-                  {entry.detail ? <span>{entry.detail}</span> : null}
-                </li>
+          <div className="mt-4 space-y-2">
+            <span className="text-sm font-semibold text-primary-600">분류</span>
+            <div className="flex flex-wrap gap-2">
+              {content.categories.map((category: string) => (
+                <Badge key={`category-${category}`} color="success">
+                  {category}
+                </Badge>
               ))}
-            </ul>
+            </div>
           </div>
         ) : null}
         {timelineEntries.length ? (
@@ -560,18 +556,18 @@ export default function ContentDetailPage() {
               </button>
             </header>
             <div className="space-y-2">
-              {quizTypeOptions.map((option) => (
+              {quizTypeLabels.map((label, index) => (
                 <label
-                  key={option.type}
+                  key={index}
                   className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
                 >
-                  <span>{option.label}</span>
+                  <span>{label}</span>
                   <input
                     type="radio"
                     name="quiz-type"
-                    value={option.type}
-                    checked={selectedQuizType === option.type}
-                    onChange={() => setSelectedQuizType(option.type)}
+                    value={index}
+                    checked={selectedQuizTypeIndex === index}
+                    onChange={() => setSelectedQuizTypeIndex(index)}
                     className="h-4 w-4 accent-primary-500"
                   />
                 </label>

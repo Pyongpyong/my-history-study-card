@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
@@ -181,35 +181,27 @@ class MatchCard(CardBase):
 CardUnion = Union[MCQCard, ShortCard, OXCard, ClozeCard, OrderCard, MatchCard]
 
 
-class ChronologyEvent(BaseModel):
-    year: int
-    label: str
+class Taxonomy(BaseModel):
+    era: Optional[str] = None
+    sub_era: Optional[str] = None
+    topic: List[str] = Field(default_factory=list)
+    entity: List[str] = Field(default_factory=list)
+    region: List[str] = Field(default_factory=list)
+    keywords: List[str] = Field(default_factory=list)
 
-    @field_validator("label")
+    @field_validator("topic", "entity", "region", "keywords")
     @classmethod
-    def validate_label(cls, value: str) -> str:
-        if not value or not value.strip():
-            raise ValueError("event label must not be empty")
-        return value.strip()
+    def _normalize_taxonomy(cls, value: List[str]) -> List[str]:
+        normalized: List[str] = []
+        for item in value:
+            if not item or not item.strip():
+                raise ValueError("taxonomy entries must be non-empty strings")
+            candidate = item.strip()
+            if candidate not in normalized:
+                normalized.append(candidate)
+        return normalized
 
 
-class Chronology(BaseModel):
-    start_year: Optional[int] = None
-    end_year: Optional[int] = None
-    events: List[ChronologyEvent] = Field(default_factory=list)
-
-    @field_validator("events")
-    @classmethod
-    def validate_events(cls, value: List[ChronologyEvent]) -> List[ChronologyEvent]:
-        return value
-
-    @field_validator("end_year")
-    @classmethod
-    def validate_year_range(cls, value: Optional[int], info: Field) -> Optional[int]:
-        start_year = info.data.get("start_year")
-        if value is not None and start_year is not None and value < start_year:
-            raise ValueError("end_year must be greater than or equal to start_year")
-        return value
 
 
 class TimelineEntry(BaseModel):
@@ -230,13 +222,30 @@ class TimelineEntry(BaseModel):
         return value.strip()
 
 
+class EraEntry(BaseModel):
+    period: str
+    detail: str = ""
+
+    @field_validator("period")
+    @classmethod
+    def validate_period(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("period must not be empty")
+        return cleaned
+
+    @field_validator("detail")
+    @classmethod
+    def validate_detail(cls, value: str) -> str:
+        return value.strip()
+
+
 class ImportPayload(BaseModel):
     title: str
     content: str
     highlights: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
-    chronology: Optional[Chronology] = None
     timeline: List[TimelineEntry] = Field(default_factory=list)
     categories: List[str] = Field(default_factory=list)
     eras: List[EraEntry] = Field(default_factory=list)
@@ -383,7 +392,6 @@ class ContentOut(BaseModel):
     content: str
     highlights: List[str]
     keywords: List[str]
-    chronology: Optional[Chronology]
     timeline: List[TimelineEntry]
     categories: List[str]
     eras: List[EraEntry]
@@ -397,7 +405,6 @@ class ContentUpdate(BaseModel):
     content: Optional[str] = None
     highlights: Optional[List[str]] = None
     keywords: Optional[List[str]] = None
-    chronology: Optional[Chronology] = None
     timeline: Optional[List[TimelineEntry]] = None
     category: Optional[str] = None
     categories: Optional[List[str]] = None
@@ -551,6 +558,7 @@ class StudySessionOut(BaseModel):
     score: Optional[int]
     total: Optional[int]
     completed_at: Optional[datetime]
+    answers: Dict[str, bool] = Field(default_factory=dict)
     tags: List[str]
     rewards: List[RewardOut]
     owner_id: int
@@ -568,6 +576,7 @@ class StudySessionUpdate(BaseModel):
     score: Optional[int] = None
     total: Optional[int] = None
     completed_at: Optional[datetime] = None
+    answers: Optional[Dict[str, bool]] = None
 
 
 class UserCreate(BaseModel):
@@ -592,6 +601,10 @@ class UserProfile(BaseModel):
     email: EmailStr
     created_at: datetime
     is_admin: bool
+    points: int = 0
+    level: int = 1
+    points_to_next_level: int = 100
+    is_max_level: bool = False
 
 
 class UserAuthResponse(BaseModel):
@@ -615,6 +628,12 @@ class UserDeleteRequest(BaseModel):
     password: str
 
 
+class QuizSubmit(BaseModel):
+    """퀴즈 제출 요청 스키마"""
+    quiz_id: int
+    is_correct: bool
+
+
 class AdminUserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -626,19 +645,3 @@ class AdminUserCreate(BaseModel):
         if len(value.strip()) < 6:
             raise ValueError("password must be at least 6 characters")
         return value
-class EraEntry(BaseModel):
-    period: str
-    detail: str = ""
-
-    @field_validator("period")
-    @classmethod
-    def validate_period(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("period must not be empty")
-        return cleaned
-
-    @field_validator("detail")
-    @classmethod
-    def validate_detail(cls, value: str) -> str:
-        return value.strip()

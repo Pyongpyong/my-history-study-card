@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, ForeignKey, Integer, String, Text, func, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -23,6 +23,8 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     api_key: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    points: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
@@ -32,6 +34,11 @@ class User(Base):
     quizzes: Mapped[list["Quiz"]] = relationship("Quiz", back_populates="owner")
     study_sessions: Mapped[list["StudySession"]] = relationship("StudySession", back_populates="owner")
     rewards: Mapped[list["Reward"]] = relationship("Reward", back_populates="owner")
+    quiz_attempts: Mapped[list["QuizAttempt"]] = relationship(
+        "QuizAttempt", 
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
 
 
 class Content(Base):
@@ -42,7 +49,6 @@ class Content(Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     keywords: Mapped[str] = mapped_column(Text, nullable=False, default=lambda: "[]")
     timeline: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    chronology: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     category: Mapped[str] = mapped_column(Text, nullable=False, default=lambda: "[]")
     eras: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     visibility: Mapped[VisibilityEnum] = mapped_column(
@@ -94,6 +100,16 @@ class Quiz(Base):
 
     content: Mapped[Content] = relationship("Content", back_populates="quizzes")
     owner: Mapped[Optional[User]] = relationship("User", back_populates="quizzes")
+    tag_links: Mapped[list["QuizTag"]] = relationship(
+        "QuizTag",
+        back_populates="quiz",
+        cascade="all, delete-orphan",
+    )
+    attempts: Mapped[list["QuizAttempt"]] = relationship(
+        "QuizAttempt", 
+        back_populates="quiz",
+        cascade="all, delete-orphan"
+    )
 
 
 class StudySession(Base):
@@ -110,6 +126,7 @@ class StudySession(Base):
     total: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     tags: Mapped[str] = mapped_column(Text, nullable=False, default=lambda: "[]")
+    answers: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
 
     rewards: Mapped[list["Reward"]] = relationship(
         "Reward",
@@ -148,3 +165,36 @@ class StudySessionReward(Base):
         Integer, ForeignKey("rewards.id", ondelete="CASCADE"), primary_key=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class QuizAttempt(Base):
+    __tablename__ = "quiz_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    quiz_id: Mapped[int] = mapped_column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    correct: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    points_awarded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="quiz_attempts")
+    quiz: Mapped["Quiz"] = relationship("Quiz", back_populates="attempts")
+
+
+class QuizTag(Base):
+    __tablename__ = "quiz_tags"
+    __table_args__ = (
+        Index("idx_quiz_tags_tag", "tag"),
+    )
+
+    quiz_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("quizzes.id", ondelete="CASCADE"), primary_key=True
+    )
+    tag: Mapped[str] = mapped_column(String(255), primary_key=True)
+
+    quiz: Mapped[Quiz] = relationship("Quiz", back_populates="tag_links")

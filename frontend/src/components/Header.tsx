@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -14,40 +14,41 @@ export default function Header() {
   return (
     <header className="border-b border-slate-200 bg-slate-100">
       <div className="header-wrapper mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <span className="text-lg font-semibold text-primary-600">HistudyCard</span>
+        <Link 
+          to="/" 
+          className="text-lg font-semibold text-primary-600 hover:text-primary-700 transition-colors"
+        >
+          HiStudyCard
+        </Link>
         <nav className="nav-links flex items-center gap-2">
           <NavLink to="/contents" className={navClass} end>
-            콘텐츠 리스트
+            콘텐츠
           </NavLink>
           <NavLink to="/quizzes" className={navClass}>
-            퀴즈 리스트
+            퀴즈
           </NavLink>
           {user ? (
             <>
               <NavLink to="/studies" className={navClass}>
-                학습 리스트
+                학습
               </NavLink>
               <NavLink to="/rewards" className={navClass}>
-                보상 리스트
+                보상
               </NavLink>
-              <NavLink to="/upload" className={navClass}>
-                JSON 가져오기
-              </NavLink>
-              <NavLink to="/settings" className={navClass}>
-                사용자 설정
-              </NavLink>
-              {user.is_admin ? (
-                <NavLink to="/admin" className={navClass}>
-                  관리자 페이지
-                </NavLink>
-              ) : null}
             </>
           ) : null}
         </nav>
         <div className="header-actions flex items-center gap-3">
           {user ? (
             <>
-              <span className="text-sm text-slate-700">{user.email}</span>
+              <div className="flex items-center gap-4">
+                <NavLink 
+                  to="/profile" 
+                  className="text-sm font-medium text-slate-700 hover:text-primary-600 transition-colors"
+                >
+                  {user.email}
+                </NavLink>
+              </div>
               <button
                 type="button"
                 onClick={logout}

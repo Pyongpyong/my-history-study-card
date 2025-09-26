@@ -1,4 +1,4 @@
-# HistudyCard
+# HiStudyCard
 
 한국사를 주제로 학습 콘텐츠를 수집하고, 퀴즈와 학습 세트를 만들어 복습할 수 있는 풀스택 애플리케이션입니다. 콘텐츠와 퀴즈를 직접 작성하거나 불러와 저장하고, 학습 결과에 따라 보상을 관리할 수 있습니다.
 
@@ -82,8 +82,23 @@ docker compose up --build
 | `MYSQL_DB` | 사용할 데이터베이스 이름 (존재하지 않으면 자동 생성) | _(빈 문자열)_ |
 | `ADMIN_EMAIL` | 기본 관리자 계정 이메일 (선택) | _(빈 문자열)_ |
 | `ADMIN_PASSWORD` | 기본 관리자 계정 비밀번호 (선택) | _(빈 문자열)_ |
+| `OPENAI_API_KEY` | AI 카드 생성을 위한 OpenAI API 키 | _(빈 문자열)_ |
+| `EXTRACT_MODEL` | 사실 추출 단계에 사용할 모델 | `gpt-5-nano` |
+| `GENERATE_MODEL` | 카드 생성 단계에 사용할 모델 | `gpt-4o-mini` |
+| `FIX_MODEL` | 보정 단계에 사용할 모델 | `gpt-4o-mini` |
+| `MAX_OUT_EXTRACT` | 추출 단계 출력 토큰 상한 | `400` |
+| `MAX_OUT_GENERATE` | 생성 단계 출력 토큰 상한 | `900` |
+| `MAX_OUT_FIX` | 보정 단계 출력 토큰 상한 | `400` |
+| `TEMP_EXTRACT` | 추출 단계 temperature | `0.2` |
+| `TEMP_GENERATE` | 생성 단계 temperature | `0.4` |
+| `TEMP_FIX` | 보정 단계 temperature | `0.2` |
+| `GEN_BATCH_SIZE` | 카드 유형 병렬 생성 배치 크기 | `3` |
+| `CACHE_TTL` | AI 캐시 TTL(초) | `86400` |
+| `REQUEST_TIMEOUT_SEC` | OpenAI 요청 타임아웃(초) | `60` |
 
 `ADMIN_EMAIL`과 `ADMIN_PASSWORD`를 함께 지정하면 서버 기동 시 해당 이메일로 관리자 계정이 존재하는지 확인하고, 없으면 새로 생성합니다. 이미 존재하는 경우에는 관리자 권한을 유지하며 비밀번호를 재설정합니다.
+
+AI 카드 생성을 사용하려면 최소한 `OPENAI_API_KEY`와 단계별 모델(미지정 시 기본값 사용)을 설정하세요. 필요에 따라 출력 토큰 상한, temperature, 병렬 배치 크기를 조절해 비용과 응답 시간을 조정할 수 있습니다.
 
 `PORT` 값을 바꾸면 `docker compose`에서 호스트 포트 매핑도 자동으로 반영됩니다.
 

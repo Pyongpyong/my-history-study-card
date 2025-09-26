@@ -88,6 +88,16 @@ if is_sqlite:
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 
+def get_db():
+    """Dependency for getting database session"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -166,7 +176,6 @@ def _rebuild_sqlite_contents_without_tags(connection) -> None:
         "body",
         "keywords",
         "timeline",
-        "chronology",
         "category",
         "eras",
         "visibility",

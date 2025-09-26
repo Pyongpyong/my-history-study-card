@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   fetchCurrentUser,
   changePasswordRequest,
@@ -20,6 +20,7 @@ interface AuthContextValue {
   refresh: () => Promise<UserProfile | null>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<AuthResponse>;
   deleteAccount: (password: string) => Promise<void>;
+  updateUser: (updater: Partial<UserProfile> | ((prev: UserProfile | null) => UserProfile | null)) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -110,9 +111,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout();
   };
 
+  const updateUser = useCallback(
+    (updater: Partial<UserProfile> | ((prev: UserProfile | null) => UserProfile | null)) => {
+      setUser((prev) => {
+        if (typeof updater === 'function') {
+          return updater(prev);
+        }
+        if (!prev) {
+          return prev;
+        }
+        return { ...prev, ...updater };
+      });
+    },
+  []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, apiKey, loading, login, register, logout, refresh, changePassword, deleteAccount }),
-    [user, apiKey, loading, login, register, logout, refresh, changePassword, deleteAccount],
+    () => ({ user, apiKey, loading, login, register, logout, refresh, changePassword, deleteAccount, updateUser }),
+    [user, apiKey, loading, login, register, logout, refresh, changePassword, deleteAccount, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

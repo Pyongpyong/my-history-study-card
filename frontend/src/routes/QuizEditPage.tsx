@@ -214,7 +214,7 @@ export default function QuizEditPage() {
         </button>
         <h1 className="text-2xl font-semibold text-primary-600">퀴즈 수정</h1>
         <p className="text-sm text-slate-500">
-          형식: {getQuizTypeLabel(quiz.type)} ( {quiz.type} )
+          형식: {getQuizTypeLabel(quiz.type)}
         </p>
         {submitting ? (
           <p className="text-xs text-primary-600">저장 중…</p>
