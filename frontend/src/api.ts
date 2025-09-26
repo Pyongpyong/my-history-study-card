@@ -236,16 +236,19 @@ export async function fetchContent(id: number | string): Promise<ContentDetail> 
   return data;
 }
 
+const isQuizListResponse = (data: unknown): data is QuizListResponse =>
+  Boolean(data) && typeof data === 'object' && Array.isArray((data as QuizListResponse).items);
+
 export async function fetchContentCards(id: number | string): Promise<any[]> {
   try {
-    const { data } = await api.get(`/contents/${id}/cards`, {
+    const { data } = await api.get<QuizListResponse | { cards?: any[] }>(`/contents/${id}/cards`, {
       params: { page: 1, size: 100 },
     });
 
-    const rawItems = Array.isArray((data as QuizListResponse | { cards?: any[] })?.items)
-      ? (data as QuizListResponse).items
-      : Array.isArray((data as { cards?: any[] })?.cards)
-        ? (data as { cards: any[] }).cards
+    const rawItems = isQuizListResponse(data)
+      ? data.items
+      : Array.isArray(data?.cards)
+        ? data.cards
         : [];
 
     return rawItems
