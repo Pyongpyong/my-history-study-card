@@ -202,53 +202,6 @@ class Taxonomy(BaseModel):
         return normalized
 
 
-class ChronoPoint(BaseModel):
-    year: int
-    precision: Literal["year", "month", "day"] = "year"
-
-    @field_validator("year")
-    @classmethod
-    def validate_year(cls, value: int) -> int:
-        if value < -10000 or value > 100000:
-            raise ValueError("year out of supported bounds")
-        return value
-
-
-class Chronology(BaseModel):
-    start: Optional[ChronoPoint] = None
-    end: Optional[ChronoPoint] = None
-    events: List[Dict[str, Union[int, str]]] = Field(default_factory=list)
-
-    @model_validator(mode="before")
-    @classmethod
-    def _legacy_adapter(cls, data):
-        if not isinstance(data, dict):
-            return data
-        if "start" in data or "end" in data:
-            return data
-        transformed: Dict[str, object] = {}
-        if (start_year := data.get("start_year")) is not None:
-            transformed["start"] = {"year": start_year, "precision": "year"}
-        if (end_year := data.get("end_year")) is not None:
-            transformed["end"] = {"year": end_year, "precision": "year"}
-        if "events" in data:
-            transformed["events"] = data.get("events")
-        return transformed
-
-    @field_validator("events")
-    @classmethod
-    def validate_events(cls, value: List[Dict[str, Union[int, str]]]) -> List[Dict[str, Union[int, str]]]:
-        normalized: List[Dict[str, Union[int, str]]] = []
-        for event in value:
-            if not isinstance(event, dict):
-                raise ValueError("events must be dictionaries")
-            if "year" not in event or not isinstance(event["year"], int):
-                raise ValueError("event year must be an integer")
-            label = str(event.get("label", "")).strip()
-            if not label:
-                raise ValueError("event label must be a non-empty string")
-            normalized.append({"year": event["year"], "label": label})
-        return normalized
 
 
 class TimelineEntry(BaseModel):
@@ -269,13 +222,30 @@ class TimelineEntry(BaseModel):
         return value.strip()
 
 
+class EraEntry(BaseModel):
+    period: str
+    detail: str = ""
+
+    @field_validator("period")
+    @classmethod
+    def validate_period(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("period must not be empty")
+        return cleaned
+
+    @field_validator("detail")
+    @classmethod
+    def validate_detail(cls, value: str) -> str:
+        return value.strip()
+
+
 class ImportPayload(BaseModel):
     title: str
     content: str
     highlights: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
-    chronology: Optional[Chronology] = None
     timeline: List[TimelineEntry] = Field(default_factory=list)
     categories: List[str] = Field(default_factory=list)
     eras: List[EraEntry] = Field(default_factory=list)
@@ -422,7 +392,6 @@ class ContentOut(BaseModel):
     content: str
     highlights: List[str]
     keywords: List[str]
-    chronology: Optional[Chronology]
     timeline: List[TimelineEntry]
     categories: List[str]
     eras: List[EraEntry]
@@ -436,7 +405,6 @@ class ContentUpdate(BaseModel):
     content: Optional[str] = None
     highlights: Optional[List[str]] = None
     keywords: Optional[List[str]] = None
-    chronology: Optional[Chronology] = None
     timeline: Optional[List[TimelineEntry]] = None
     category: Optional[str] = None
     categories: Optional[List[str]] = None
@@ -590,6 +558,7 @@ class StudySessionOut(BaseModel):
     score: Optional[int]
     total: Optional[int]
     completed_at: Optional[datetime]
+    answers: Dict[str, bool] = Field(default_factory=dict)
     tags: List[str]
     rewards: List[RewardOut]
     owner_id: int
@@ -607,6 +576,7 @@ class StudySessionUpdate(BaseModel):
     score: Optional[int] = None
     total: Optional[int] = None
     completed_at: Optional[datetime] = None
+    answers: Optional[Dict[str, bool]] = None
 
 
 class UserCreate(BaseModel):
@@ -631,6 +601,10 @@ class UserProfile(BaseModel):
     email: EmailStr
     created_at: datetime
     is_admin: bool
+    points: int = 0
+    level: int = 1
+    points_to_next_level: int = 100
+    is_max_level: bool = False
 
 
 class UserAuthResponse(BaseModel):
@@ -654,6 +628,12 @@ class UserDeleteRequest(BaseModel):
     password: str
 
 
+class QuizSubmit(BaseModel):
+    """퀴즈 제출 요청 스키마"""
+    quiz_id: int
+    is_correct: bool
+
+
 class AdminUserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -665,19 +645,3 @@ class AdminUserCreate(BaseModel):
         if len(value.strip()) < 6:
             raise ValueError("password must be at least 6 characters")
         return value
-class EraEntry(BaseModel):
-    period: str
-    detail: str = ""
-
-    @field_validator("period")
-    @classmethod
-    def validate_period(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("period must not be empty")
-        return cleaned
-
-    @field_validator("detail")
-    @classmethod
-    def validate_detail(cls, value: str) -> str:
-        return value.strip()

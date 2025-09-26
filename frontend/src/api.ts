@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-function resolveApiBaseUrl(): string {
+export function resolveApiBaseUrl(): string {
   const override = import.meta.env.VITE_API_BASE_URL;
   if (override && typeof override === 'string' && override.trim().length) {
     return override.trim();
@@ -155,6 +155,14 @@ export interface AiGenerateAndImportResponse extends AiGenerateResponse {
   generated_count: number;
 }
 
+export interface QuizSubmitResponse {
+  success: boolean;
+  is_correct: boolean;
+  points_earned: number;
+  total_points: number;
+  message: string;
+}
+
 export interface QuizItem {
   id: number;
   content_id: number;
@@ -189,6 +197,7 @@ export interface StudySession {
   score?: number | null;
   total?: number | null;
   completed_at?: string | null;
+  answers?: Record<number | string, boolean>;
   tags: string[];
   rewards: Reward[];
   owner_id: number;
@@ -228,18 +237,38 @@ export async function fetchContent(id: number | string): Promise<ContentDetail> 
 }
 
 export async function fetchContentCards(id: number | string): Promise<any[]> {
-  const { data } = await api.get<QuizListResponse>(`/contents/${id}/quizzes`, {
-    params: { page: 1, size: 100 },
-  });
-  return data.items.map((item) => ({
-    ...item.payload,
-    id: item.id,
-    type: item.type,
-    content_id: item.content_id,
-    created_at: item.created_at,
-    visibility: item.visibility,
-    owner_id: item.owner_id,
-  }));
+  try {
+    const { data } = await api.get(`/contents/${id}/cards`, {
+      params: { page: 1, size: 100 },
+    });
+
+    const rawItems = Array.isArray((data as QuizListResponse | { cards?: any[] })?.items)
+      ? (data as QuizListResponse).items
+      : Array.isArray((data as { cards?: any[] })?.cards)
+        ? (data as { cards: any[] }).cards
+        : [];
+
+    return rawItems
+      .filter((item): item is Record<string, any> => Boolean(item) && typeof item === 'object')
+      .map((item) => {
+        const { payload, ...rest } = item;
+        const payloadData = typeof payload === 'object' && payload !== null ? payload : {};
+
+        return {
+          ...payloadData,
+          ...rest,
+          id: rest.id ?? payloadData.id,
+          type: rest.type ?? payloadData.type,
+          content_id: rest.content_id ?? payloadData.content_id,
+          created_at: rest.created_at ?? payloadData.created_at,
+          visibility: rest.visibility ?? payloadData.visibility,
+          owner_id: rest.owner_id ?? payloadData.owner_id,
+        };
+      });
+  } catch (error) {
+    console.error('Error fetching content cards:', error);
+    return [];
+  }
 }
 
 export async function fetchQuizzes(page = 1, size = 20): Promise<QuizListResponse> {
@@ -362,6 +391,14 @@ export async function fetchQuiz(id: number | string): Promise<QuizItem> {
   return data;
 }
 
+export async function submitQuizAnswer(quizId: number, isCorrect: boolean): Promise<QuizSubmitResponse> {
+  const { data } = await api.post<QuizSubmitResponse>('/quizzes/submit', {
+    quiz_id: quizId,
+    is_correct: isCorrect
+  });
+  return data;
+}
+
 export async function updateQuizRequest<T extends Record<string, any>>(
   id: number | string,
   payload: T,
@@ -375,6 +412,10 @@ export interface UserProfile {
   email: string;
   created_at: string;
   is_admin: boolean;
+  points: number;
+  level: number;
+  points_to_next_level: number;
+  is_max_level: boolean;
 }
 
 export interface AuthResponse {

@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple
+import json
+from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from .models import Content, Highlight, Quiz, QuizTag, Reward, StudySession, User, VisibilityEnum
+# JSON utilities
+json_loads = json.loads
+
+from .models import Content, Highlight, Quiz, QuizAttempt, QuizTag, Reward, StudySession, User, VisibilityEnum
 from .schemas import (
     CardUnion,
     ContentOut,
     ContentUpdate,
-    Chronology,
-    Taxonomy,
     ImportPayload,
     EraEntry,
     TimelineEntry,
@@ -136,35 +138,8 @@ def _extract_tags_from_cards(cards: list[dict]) -> list[str]:
     return tags
 
 
-def _taxonomy_to_json(taxonomy: Optional[Taxonomy]) -> Optional[str]:
-    if taxonomy is None:
-        return None
-    return json_dumps(taxonomy.model_dump(exclude_none=True))
 
-
-def _chronology_to_json(chronology: Optional[Chronology]) -> Optional[str]:
-    if chronology is None:
-        return None
-    return json_dumps(chronology.model_dump(exclude_none=True))
-
-
-def _extract_taxonomy_fields(taxonomy: Optional[Taxonomy]) -> tuple[Optional[str], Optional[str]]:
-    if taxonomy is None:
-        return None, None
-    era = taxonomy.era.strip() if taxonomy.era else None
-    sub_era = taxonomy.sub_era.strip() if taxonomy.sub_era else None
-    return era, sub_era
-
-
-def _extract_chronology_years(chronology: Optional[Chronology]) -> tuple[Optional[int], Optional[int]]:
-    if chronology is None:
-        return None, None
-    start_year = chronology.start.year if chronology.start is not None else None
-    end_year = chronology.end.year if chronology.end is not None else None
-    return start_year, end_year
-
-
-def _quiz_tags_for_card(card_dict: dict, taxonomy: Optional[Taxonomy]) -> list[str]:
+def _quiz_tags_for_card(card_dict: dict, taxonomy=None) -> list[str]:
     raw_tags = card_dict.get("tags") if isinstance(card_dict.get("tags"), list) else []
     normalized_tags: list[str] = []
     for tag in raw_tags:
@@ -173,17 +148,7 @@ def _quiz_tags_for_card(card_dict: dict, taxonomy: Optional[Taxonomy]) -> list[s
         label = tag.strip()
         if label and label not in normalized_tags:
             normalized_tags.append(label)
-    if normalized_tags:
-        return normalized_tags
-    if taxonomy is None:
-        return []
-    fallback = []
-    for pool in (taxonomy.topic, taxonomy.entity):
-        for item in pool:
-            label = item.strip()
-            if label and label not in fallback:
-                fallback.append(label)
-    return fallback
+    return normalized_tags
 
 
 def _reward_to_out(reward: Reward) -> RewardOut:
@@ -206,6 +171,10 @@ def _study_session_to_out(study: StudySession) -> StudySessionOut:
         tags = []
     if not tags:
         tags = _extract_tags_from_cards(cards)
+    try:
+        answers = json_loads(study.answers) if getattr(study, "answers", None) else {}
+    except Exception:
+        answers = {}
     return StudySessionOut(
         id=study.id,
         title=study.title,
@@ -216,10 +185,58 @@ def _study_session_to_out(study: StudySession) -> StudySessionOut:
         score=study.score,
         total=study.total,
         completed_at=study.completed_at,
+        answers={str(key): bool(value) for key, value in answers.items() if isinstance(value, bool)},
         tags=tags,
         rewards=[_reward_to_out(reward) for reward in getattr(study, "rewards", [])],
         owner_id=study.owner_id,
     )
+
+
+def _upsert_quiz_attempt(session: Session, user: User, quiz_id: int, is_correct: bool) -> tuple[int, QuizAttempt]:
+    """Create or update a quiz attempt in place and return awarded points along with the attempt."""
+    attempt = (
+        session.execute(
+            select(QuizAttempt).where(
+                QuizAttempt.user_id == user.id,
+                QuizAttempt.quiz_id == quiz_id,
+            )
+        ).scalar_one_or_none()
+    )
+
+    previous_awarded = attempt.points_awarded if attempt else False
+
+    if attempt is None:
+        attempt = QuizAttempt(
+            user_id=user.id,
+            quiz_id=quiz_id,
+            attempts=1,
+            correct=1 if is_correct else 0,
+            points_awarded=is_correct,
+        )
+        session.add(attempt)
+    else:
+        attempt.attempts = (attempt.attempts or 0) + 1
+        if is_correct:
+            attempt.correct = (attempt.correct or 0) + 1
+        attempt.points_awarded = (attempt.correct or 0) > 0
+
+    session.flush()
+
+    total_awarded = (
+        session.execute(
+            select(func.count())
+            .select_from(QuizAttempt)
+            .where(
+                QuizAttempt.user_id == user.id,
+                QuizAttempt.points_awarded.is_(True),
+            )
+        ).scalar()
+        or 0
+    )
+    user.points = total_awarded
+
+    points_earned = 1 if attempt.points_awarded and not previous_awarded else 0
+    return points_earned, attempt
 
 
 def _prune_quizzes_from_sessions(session: Session, quiz_ids_to_remove: set[int], owner_id: int) -> None:
@@ -287,9 +304,6 @@ def create_content_with_related(
         title=payload.title.strip(),
         body=payload.content.strip(),
         keywords=json_dumps(keywords),
-        chronology=json_dumps(payload.chronology.model_dump(exclude_none=True))
-        if payload.chronology is not None
-        else None,
         timeline=_serialize_timeline(payload.timeline),
         category=_serialize_categories(payload.categories),
         eras=_serialize_eras(payload.eras),
@@ -306,7 +320,7 @@ def create_content_with_related(
     quiz_models: list[tuple[Quiz, list[str]]] = []
     for card in payload.cards:
         card_dict = card.model_dump(mode="json", exclude_none=True)
-        card_tags = _quiz_tags_for_card(card_dict, taxonomy_obj)
+        card_tags = _quiz_tags_for_card(card_dict, None)
         card_dict["tags"] = card_tags
         quiz_visibility = _normalize_visibility(card_dict.pop("visibility", None), content_visibility)
         quiz_model = Quiz(
@@ -352,21 +366,12 @@ def get_content(
     is_admin = bool(requester and requester.is_admin)
     if content.visibility == VisibilityEnum.PRIVATE and not is_admin and (requester is None or content.owner_id != requester.id):
         return None
-    chronology = json_loads(content.chronology) if content.chronology else None
-    chronology_obj: Optional[Chronology] = None
-    if chronology is not None:
-        chronology_obj = Chronology.model_validate(chronology)
-    taxonomy_data = json_loads(content.taxonomy) if content.taxonomy else None
-    taxonomy_obj: Optional[Taxonomy] = None
-    if taxonomy_data is not None:
-        taxonomy_obj = Taxonomy.model_validate(taxonomy_data)
     return ContentOut(
         id=content.id,
         title=content.title,
         content=content.body,
         highlights=[highlight.text for highlight in content.highlights],
         keywords=json_loads(content.keywords) if content.keywords else [],
-        chronology=chronology_obj,
         timeline=_deserialize_timeline(content.timeline),
         categories=_deserialize_categories(content.category),
         eras=_deserialize_eras(content.eras),
@@ -500,10 +505,6 @@ def list_contents(
     items = session.execute(stmt).scalars().all()
     results = []
     for item in items:
-        chronology_data = json_loads(item.chronology) if item.chronology else None
-        chronology_obj = Chronology.model_validate(chronology_data) if chronology_data is not None else None
-        taxonomy_data = json_loads(item.taxonomy) if item.taxonomy else None
-        taxonomy_obj = Taxonomy.model_validate(taxonomy_data) if taxonomy_data is not None else None
         results.append(
             ContentOut(
                 id=item.id,
@@ -511,7 +512,6 @@ def list_contents(
                 content=item.body,
                 highlights=[highlight.text for highlight in item.highlights],
                 keywords=json_loads(item.keywords) if item.keywords else [],
-                chronology=chronology_obj,
                 timeline=_deserialize_timeline(item.timeline),
                 categories=_deserialize_categories(item.category),
                 eras=_deserialize_eras(item.eras),
@@ -532,20 +532,35 @@ def export_contents(session: Session, requester: Optional[User]) -> list[dict]:
     contents = session.execute(stmt).scalars().all()
     exported = []
     for item in contents:
-        chronology = json_loads(item.chronology) if item.chronology else None
-        taxonomy = json_loads(item.taxonomy) if item.taxonomy else None
+        card_payloads: list[dict] = []
+        tag_set: set[str] = set()
+        for quiz in item.quizzes:
+            payload = json_loads(quiz.payload)
+            if isinstance(payload, dict):
+                tags = payload.get("tags") or []
+                if isinstance(tags, list):
+                    for tag in tags:
+                        if isinstance(tag, str) and tag.strip():
+                            tag_set.add(tag.strip())
+                payload.setdefault("type", quiz.type)
+                payload["visibility"] = quiz.visibility.value
+                payload.pop("id", None)
+                payload.pop("content_id", None)
+                payload.pop("owner_id", None)
+                payload.pop("created_at", None)
+                card_payloads.append(payload)
         exported.append(
             {
                 "title": item.title,
                 "content": item.body,
                 "highlights": [highlight.text for highlight in item.highlights],
+                "tags": sorted(tag_set),
                 "keywords": json_loads(item.keywords) if item.keywords else [],
-                "chronology": chronology,
                 "timeline": [entry.model_dump(exclude_none=True) for entry in _deserialize_timeline(item.timeline)],
                 "categories": _deserialize_categories(item.category),
                 "eras": [entry.model_dump(exclude_none=True) for entry in _deserialize_eras(item.eras)],
                 "visibility": item.visibility.value,
-                "cards": [json_loads(quiz.payload) | {"visibility": quiz.visibility.value} for quiz in item.quizzes],
+                "cards": card_payloads,
             }
         )
     return exported
@@ -822,46 +837,197 @@ def update_study_session(
     updates: dict,
     owner: User,
 ) -> Optional[StudySessionOut]:
+    print(f"[DEBUG] Updating study session {session_id} with updates: {updates}")
     study = session.get(StudySession, session_id)
-    if study is None or study.owner_id != owner.id:
+    if study is None:
+        print(f"[ERROR] Study session {session_id} not found")
         return None
+    if study.owner_id != owner.id:
+        print(f"[ERROR] User {owner.id} is not the owner of study session {session_id}")
+        return None
+    print(f"[DEBUG] Found study session: {study.id}, owner: {study.owner_id}")
+        
+    # Track previous completion state for future use if needed
+    
     if "title" in updates and updates["title"] is not None:
         study.title = updates["title"].strip()
+        
     if "quiz_ids" in updates and updates["quiz_ids"] is not None:
-        new_quiz_ids = updates["quiz_ids"]
-        quizzes = (
-            session.execute(
-                select(Quiz)
-                .options(selectinload(Quiz.content))
-                .where(Quiz.id.in_(new_quiz_ids))
-            )
-            .scalars()
-            .all()
-        )
-        if len(quizzes) != len(set(new_quiz_ids)):
-            return None
-        for quiz in quizzes:
-            if not _user_can_access_quiz(quiz, owner):
+        try:
+            new_quiz_ids = updates["quiz_ids"]
+            print(f"[DEBUG] Processing quiz_ids update: {new_quiz_ids}")
+            if not isinstance(new_quiz_ids, (list, tuple)):
+                print(f"[ERROR] quiz_ids must be a list, got {type(new_quiz_ids)}")
                 return None
-        study.quiz_ids = json_dumps(new_quiz_ids)
-        if "cards" not in updates or updates["cards"] is None:
-            existing_cards = _normalize_cards(json_loads(study.card_payloads))
-            filtered_cards = [card for card in existing_cards if card.get("id") in new_quiz_ids]
-            study.card_payloads = json_dumps(filtered_cards)
-            study.tags = json_dumps(_extract_tags_from_cards(filtered_cards))
+            
+            # Convert to set to remove duplicates
+            new_quiz_ids = list(dict.fromkeys(new_quiz_ids))  # Preserve order while removing duplicates
+            
+            # Fetch the quizzes to verify they exist and the user has access
+            print(f"[DEBUG] Fetching quizzes with IDs: {new_quiz_ids}")
+            quizzes = (
+                session.execute(
+                    select(Quiz)
+                    .options(selectinload(Quiz.content))
+                    .where(Quiz.id.in_(new_quiz_ids))
+                )
+                .scalars()
+                .all()
+            )
+            print(f"[DEBUG] Found {len(quizzes)} quizzes")
+            
+            # Check if all quiz IDs exist and user has access
+            if len(quizzes) != len(set(new_quiz_ids)):
+                print(f"[ERROR] Mismatch in quiz count. Expected {len(set(new_quiz_ids))}, found {len(quizzes)}")
+                return None
+                
+            for quiz in quizzes:
+                if not _user_can_access_quiz(quiz, owner):
+                    print(f"[ERROR] User {owner.id} doesn't have access to quiz {quiz.id}")
+                    return None
+                    
+            # Update the quiz_ids in the study session
+            print(f"[DEBUG] Updating study session with new quiz_ids: {new_quiz_ids}")
+            study.quiz_ids = json_dumps(new_quiz_ids)
+            
+            # If cards are not provided, update them based on the new quiz_ids
+            if "cards" not in updates or updates["cards"] is None:
+                print("[DEBUG] Cards not provided in update, generating from quiz_ids")
+                # Get existing cards and filter only those that are in the new quiz_ids
+                existing_cards = _normalize_cards(json_loads(study.card_payloads or '[]'))
+                print(f"[DEBUG] Found {len(existing_cards)} existing cards")
+                
+                existing_card_ids = {str(card.get('id')) for card in existing_cards}
+                
+                # Keep existing cards that are still in the new quiz_ids
+                filtered_cards = [
+                    card for card in existing_cards 
+                    if str(card.get('id')) in map(str, new_quiz_ids)
+                ]
+                print(f"[DEBUG] After filtering, {len(filtered_cards)} cards remain")
+                
+                # Find new quizzes that don't have cards yet
+                new_quiz_ids_set = set(map(str, new_quiz_ids))
+                missing_quiz_ids = new_quiz_ids_set - existing_card_ids
+                print(f"[DEBUG] Need to create cards for quiz IDs: {missing_quiz_ids}")
+                
+                if missing_quiz_ids:
+                    # Fetch the missing quizzes to create card data
+                    missing_quizzes = (
+                        session.execute(
+                            select(Quiz)
+                            .where(Quiz.id.in_(list(map(int, missing_quiz_ids))))
+                        )
+                        .scalars()
+                        .all()
+                    )
+                    print(f"[DEBUG] Fetched {len(missing_quizzes)} missing quizzes")
+                    
+                    # Create card data for the missing quizzes
+                    for quiz in missing_quizzes:
+                        card_data = {
+                            'id': quiz.id,
+                            'type': quiz.type,
+                            'question': quiz.question,
+                            'answer': quiz.answer,
+                            'options': quiz.options,
+                            'explanation': quiz.explanation,
+                            'attempts': 0,
+                            'correct': 0
+                        }
+                        filtered_cards.append(card_data)
+                    
+                    print(f"[DEBUG] Added {len(missing_quizzes)} new cards, total cards now: {len(filtered_cards)}")
+                
+                # Update the study session with the combined cards
+                study.card_payloads = json_dumps(filtered_cards)
+                study.tags = json_dumps(_extract_tags_from_cards(filtered_cards))
+                print("[DEBUG] Updated study session with new cards and tags")
+            
+        except Exception as e:
+            print(f"[ERROR] Error processing quiz_ids update: {str(e)}")
+            return None
+            
     if "cards" in updates and updates["cards"] is not None:
-        normalized = _normalize_cards(updates["cards"])
-        study.card_payloads = json_dumps(normalized)
-        study.tags = json_dumps(_extract_tags_from_cards(normalized))
+        try:
+            print("[DEBUG] Processing cards update")
+            normalized = _normalize_cards(updates["cards"])
+            study.card_payloads = json_dumps(normalized)
+            study.tags = json_dumps(_extract_tags_from_cards(normalized))
+            print("[DEBUG] Updated study session with new cards and tags")
+        except Exception as e:
+            print(f"[ERROR] Error processing cards update: {str(e)}")
+            return None
+            
     if "score" in updates:
         study.score = updates["score"]
+        score_updated = True
     if "total" in updates:
         study.total = updates["total"]
+        score_updated = True
+
+    # Check if we're marking as completed
     if "completed_at" in updates:
         study.completed_at = updates["completed_at"]
-    session.commit()
-    session.refresh(study)
-    return _study_session_to_out(study)
+    
+    # Handle answers update if provided
+    if 'answers' in updates and updates['answers'] is not None:
+        current_answers = updates['answers']
+        if not isinstance(current_answers, dict):
+            print(f"[ERROR] Invalid answers format, expected dict, got {type(current_answers)}")
+            return None
+            
+        # Get previous answers, defaulting to empty dict if None or empty string
+        previous_answers = {}
+        if study.answers and study.answers.strip():
+            try:
+                previous_answers = json_loads(study.answers)
+            except json.JSONDecodeError:
+                print(f"[WARNING] Failed to parse previous answers, using empty dict")
+                previous_answers = {}
+        
+        # Update with new answers (preserving any existing answers not in the update)
+        updated_answers = {**previous_answers, **current_answers}
+        study.answers = json_dumps(updated_answers)
+        
+        # Process each answer to calculate points and save attempts
+        for question_id, is_correct in current_answers.items():
+            # Skip if not a boolean (invalid answer format)
+            if not isinstance(is_correct, bool):
+                print(f"[ERROR] Invalid answer format for question {question_id}, expected boolean")
+                continue
+                
+            # Convert question_id to int if it's a string
+            try:
+                quiz_id = int(question_id)
+            except (ValueError, TypeError):
+                print(f"[ERROR] Invalid question_id: {question_id}")
+                continue
+                
+            try:
+                points_gained, attempt = _upsert_quiz_attempt(session, owner, quiz_id, is_correct)
+                print(
+                    f"[QUIZ_ATTEMPT] User {owner.id} answered quiz {quiz_id} "
+                    f"({'correctly' if is_correct else 'incorrectly'}). "
+                    f"attempts={attempt.attempts}, correct={attempt.correct}, points_awarded={attempt.points_awarded}, "
+                    f"gained={points_gained}"
+                )
+            except Exception as e:
+                print(f"[ERROR] Failed to save quiz attempt: {str(e)}")
+    
+    try:
+        print("[DEBUG] Committing changes to database...")
+        session.commit()
+        print("[DEBUG] Changes committed successfully")
+        session.refresh(study)
+        print(f"[DEBUG] Study session after refresh: id={study.id}, quiz_ids={study.quiz_ids}")
+        result = _study_session_to_out(study)
+        print(f"[DEBUG] Returning updated study session: {result}")
+        return result
+    except Exception as e:
+        print(f"[ERROR] Failed to commit changes: {str(e)}")
+        session.rollback()
+        raise
 
 
 def delete_study_session(session: Session, session_id: int, owner: User) -> bool:
@@ -985,11 +1151,23 @@ def update_quiz(session: Session, quiz_id: int, card: CardUnion, requester: User
 
 def get_user_by_email(session: Session, email: str) -> Optional[User]:
     normalized = email.strip().lower()
-    return session.execute(select(User).where(func.lower(User.email) == normalized)).scalar_one_or_none()
+    user = session.execute(select(User).where(func.lower(User.email) == normalized)).scalar_one_or_none()
+    if user:
+        from .user_levels import get_user_stats
+        user_stats = get_user_stats(user)
+        user.points = user_stats["points"]
+        user.level = user_stats["level"]
+    return user
 
 
 def get_user_by_api_key(session: Session, api_key: str) -> Optional[User]:
-    return session.execute(select(User).where(User.api_key == api_key)).scalar_one_or_none()
+    user = session.execute(select(User).where(User.api_key == api_key)).scalar_one_or_none()
+    if user:
+        from .user_levels import get_user_stats
+        user_stats = get_user_stats(user)
+        user.points = user_stats["points"]
+        user.level = user_stats["level"]
+    return user
 
 
 def create_user(session: Session, email: str, password_hash: str, api_key: str, *, is_admin: bool = False) -> User:
@@ -1016,3 +1194,76 @@ def update_user_credentials(session: Session, user: User, password_hash: str, ap
 def delete_user(session: Session, user: User) -> None:
     session.delete(user)
     session.commit()
+
+
+def submit_quiz_answer(
+    session: Session,
+    user_id: int,
+    quiz_id: int,
+    is_correct: bool,
+) -> Dict[str, Any]:
+    """
+    퀴즈 답변을 제출하고, 정답인 경우 포인트를 지급합니다.
+    이미 포인트를 받은 퀴즈는 중복 지급하지 않습니다.
+    
+    Returns:
+        Dict[str, Any]: {
+            "success": bool,          # 요청 성공 여부
+            "is_correct": bool,       # 정답 여부
+            "points_earned": int,     # 이번에 획득한 포인트
+            "total_points": int,      # 현재 총 포인트
+            "message": str           # 결과 메시지
+        }
+    """
+    user: Optional[User] = None
+    try:
+        user = session.get(User, user_id)
+        if not user:
+            return {
+                "success": False,
+                "is_correct": False,
+                "points_earned": 0,
+                "total_points": 0,
+                "message": "사용자 정보를 찾을 수 없습니다.",
+            }
+
+        quiz = session.get(Quiz, quiz_id)
+        if not quiz:
+            return {
+                "success": False,
+                "is_correct": False,
+                "points_earned": 0,
+                "total_points": user.points or 0,
+                "message": "퀴즈를 찾을 수 없습니다.",
+            }
+
+        points_earned, attempt = _upsert_quiz_attempt(session, user, quiz_id, is_correct)
+
+        if is_correct:
+            if points_earned:
+                message = "정답입니다! 1점을 획득하셨습니다."
+            else:
+                message = "정답이지만 이미 포인트를 획득한 퀴즈입니다."
+        else:
+            message = "오답입니다. 다음 기회에 다시 도전해보세요!"
+
+        session.commit()
+
+        return {
+            "success": True,
+            "is_correct": is_correct,
+            "points_earned": points_earned,
+            "total_points": user.points or 0,
+            "message": message,
+        }
+
+    except Exception as exc:  # pragma: no cover - defensive
+        session.rollback()
+        print(f"Error in submit_quiz_answer: {exc}")
+        return {
+            "success": False,
+            "is_correct": False,
+            "points_earned": 0,
+            "total_points": user.points or 0 if user else 0,
+            "message": f"퀴즈 제출 중 오류가 발생했습니다: {exc}",
+        }

@@ -13,6 +13,8 @@ from fastapi.security import APIKeyHeader
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .routers import quiz as quiz_router
+
 from .crud import (
     add_reward_to_session,
     create_content_with_related,
@@ -73,11 +75,13 @@ from .schemas import (
 )
 from .security import generate_api_key, generate_password_hash, verify_password
 from .routers.ai import router as ai_router
+from .routers.assets import router as assets_router
 from .validators import validate_payload
 
 app = FastAPI(title="Flashcard Storage Service", version="0.1.0")
 
 app.include_router(ai_router)
+app.include_router(assets_router)
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -115,7 +119,19 @@ def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
 
 
 def _user_to_profile(user: User) -> UserProfile:
-    return UserProfile(id=user.id, email=user.email, created_at=user.created_at, is_admin=bool(user.is_admin))
+    from .user_levels import get_user_stats
+    
+    user_stats = get_user_stats(user)
+    return UserProfile(
+        id=user.id,
+        email=user.email,
+        created_at=user.created_at,
+        is_admin=bool(user.is_admin),
+        points=user.points,
+        level=user.level,
+        points_to_next_level=user_stats.get('points_to_next_level', 0),
+        is_max_level=user.level >= 10  # Assuming level 10 is max
+    )
 
 def _cors_config() -> Tuple[List[str], Optional[str]]:
     raw_origins = os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:5173")
@@ -637,5 +653,8 @@ def delete_current_user(
     delete_user(db, current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+
+# Include routers
+app.include_router(quiz_router.router)
 
 _mount_frontend()

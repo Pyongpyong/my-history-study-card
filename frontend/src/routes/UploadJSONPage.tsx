@@ -42,7 +42,7 @@ export default function UploadJSONPage() {
       <div className="rounded-lg border border-slate-200 bg-white p-6">
         <h2 className="text-xl font-semibold text-primary-600">콘텐츠/퀴즈 JSON 가져오기</h2>
         <p className="mt-2 text-sm text-slate-600">
-          콘텐츠 본문, 키워드·분류, 연대/타임라인, 연표 그리고 연결된 퀴즈 정보까지 포함된 HistudyCard JSON을 불러옵니다.
+          콘텐츠 본문, 키워드·분류, 연대/타임라인, 연표 그리고 연결된 퀴즈 정보까지 포함된 HiStudyCard JSON을 불러옵니다.
         </p>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-500">
           <li>콘텐츠 리스트 화면에서 내보낸 JSON 파일을 그대로 가져올 수 있습니다.</li>

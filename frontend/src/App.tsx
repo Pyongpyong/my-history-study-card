@@ -1,7 +1,8 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import Header from './components/Header';
 import RequireAuth from './components/RequireAuth';
 import RequireAdmin from './components/RequireAdmin';
+import HomePage from './routes/HomePage';
 import ContentListPage from './routes/ContentListPage';
 import ContentDetailPage from './routes/ContentDetailPage';
 import ContentEditPage from './routes/ContentEditPage';
@@ -15,6 +16,7 @@ import QuizEditPage from './routes/QuizEditPage';
 import ContentCreatePage from './routes/ContentCreatePage';
 import AuthPage from './routes/AuthPage';
 import UserSettingsPage from './routes/UserSettingsPage';
+import ProfilePage from './routes/ProfilePage';
 import AdminPage from './routes/AdminPage';
 import AiTestPage from './routes/AiTestPage';
 
@@ -22,96 +24,159 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <Header />
-      <main className="app-container mx-auto max-w-6xl px-6 py-8">
-        <Routes>
-          <Route path="/" element={<Navigate to="/contents" replace />} />
-          <Route path="/contents" element={<ContentListPage />} />
-          <Route
-            path="/contents/new"
-            element={(
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route 
+          path="/contents" 
+          element={
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
+              <ContentListPage />
+            </main>
+          } 
+        />
+        <Route
+          path="/contents/new"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
               <RequireAuth>
                 <ContentCreatePage />
               </RequireAuth>
-            )}
-          />
-          <Route path="/contents/:id" element={<ContentDetailPage />} />
-          <Route
-            path="/contents/:id/edit"
-            element={(
+            </main>
+          )}
+        />
+        <Route 
+          path="/contents/:id" 
+          element={
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
+              <ContentDetailPage />
+            </main>
+          } 
+        />
+        <Route
+          path="/contents/:id/edit"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
               <RequireAuth>
                 <ContentEditPage />
               </RequireAuth>
-            )}
-          />
-          <Route
-            path="/contents/:id/quizzes/new"
-            element={(
+            </main>
+          )}
+        />
+        <Route
+          path="/contents/:id/quizzes/new"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
               <RequireAuth>
                 <QuizCreatePage />
               </RequireAuth>
-            )}
-          />
-          <Route path="/quizzes" element={<QuizListPage />} />
-          <Route
-            path="/ai"
-            element={(
+            </main>
+          )}
+        />
+        <Route 
+          path="/quizzes" 
+          element={
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
+              <QuizListPage />
+            </main>
+          } 
+        />
+        <Route
+          path="/ai"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
               <RequireAdmin>
                 <AiTestPage />
               </RequireAdmin>
-            )}
-          />
-          <Route
-            path="/quizzes/:id/edit"
-            element={(
+            </main>
+          )}
+        />
+        <Route
+          path="/quizzes/:id/edit"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
               <RequireAuth>
                 <QuizEditPage />
               </RequireAuth>
-            )}
-          />
-          <Route
-            path="/upload"
-            element={(
+            </main>
+          )}
+        />
+        <Route
+          path="/upload"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
               <RequireAuth>
                 <UploadJSONPage />
               </RequireAuth>
-            )}
-          />
-          <Route
-            path="/rewards"
-            element={(
+            </main>
+          )}
+        />
+        <Route
+          path="/rewards"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
               <RequireAuth>
                 <RewardListPage />
               </RequireAuth>
-            )}
-          />
-          <Route
-            path="/studies"
-            element={(
+            </main>
+          )}
+        />
+        <Route
+          path="/studies"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
               <RequireAuth>
                 <StudyListPage />
               </RequireAuth>
-            )}
-          />
-          <Route path="/study/:id" element={<StudyPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route
-            path="/settings"
-            element={(
+            </main>
+          )}
+        />
+        <Route 
+          path="/study/:id" 
+          element={
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
+              <StudyPage />
+            </main>
+          } 
+        />
+        <Route 
+          path="/auth" 
+          element={
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
+              <AuthPage />
+            </main>
+          } 
+        />
+        <Route
+          path="/settings"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
               <RequireAuth>
                 <UserSettingsPage />
               </RequireAuth>
-            )}
-          />
-          <Route
-            path="/admin"
-            element={(
+            </main>
+          )}
+        />
+        <Route
+          path="/profile"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
+              <RequireAuth>
+                <ProfilePage />
+              </RequireAuth>
+            </main>
+          )}
+        />
+        <Route
+          path="/admin"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
               <RequireAdmin>
                 <AdminPage />
               </RequireAdmin>
-            )}
-          />
-        </Routes>
-      </main>
+            </main>
+          )}
+        />
+      </Routes>
     </div>
   );
 }

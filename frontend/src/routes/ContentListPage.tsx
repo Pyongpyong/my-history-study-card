@@ -148,17 +148,26 @@ export default function ContentListPage() {
           </button>
         ) : null}
       </div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-500">총 {contents.length}개의 콘텐츠</p>
-        <button
-          type="button"
-          onClick={handleExport}
-          disabled={exporting || !contents.length}
-          className="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-          title="콘텐츠 본문, 키워드, 분류, 타임라인과 연결된 퀴즈까지 JSON으로 저장합니다."
-        >
-          {exporting ? '내보내는 중…' : '콘텐츠/퀴즈 JSON 내보내기'}
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <button
+            type="button"
+            onClick={() => navigate('/upload')}
+            className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
+          >
+            JSON 가져오기
+          </button>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exporting || !contents.length}
+            className="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+            title="콘텐츠 본문, 키워드, 분류, 타임라인과 연결된 퀴즈까지 JSON으로 저장합니다."
+          >
+            {exporting ? '내보내는 중…' : '콘텐츠/퀴즈 JSON 내보내기'}
+          </button>
+        </div>
       </div>
 
       {!contents.length ? (
