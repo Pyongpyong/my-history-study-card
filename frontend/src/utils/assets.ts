@@ -9,5 +9,5 @@ export const getTeacherAssetUrl = (filename: string) =>
 
 export const buildTeacherFilename = (index: number, suffix = '') => {
   const id = String(index + 1).padStart(2, '0');
-  return `teacher_${id}${suffix}.png`;
+  return `teacher_${id}${suffix}.avif`;
 };

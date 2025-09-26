@@ -12,7 +12,7 @@ from oci.exceptions import ServiceError
 
 router = APIRouter(prefix="/assets", tags=["assets"])
 
-_TEACHER_FILENAME_PATTERN = re.compile(r"^teacher_\d{2}(?:_(?:o|x))?\.png$")
+_TEACHER_FILENAME_PATTERN = re.compile(r"^teacher_\d{2}(?:_(?:o|x))?\.(?:png|avif)$")
 
 
 def _build_object_name(filename: str) -> str:
@@ -47,7 +47,7 @@ async def get_teacher_image(filename: str):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found") from exc
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to fetch image from OCI") from exc
 
-    content_type = response.headers.get("Content-Type", "image/png")
+    content_type = response.headers.get("Content-Type", "image/avif")
     content_length = response.headers.get("Content-Length")
 
     body: Optional[bytes]
