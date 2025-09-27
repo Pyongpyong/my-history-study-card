@@ -1,83 +1,76 @@
 import { useState, useEffect } from 'react';
-import { QuizItem } from '../api';
 import { buildTeacherFilename, getTeacherAssetUrl } from '../utils/assets';
+import CardRunner from '../components/CardRunner';
 import cardFrameFront from '../assets/card_frame_front.png';
 import cardFrameBack from '../assets/card_frame_back.png';
 
-const sampleQuizzes: QuizItem[] = [
+interface SampleCardConfig {
+  card: any;
+  correct: boolean;
+  explanation?: string;
+}
+
+const sampleCards: SampleCardConfig[] = [
   {
-    id: 1,
-    content_id: 1,
-    type: 'MCQ',
-    payload: {
+    card: {
+      type: 'MCQ',
       question: '고구려를 건국한 인물은 누구인가?',
       options: ['주몽', '온조', '박혁거세', '김수로'],
-      answer: 0,
+      answer_index: 0,
     },
-    created_at: new Date().toISOString(),
-    visibility: 'PUBLIC',
-    owner_id: 1,
+    correct: true,
+    explanation: '주몽이 졸본에서 고구려를 세워 한강 이북을 장악했습니다.',
   },
   {
-    id: 2,
-    content_id: 1,
-    type: 'SHORT',
-    payload: {
+    card: {
+      type: 'SHORT',
       prompt: '조선 전기 과거제도의 최고 시험은?',
       answer: '대과(문과)',
+      rubric: { aliases: ['대과', '문과'] },
     },
-    created_at: new Date().toISOString(),
-    visibility: 'PUBLIC',
-    owner_id: 1,
+    correct: true,
+    explanation: '조선 시대 과거 시험 가운데 문관을 선발하는 최고 시험이 대과(문과)였습니다.',
   },
   {
-    id: 3,
-    content_id: 1,
-    type: 'OX',
-    payload: {
+    card: {
+      type: 'OX',
       statement: '세종대왕이 훈민정음을 창제했다.',
       answer: true,
     },
-    created_at: new Date().toISOString(),
-    visibility: 'PUBLIC',
-    owner_id: 1,
+    correct: true,
+    explanation: '세종대왕은 훈민정음을 창제해 반포했습니다.',
   },
   {
-    id: 4,
-    content_id: 1,
-    type: 'CLOZE',
-    payload: {
-      text: '1392년 {{c1::이성계}}가 조선을 건국하였다.',
+    card: {
+      type: 'CLOZE',
+      text: '1392년 {{c1}}가 조선을 건국하였다.',
+      clozes: { c1: '이성계' },
     },
-    created_at: new Date().toISOString(),
-    visibility: 'PUBLIC',
-    owner_id: 1,
+    correct: true,
+    explanation: '1392년 이성계가 조선을 건국하면서 고려를 계승했습니다.',
   },
   {
-    id: 5,
-    content_id: 1,
-    type: 'ORDER',
-    payload: {
+    card: {
+      type: 'ORDER',
       items: ['고구려 건국', '백제 건국', '신라 건국', '가야 건국'],
+      answer_order: [0, 1, 2, 3],
     },
-    created_at: new Date().toISOString(),
-    visibility: 'PUBLIC',
-    owner_id: 1,
+    correct: true,
+    explanation: '삼국과 가야의 건국 순서는 고구려 → 백제 → 신라 → 가야입니다.',
   },
   {
-    id: 6,
-    content_id: 1,
-    type: 'MATCH',
-    payload: {
+    card: {
+      type: 'MATCH',
+      left: ['세종대왕', '이순신', '장보고'],
+      right: ['훈민정음', '거북선', '청해진'],
       pairs: [
-        { left: '세종대왕', right: '훈민정음' },
-        { left: '이순신', right: '거북선' },
-        { left: '장보고', right: '청해진' },
+        [0, 0],
+        [1, 1],
+        [2, 2],
       ],
     },
-    created_at: new Date().toISOString(),
-    visibility: 'PUBLIC',
-    owner_id: 1,
+    correct: true,
+    explanation: '세종대왕-훈민정음, 이순신-거북선, 장보고-청해진이 대표적인 연결입니다.',
   },
 ];
 
@@ -89,113 +82,14 @@ const teacherVariants = Array.from({ length: 12 }, (_, index) => ({
   incorrect: getTeacherAssetUrl(buildTeacherFilename(index, '_x')),
 }));
 
-const sampleOutcomes = sampleQuizzes.map((_, index) => index % 3 !== 1);
-
-const sampleExplanations = [
-  '주몽이 졸본에서 고구려를 세워 한강 이북을 장악했습니다.',
-  '대과(문과)는 조선 전기 문관을 선발하는 최고 수준의 시험이었습니다.',
-  '세종대왕은 집현전을 중심으로 훈민정음을 반포했습니다.',
-  '1392년 이성계가 조선을 건국하며 새 왕조를 열었습니다.',
-  '고구려·백제·신라·가야 순서로 삼국과 가야가 성립했습니다.',
-  '세종대왕-훈민정음, 이순신-거북선, 장보고-청해진이 대표적 연결입니다.',
-];
-
-const renderSampleQuiz = (quiz: QuizItem) => {
-  if (!quiz) return <div className="text-sm text-slate-600">퀴즈를 불러오는 중...</div>;
-
-  const questionBlock = (text: string) => (
-    <p className="w-full bg-white px-4 py-3 text-base font-semibold text-primary-600 text-center shadow-sm">{text}</p>
-  );
-
-  if (quiz.type === 'MCQ') {
-    const options: string[] = Array.isArray(quiz.payload.options) ? quiz.payload.options : [];
-    return (
-      <div className="space-y-4 text-sm text-slate-900">
-        {questionBlock(quiz.payload.question ?? '질문 없음')}
-        <div className="space-y-2">
-          {options.map((option, index) => (
-            <div key={`${option}-${index}`} className="flex items-center justify-center gap-3 bg-white px-3 py-2 text-sm shadow-sm">
-              <span>{option}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  switch (quiz.type) {
-    case 'SHORT':
-      return (
-        <div className="space-y-3">
-          {questionBlock(quiz.payload.prompt)}
-          <div className="bg-white px-3 py-2 text-xs text-slate-500 shadow-sm">정답 입력 영역 (예시)</div>
-        </div>
-      );
-    case 'OX':
-      return (
-        <div className="space-y-3">
-          {questionBlock(quiz.payload.statement)}
-          <div className="flex gap-2">
-            <div className="flex-1 rounded bg-white py-3 text-center text-xs font-semibold text-emerald-600 shadow-sm">O</div>
-            <div className="flex-1 rounded bg-white py-3 text-center text-xs font-semibold text-rose-600 shadow-sm">X</div>
-          </div>
-        </div>
-      );
-    case 'CLOZE':
-      return (
-        <div className="space-y-3">
-          {questionBlock(quiz.payload.text?.replace(/\{\{c\d+::(.*?)\}\}/g, '____') ?? '')}
-          <div className="bg-white px-3 py-2 text-xs text-slate-500 shadow-sm">빈칸 입력 영역 (예시)</div>
-        </div>
-      );
-    case 'ORDER':
-      return (
-        <div className="space-y-3">
-          {questionBlock('올바른 순서로 배열하세요')}
-          <div className="space-y-1">
-            {quiz.payload.items?.map((item: string, idx: number) => (
-              <div key={idx} className="rounded bg-white px-3 py-2 text-xs text-center shadow-sm">
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    case 'MATCH':
-      return (
-        <div className="space-y-3">
-          {questionBlock('올바른 짝을 맞추세요')}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              {quiz.payload.pairs?.map((pair: any, idx: number) => (
-                <div key={idx} className="rounded bg-white px-3 py-2 text-xs shadow-sm">
-                  {pair.left}
-                </div>
-              ))}
-            </div>
-            <div className="space-y-1">
-              {quiz.payload.pairs?.map((pair: any, idx: number) => (
-                <div key={idx} className="rounded bg-white px-3 py-2 text-xs shadow-sm">
-                  {pair.right}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    default:
-      return <div className="text-sm text-slate-600">지원하지 않는 퀴즈 유형입니다.</div>;
-  }
-};
-
-const renderSampleAnswer = (isCorrect: boolean, explanation?: string) => (
+const renderSampleAnswer = ({ correct, explanation }: SampleCardConfig) => (
   <div className="space-y-4 text-slate-800">
     <div
       className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${
-        isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+        correct ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
       }`}
     >
-      {isCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
+      {correct ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
     </div>
     {explanation ? (
       <p className="text-sm leading-relaxed text-slate-700">{explanation}</p>
@@ -206,7 +100,9 @@ const renderSampleAnswer = (isCorrect: boolean, explanation?: string) => (
 );
 
 export default function HomePage() {
-  const [currentQuiz, setCurrentQuiz] = useState(() => Math.floor(Math.random() * sampleQuizzes.length));
+  const initialIndex = Math.floor(Math.random() * sampleCards.length);
+  const [frontIndex, setFrontIndex] = useState(initialIndex);
+  const [answerIndex, setAnswerIndex] = useState(initialIndex);
   const [showAnswer, setShowAnswer] = useState(false);
   const [teacherVariantIndex] = useState(() => Math.floor(Math.random() * teacherVariants.length));
   const [teacherMood, setTeacherMood] = useState<TeacherMood>('idle');
@@ -217,27 +113,35 @@ export default function HomePage() {
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       if (showAnswer) {
-        setCurrentQuiz((prev) => {
-          const next = Math.floor(Math.random() * sampleQuizzes.length);
-          return next === prev && sampleQuizzes.length > 1 ? (next + 1) % sampleQuizzes.length : next;
-        });
         setShowAnswer(false);
+        setTeacherMood('idle');
+        setFrontIndex((prev) => {
+          if (sampleCards.length <= 1) {
+            return prev;
+          }
+          let next = Math.floor(Math.random() * sampleCards.length);
+          if (next === prev) {
+            next = (next + 1) % sampleCards.length;
+          }
+          return next;
+        });
       } else {
+        setAnswerIndex(frontIndex);
         setShowAnswer(true);
       }
     }, showAnswer ? 4000 : 6000);
 
     return () => window.clearTimeout(timeout);
-  }, [showAnswer]);
+  }, [showAnswer, frontIndex]);
 
   useEffect(() => {
     if (showAnswer) {
-      const isCorrect = sampleOutcomes[currentQuiz];
+      const isCorrect = sampleCards[answerIndex]?.correct ?? false;
       setTeacherMood(isCorrect ? 'correct' : 'incorrect');
     } else {
       setTeacherMood('idle');
     }
-  }, [showAnswer, currentQuiz]);
+  }, [showAnswer, answerIndex]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
@@ -269,7 +173,13 @@ export default function HomePage() {
                     <div className="absolute inset-0 bg-white/55" />
                     <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6 shadow-inner">
                         <div className="max-h-full overflow-y-auto text-slate-900">
-                          {renderSampleQuiz(sampleQuizzes[currentQuiz])}
+                          <div className="pointer-events-none select-none">
+                            <CardRunner
+                              card={sampleCards[frontIndex].card}
+                              disabled={false}
+                              onSubmit={() => {}}
+                            />
+                          </div>
                         </div>
                     </div>
                     </div>
@@ -279,14 +189,14 @@ export default function HomePage() {
                     >
                       <div className="absolute inset-0 bg-white/55" />
                       <div className="absolute inset-[18px] flex h-full flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center shadow-inner">
-                        <div className="w-full overflow-y-auto pr-1 text-left text-slate-900">
-                          {renderSampleAnswer(sampleOutcomes[currentQuiz], sampleExplanations[currentQuiz])}
+                        <div className="w-full overflow-y-auto px-1 text-center text-slate-900">
+                          {renderSampleAnswer(sampleCards[answerIndex])}
                         </div>
                         <button
                           type="button"
                           className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2"
                         >
-                          다음 문제로 이동하세요.
+                          ➡️ 다음 문제
                         </button>
                       </div>
                     </div>
