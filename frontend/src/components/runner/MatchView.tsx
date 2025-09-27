@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+const questionClass = 'w-full bg-white px-4 py-3 text-lg font-semibold text-primary-600 text-center shadow-sm';
 
 interface MatchViewProps {
   card: any;
@@ -13,6 +15,8 @@ export default function MatchView({ card, disabled, onSubmit }: MatchViewProps) 
 
   const [order, setOrder] = useState<number[]>(right.map((_, idx) => idx));
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const dragPreviewRef = useRef<HTMLDivElement | null>(null);
 
   const expectedOrder = useMemo(() => {
     const mapping = new Map<number, number>();
@@ -22,10 +26,35 @@ export default function MatchView({ card, disabled, onSubmit }: MatchViewProps) 
     return left.map((_, index) => mapping.get(index) ?? index);
   }, [left, pairs]);
 
+  const cleanupPreview = () => {
+    if (dragPreviewRef.current) {
+      document.body.removeChild(dragPreviewRef.current);
+      dragPreviewRef.current = null;
+    }
+  };
+
+  const createPreview = (text: string) => {
+    cleanupPreview();
+    const preview = document.createElement('div');
+    preview.textContent = text;
+    preview.className = 'rounded bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-lg border border-primary-400';
+    preview.style.position = 'absolute';
+    preview.style.top = '-9999px';
+    preview.style.left = '-9999px';
+    preview.style.pointerEvents = 'none';
+    document.body.appendChild(preview);
+    dragPreviewRef.current = preview;
+    return preview;
+  };
+
   useEffect(() => {
     setOrder(right.map((_, idx) => idx));
     setDragIndex(null);
+    setHoverIndex(null);
+    cleanupPreview();
   }, [right]);
+
+  useEffect(() => () => cleanupPreview(), []);
 
   const reorder = (list: number[], start: number, end: number) => {
     const result = [...list];
@@ -38,6 +67,14 @@ export default function MatchView({ card, disabled, onSubmit }: MatchViewProps) 
     if (disabled) return;
     const correct = order.every((value, index) => expectedOrder[index] === value);
     onSubmit(correct);
+  };
+
+  const handleDrop = (index: number) => {
+    if (disabled || dragIndex === null) return;
+    setOrder((prev) => reorder(prev, dragIndex, index));
+    setDragIndex(null);
+    setHoverIndex(null);
+    cleanupPreview();
   };
 
   const rowStyles = [
@@ -56,7 +93,7 @@ export default function MatchView({ card, disabled, onSubmit }: MatchViewProps) 
 
   return (
     <div className="space-y-4 text-sm text-slate-900">
-      <p className="text-lg font-semibold text-primary-600">대응되는 항목을 맞춰보세요</p>
+      <p className={questionClass}>대응되는 항목을 맞춰보세요</p>
       <p className="text-xs text-slate-500">오른쪽 항목을 드래그하여 순서를 조정하세요.</p>
       <div className="space-y-2">
         {left.map((leftValue, index) => {
@@ -78,12 +115,20 @@ export default function MatchView({ card, disabled, onSubmit }: MatchViewProps) 
               </div>
               <div
                 className={`flex-1 rounded-r border border-slate-200 px-3 py-2 text-slate-900 transition ${background} ${
-                  disabled ? 'cursor-default' : 'cursor-grab'
-                } ${dragIndex === index ? 'ring-2 ring-primary-500' : ''}`}
+                  disabled ? 'cursor-default' : 'cursor-grab hover:border-primary-500'
+                } ${dragIndex === index ? 'ring-2 ring-primary-500' : ''} ${
+                  hoverIndex === index && dragIndex !== null && dragIndex !== index ? 'border-primary-500 bg-primary-50' : ''
+                }`}
                 draggable={!disabled}
-                onDragStart={() => {
+                onDragStart={(event) => {
                   if (disabled) return;
                   setDragIndex(index);
+                  setHoverIndex(index);
+                  if (event.dataTransfer) {
+                    event.dataTransfer.setData('text/plain', '');
+                    const preview = createPreview(rightValue ?? '');
+                    event.dataTransfer.setDragImage(preview, preview.offsetWidth / 2, preview.offsetHeight / 2);
+                  }
                 }}
                 onDragOver={(event) => {
                   if (disabled) return;
@@ -91,17 +136,23 @@ export default function MatchView({ card, disabled, onSubmit }: MatchViewProps) 
                 }}
                 onDragEnter={() => {
                   if (disabled) return;
-                  if (dragIndex !== null && dragIndex !== index) {
-                    setOrder((prev) => reorder(prev, dragIndex, index));
-                    setDragIndex(index);
+                  if (dragIndex !== null) {
+                    setHoverIndex(index);
+                  }
+                }}
+                onDragLeave={() => {
+                  if (hoverIndex === index) {
+                    setHoverIndex(null);
                   }
                 }}
                 onDragEnd={() => {
                   setDragIndex(null);
+                  setHoverIndex(null);
+                  cleanupPreview();
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
-                  setDragIndex(null);
+                  handleDrop(index);
                 }}
               >
                 {rightValue}
@@ -114,22 +165,10 @@ export default function MatchView({ card, disabled, onSubmit }: MatchViewProps) 
         type="button"
         onClick={handleSubmit}
         disabled={disabled}
-        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="mx-auto block rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         매칭 확인
       </button>
-      {disabled ? (
-        <div className="text-xs text-slate-500">
-          <p>정답:</p>
-          <ul className="mt-1 space-y-1">
-            {pairs.map(([l, r]) => (
-              <li key={`${l}-${r}`}>
-                {left[l]} ↔ {right[r]}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </div>
   );
 }

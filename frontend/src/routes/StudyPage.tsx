@@ -12,6 +12,8 @@ import CardRunner from '../components/CardRunner';
 import ProgressBar from '../components/ProgressBar';
 import { getQuizTypeLabel } from '../utils/quiz';
 import { buildTeacherFilename, getTeacherAssetUrl } from '../utils/assets';
+import cardFrameFront from '../assets/card_frame_front.png';
+import cardFrameBack from '../assets/card_frame_back.png';
 import { useAuth } from '../context/AuthContext';
 
 type TeacherMood = 'idle' | 'correct' | 'incorrect';
@@ -21,19 +23,6 @@ const teacherVariants = Array.from({ length: 12 }, (_, index) => ({
   correct: getTeacherAssetUrl(buildTeacherFilename(index, '_o')),
   incorrect: getTeacherAssetUrl(buildTeacherFilename(index, '_x')),
 }));
-
-// 퀴즈 타입별 배경색 정의
-const getQuizTypeColor = (type: string) => {
-  switch (type) {
-    case 'MCQ': return 'bg-gradient-to-br from-blue-100 to-blue-200 border-blue-300';
-    case 'SHORT': return 'bg-gradient-to-br from-green-100 to-green-200 border-green-300';
-    case 'OX': return 'bg-gradient-to-br from-purple-100 to-purple-200 border-purple-300';
-    case 'CLOZE': return 'bg-gradient-to-br from-yellow-100 to-yellow-200 border-yellow-300';
-    case 'ORDER': return 'bg-gradient-to-br from-pink-100 to-pink-200 border-pink-300';
-    case 'MATCH': return 'bg-gradient-to-br from-indigo-100 to-indigo-200 border-indigo-300';
-    default: return 'bg-gradient-to-br from-slate-100 to-slate-200 border-slate-300';
-  }
-};
 
 interface QuizResult {
   correct: boolean;
@@ -53,6 +42,7 @@ export default function StudyPage() {
   const [index, setIndex] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
+  const [lastExplanation, setLastExplanation] = useState<string | null>(null);
   const [results, setResults] = useState<QuizResult[]>([]);
   const [completed, setCompleted] = useState(false);
   const [sessionRewards, setSessionRewards] = useState<Reward[]>([]);
@@ -61,6 +51,14 @@ export default function StudyPage() {
     Math.floor(Math.random() * teacherVariants.length),
   );
   const [teacherMood, setTeacherMood] = useState<TeacherMood>('idle');
+  const [finalResultFlipped, setFinalResultFlipped] = useState(false);
+  const [nextActionLabel, setNextActionLabel] = useState<'➡️ 다음 문제' | '🏁 결과 보기'>('➡️ 다음 문제');
+  const [cardSessionKey, setCardSessionKey] = useState(0);
+  const [finalFrontCorrect, setFinalFrontCorrect] = useState<boolean | null>(null);
+  const [finalFrontExplanation, setFinalFrontExplanation] = useState<string | null>(null);
+  const [restarting, setRestarting] = useState(false);
+  const resultResetTimer = useRef<number | null>(null);
+  const restartTimer = useRef<number | null>(null);
   const currentTeacherImage =
     teacherVariants[teacherVariantIndex]?.[teacherMood] ?? teacherVariants[0].idle;
 
@@ -119,8 +117,19 @@ export default function StudyPage() {
         setIndex(0);
         setSubmitted(false);
         setLastCorrect(null);
+        setLastExplanation(null);
         setResults([]);
         setCompleted(false);
+        setFinalResultFlipped(false);
+        setFinalFrontCorrect(null);
+        setFinalFrontExplanation(null);
+        setRestarting(false);
+        setNextActionLabel('➡️ 다음 문제');
+        setCardSessionKey((prev) => prev + 1);
+        if (resultResetTimer.current) {
+          window.clearTimeout(resultResetTimer.current);
+          resultResetTimer.current = null;
+        }
         // 랜덤 teacher 이미지 선택
         const randomIndex = Math.floor(Math.random() * teacherVariants.length);
         setTeacherVariantIndex(randomIndex);
@@ -153,6 +162,9 @@ export default function StudyPage() {
     });
     setSubmitted(true);
     setLastCorrect(correct);
+    setLastExplanation(targetCard?.explain ?? null);
+    const hasMoreCards = index < cards.length - 1;
+    setNextActionLabel(hasMoreCards ? '➡️ 다음 문제' : '🏁 결과 보기');
     setCards(updatedCards);
     setResults((prev) => {
       const next = [...prev];
@@ -160,6 +172,7 @@ export default function StudyPage() {
       return next;
     });
     setCompleted(false);
+    setFinalResultFlipped(false);
     setTeacherMood(correct ? 'correct' : 'incorrect');
 
     if (!sessionId || !user) {
@@ -198,23 +211,95 @@ export default function StudyPage() {
       finalResults[index] = { correct: lastCorrect ?? false };
       setResults(finalResults);
       setSubmitted(true);
+      setFinalFrontCorrect(lastCorrect);
+      setFinalFrontExplanation(lastExplanation);
       setLastCorrect(null);
+      setLastExplanation(null);
       const finalCorrect = finalResults.filter((item) => item?.correct).length;
       const finalPercentage = cards.length ? Math.round((finalCorrect / cards.length) * 100) : 0;
       setTeacherMood(finalPercentage >= 50 ? 'correct' : 'incorrect');
-      setCompleted(true);
+    setCompleted(true);
+      if (resultResetTimer.current) {
+        window.clearTimeout(resultResetTimer.current);
+        resultResetTimer.current = null;
+      }
       return;
     }
     setIndex((prev) => prev + 1);
     setSubmitted(false);
-    setLastCorrect(null);
     setCompleted(false);
+    setFinalResultFlipped(false);
     setTeacherMood('idle');
+    setNextActionLabel('➡️ 다음 문제');
+    if (resultResetTimer.current) {
+      window.clearTimeout(resultResetTimer.current);
+    }
+    resultResetTimer.current = window.setTimeout(() => {
+      setLastCorrect(null);
+      setLastExplanation(null);
+      resultResetTimer.current = null;
+    }, 500);
   };
 
   const finished = completed;
   const currentCard = cards[Math.min(index, cards.length - 1)];
   const cardsCount = cards.length;
+  const hasResult = lastCorrect !== null || lastExplanation !== null;
+  const isResultFrame = finalResultFlipped || (finished && !restarting);
+
+  useEffect(() => {
+    if (finished) {
+      setFinalResultFlipped(true);
+    } else {
+      setFinalResultFlipped(false);
+    }
+  }, [finished]);
+
+  useEffect(() => {
+    return () => {
+      if (resultResetTimer.current) {
+        window.clearTimeout(resultResetTimer.current);
+      }
+      if (restartTimer.current) {
+        window.clearTimeout(restartTimer.current);
+      }
+    };
+  }, []);
+
+  const beginRestart = () => {
+    if (restarting) {
+      return;
+    }
+    setRestarting(true);
+    setFinalFrontCorrect(null);
+    setFinalFrontExplanation(null);
+    setNextActionLabel('➡️ 다음 문제');
+    setFinalResultFlipped(false);
+    if (restartTimer.current) {
+      window.clearTimeout(restartTimer.current);
+    }
+    restartTimer.current = window.setTimeout(() => {
+      setIndex(0);
+      setResults([]);
+      setSubmitted(false);
+      setLastCorrect(null);
+      setLastExplanation(null);
+      setCompleted(false);
+      setFinalFrontCorrect(null);
+      setFinalFrontExplanation(null);
+      setFinalResultFlipped(false);
+      setCardSessionKey((prev) => prev + 1);
+      if (resultResetTimer.current) {
+        window.clearTimeout(resultResetTimer.current);
+        resultResetTimer.current = null;
+      }
+      const randomIndex = Math.floor(Math.random() * teacherVariants.length);
+      setTeacherVariantIndex(randomIndex);
+      setTeacherMood('idle');
+      setRestarting(false);
+      restartTimer.current = null;
+    }, 700);
+  };
 
   useEffect(() => {
     if (!sessionId || !user) {
@@ -305,133 +390,169 @@ export default function StudyPage() {
     const scorePercentage = Math.round((score / cards.length) * 100);
     const isExcellent = scorePercentage >= 90;
     const isGood = scorePercentage >= 70;
-    
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        {/* 헤더 */}
-        <header className="bg-white border-b border-slate-200 p-4 mb-6">
-          <div className="max-w-7xl mx-auto text-center">
+      <header className="bg-white border-b border-slate-200 px-4 py-4 mb-6 min-h-[120px] flex items-center">
+        <div className="max-w-7xl mx-auto w-full text-center">
             <h2 className="text-3xl font-bold text-primary-600">🎉 학습 완료!</h2>
             <p className="text-lg text-slate-700 mt-2">
-              점수: <span className="font-bold text-primary-600">{score}</span> / {cards.length} 
+              점수: <span className="font-bold text-primary-600">{score}</span> / {cards.length}
               <span className="ml-2 text-sm">({scorePercentage}%)</span>
             </p>
           </div>
         </header>
 
-        {/* 메인 콘텐츠 - 2단 레이아웃 */}
-        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-8 min-h-[calc(100vh-200px)]">
-          {/* 왼쪽: Teacher 이미지 */}
-          <div className="flex items-center justify-center">
-            <div className="relative">
-              <img 
-                src={currentTeacherImage} 
-                alt="Teacher" 
-                className="w-full max-w-md h-auto object-contain drop-shadow-lg"
-              />
-              <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-full px-6 py-3 shadow-lg border border-slate-200">
-                <p className="text-lg font-bold text-center">
-                  {isExcellent ? (
-                    <span className="text-emerald-600">🏆 훌륭해요!</span>
-                  ) : isGood ? (
-                    <span className="text-blue-600">👍 잘했어요!</span>
-                  ) : (
-                    <span className="text-orange-600">💪 다시 도전!</span>
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* 오른쪽: 결과 카드 */}
-          <div className="flex items-center justify-center">
-            <div className="w-full max-w-lg bg-gradient-to-br from-white to-slate-50 rounded-2xl border-2 border-slate-200 shadow-xl p-8">
-              {/* 점수 표시 */}
-              <div className="text-center mb-8">
-                <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full text-3xl font-bold text-white shadow-lg ${
-                  isExcellent ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' :
-                  isGood ? 'bg-gradient-to-br from-blue-400 to-blue-600' :
-                  'bg-gradient-to-br from-orange-400 to-orange-600'
-                }`}>
-                  {scorePercentage}%
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col items-center gap-10">
+            <div className="relative w-full max-w-5xl rounded-[40px] bg-white p-8 shadow-[0_32px_60px_-28px_rgba(30,41,59,0.35)]">
+              <div className="flex flex-col gap-10 lg:flex-row lg:items-center">
+                <div className="relative flex-[0_0_50%]">
+                  <img
+                    src={currentTeacherImage}
+                    alt="Teacher"
+                    className="w-full h-auto object-contain"
+                  />
                 </div>
-              </div>
 
-              {/* 상세 결과 */}
-              <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
-                <h3 className="text-lg font-semibold text-slate-800 mb-4 text-center">📊 상세 결과</h3>
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {cards.map((card, idx) => (
+                <div className="relative flex-1">
+                  <div
+                    key={`completed-${cardSessionKey}`}
+                    className="relative w-full max-w-sm lg:ml-auto"
+                    style={{ perspective: '1500px' }}
+                  >
                     <div
-                      key={`${card.type}-${idx}`}
-                      className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200"
+                      className={`relative aspect-[3/5] w-full transform transition-transform duration-700 [transform-style:preserve-3d] ${finalResultFlipped ? '[transform:rotateY(180deg)]' : ''}`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="flex-shrink-0 w-6 h-6 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-xs font-bold">
-                          {idx + 1}
-                        </span>
-                        <span className="text-sm text-slate-700">{getQuizTypeLabel(card.type)}</span>
+                      <div
+                        className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden]"
+                        style={{
+                          backgroundImage: `url(${isResultFrame ? cardFrameBack : cardFrameFront})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }}
+                      >
+                        <div className="absolute inset-0 bg-white/55" />
+                        <div className="absolute inset-[18px] flex flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center shadow-inner">
+                          {finalFrontCorrect !== null || finalFrontExplanation ? (
+                            <>
+                              <div
+                                className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${finalFrontCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}
+                              >
+                                {finalFrontCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
+                              </div>
+                              {finalFrontExplanation ? (
+                                <p className="text-sm leading-relaxed text-slate-700">{finalFrontExplanation}</p>
+                              ) : (
+                                <p className="text-sm text-slate-500">최종 결과를 준비하고 있어요.</p>
+                              )}
+                              <button
+                                type="button"
+                                className="w-full rounded-xl bg-primary-600/30 px-4 py-2 text-sm font-semibold text-primary-600/70 shadow-lg pointer-events-none"
+                                tabIndex={-1}
+                                aria-hidden="true"
+                              >
+                                {nextActionLabel}
+                              </button>
+                            </>
+                          ) : (
+                            <p className="inline-flex items-center justify-center rounded-full bg-slate-100 px-5 py-2 text-sm font-semibold text-slate-500">
+                              새로운 학습을 준비하고 있어요...
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-sm font-semibold ${results[idx]?.correct ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          {results[idx]?.correct ? '✓ 정답' : '✗ 오답'}
-                        </span>
-                        <span className="text-xs text-slate-500">
-                          {card?.attempts ?? 0}회 시도
-                        </span>
+
+                      <div
+                        className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [transform:rotateY(180deg)] [backface-visibility:hidden]"
+                        style={{ backgroundImage: `url(${cardFrameBack})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                      >
+                        <div className="absolute inset-0 bg-white/55" />
+                        <div className="absolute inset-[18px] flex flex-col rounded-[28px] bg-white/92 p-6 shadow-inner">
+                          <div className="flex h-full flex-col gap-5 text-slate-900">
+                            <div className="text-center">
+                              <div
+                                className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full text-3xl font-bold text-white shadow-lg ${
+                                  isExcellent
+                                    ? 'bg-gradient-to-br from-emerald-400 to-emerald-600'
+                                    : isGood
+                                    ? 'bg-gradient-to-br from-blue-400 to-blue-600'
+                                    : 'bg-gradient-to-br from-orange-400 to-orange-600'
+                                }`}
+                              >
+                                {scorePercentage}%
+                              </div>
+                              <p className="mt-3 text-sm font-semibold text-slate-600">
+                                점수 {score} / {cards.length}
+                              </p>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto rounded-2xl bg-white/90 p-4 shadow-inner">
+                              <h3 className="mb-3 text-center text-sm font-semibold text-slate-700">📊 상세 결과</h3>
+                              <div className="space-y-2 pr-1">
+                                {cards.map((card, idx) => (
+                                  <div
+                                    key={`${card.type}-${idx}`}
+                                    className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2 text-sm"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
+                                        {idx + 1}
+                                      </span>
+                                      <span className="text-slate-700">{getQuizTypeLabel(card.type)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs">
+                                      <span
+                                        className={`font-semibold ${
+                                          results[idx]?.correct ? 'text-emerald-600' : 'text-rose-600'
+                                        }`}
+                                      >
+                                        {results[idx]?.correct ? '✓ 정답' : '✗ 오답'}
+                                      </span>
+                                      <span className="text-slate-500">{card?.attempts ?? 0}회 시도</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="space-y-3">
+                              <button
+                                type="button"
+                                onClick={beginRestart}
+                                disabled={restarting}
+                                className={`w-full rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-lg transition focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2 ${
+                                  restarting
+                                    ? 'bg-primary-300 pointer-events-none'
+                                    : 'bg-primary-600 hover:bg-primary-500'
+                                }`}
+                              >
+                                🔄 다시 학습하기
+                              </button>
+                              {sessionId && (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate('/studies', { state: { refresh: Date.now() } })}
+                                  className="w-full rounded-xl border-2 border-primary-500 px-6 py-3 text-sm font-semibold text-primary-600 transition hover:bg-primary-50"
+                                >
+                                  📚 학습 리스트로 돌아가기
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* 액션 버튼들 */}
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIndex(0);
-                    setResults([]);
-                    setSubmitted(false);
-                    setLastCorrect(null);
-                    setCompleted(false);
-                    // 새로운 랜덤 teacher 이미지 선택
-                    const randomIndex = Math.floor(Math.random() * teacherVariants.length);
-                    setTeacherVariantIndex(randomIndex);
-                    setTeacherMood('idle');
-                  }}
-                  className="w-full rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-500 shadow-lg"
-                >
-                  🔄 다시 학습하기
-                </button>
-                {sessionId && (
-                  <button
-                    type="button"
-                    onClick={() => navigate('/studies', { state: { refresh: Date.now() } })}
-                    className="w-full rounded-lg border-2 border-primary-500 px-6 py-3 text-sm font-semibold text-primary-600 transition hover:bg-primary-50"
-                  >
-                    📚 학습 리스트로 돌아가기
-                  </button>
-                )}
+                  <div className="mt-6 flex flex-col gap-3 text-xs uppercase tracking-[0.2em] text-slate-500 lg:ml-auto lg:max-w-sm lg:items-end">
+                    <span>카드 총 {cards.length}개 · 정답 {score}개</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* 성취 메시지 */}
-        <div className="max-w-7xl mx-auto px-4 mt-8 mb-8">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm text-center">
-            <p className="text-lg font-medium text-slate-700">
-              {isExcellent ? (
-                <>🌟 완벽한 성과입니다! 모든 문제를 거의 다 맞히셨네요.</>
-              ) : isGood ? (
-                <>👏 좋은 결과입니다! 조금만 더 노력하면 완벽할 거예요.</>
-              ) : (
-                <>💪 포기하지 마세요! 다시 도전해서 더 좋은 결과를 만들어보세요.</>
-              )}
-            </p>
-          </div>
-        </div>
       </div>
     );
   }
@@ -439,8 +560,8 @@ export default function StudyPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* 헤더 */}
-      <header className="bg-white border-b border-slate-200 p-4 mb-6">
-        <div className="max-w-7xl mx-auto">
+      <header className="bg-white border-b border-slate-200 px-4 py-4 mb-6 min-h-[120px] flex items-center">
+        <div className="max-w-7xl mx-auto w-full">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-primary-600">학습 중: {content.title}</h2>
             {sessionId ? (
@@ -469,70 +590,81 @@ export default function StudyPage() {
         </div>
       </header>
 
-      {/* 메인 콘텐츠 - 2단 레이아웃 */}
-      <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-8 min-h-[calc(100vh-200px)]">
-        {/* 왼쪽: Teacher 이미지 */}
-        <div className="flex items-center justify-center">
-          <div className="relative">
-            <img 
-              src={currentTeacherImage} 
-              alt="Teacher" 
-              className="w-full max-w-md h-auto object-contain drop-shadow-lg"
-            />
-            <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-full px-4 py-2 shadow-lg border border-slate-200">
-              <p className="text-sm font-medium text-slate-700">
-                {getQuizTypeLabel(currentCard?.type)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* 오른쪽: 퀴즈 카드 */}
-        <div className="flex items-center justify-center">
-          <div className={`w-full max-w-lg rounded-2xl border-2 shadow-xl p-8 ${getQuizTypeColor(currentCard?.type)}`}>
-            {/* 카드 헤더 */}
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-sm">
-                <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                <span className="text-sm font-semibold text-slate-700">
-                  문제 {index + 1}
-                </span>
+      {/* 메인 콘텐츠 - 통합 프레임 */}
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex flex-col items-center gap-10">
+          <div className="relative w-full max-w-5xl rounded-[40px] bg-white p-8 shadow-[0_32px_60px_-28px_rgba(30,41,59,0.35)]">
+            <div className="flex flex-col gap-10 lg:flex-row lg:items-center">
+              {/* Teacher 영역 */}
+              <div className="relative flex-[0_0_50%]">
+                <img
+                  src={currentTeacherImage}
+                  alt="Teacher"
+                  className="w-full h-auto object-contain"
+                />
               </div>
-            </div>
 
-            {/* 퀴즈 콘텐츠 */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-xl p-6 shadow-sm">
-              <CardRunner card={currentCard} disabled={submitted} onSubmit={handleSubmit} />
-            </div>
-
-            {/* 결과 및 다음 버튼 */}
-            {submitted && (
-              <div className="mt-6 bg-white/90 backdrop-blur-sm rounded-xl p-6 shadow-sm">
-                <p className={`text-lg font-semibold mb-3 ${lastCorrect ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {lastCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
-                </p>
-                {currentCard.explain && (
-                  <div className="mb-4 p-4 bg-slate-50 rounded-lg">
-                    <p className="text-sm font-medium text-slate-600 mb-2">💡 해설</p>
-                    <p className="text-sm text-slate-700">{currentCard.explain}</p>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="w-full rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-500 shadow-lg"
+              {/* 카드 영역 */}
+              <div className="relative flex-1">
+                <div
+                  key={`card-${cardSessionKey}`}
+                  className="relative w-full max-w-sm lg:ml-auto"
+                  style={{ perspective: '1500px' }}
                 >
-                  {index + 1 >= cards.length ? '🏁 결과 보기' : '➡️ 다음 문제'}
-                </button>
-              </div>
-            )}
+                  <div
+                    className={`relative aspect-[3/5] w-full transform transition-transform duration-700 [transform-style:preserve-3d] ${submitted ? '[transform:rotateY(180deg)]' : ''}`}
+                  >
+                    <div
+                      className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden]"
+                      style={{ backgroundImage: `url(${cardFrameFront})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                    >
+                      <div className="absolute inset-0 bg-white/55" />
+                      <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6 shadow-inner">
+                        <div className="max-h-full overflow-y-auto text-slate-900">
+                          <CardRunner card={currentCard} disabled={submitted} onSubmit={handleSubmit} />
+                        </div>
+                      </div>
+                    </div>
 
-            {/* 카드 푸터 */}
-            <div className="mt-6 text-center">
-              <div className="flex justify-center gap-4 text-xs text-slate-600">
-                <span>시도: {currentCard?.attempts ?? 0}회</span>
-                <span>•</span>
-                <span>정답: {currentCard?.correct ?? 0}회</span>
+                    <div
+                      className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [transform:rotateY(180deg)] [backface-visibility:hidden]"
+                      style={{ backgroundImage: `url(${cardFrameBack})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                    >
+                      <div className="absolute inset-0 bg-white/55" />
+                      <div className="absolute inset-[18px] flex flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center shadow-inner">
+                        {hasResult ? (
+                          <>
+                            <div
+                              className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${lastCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}
+                            >
+                              {lastCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
+                            </div>
+                            {lastExplanation ? (
+                              <p className="text-sm leading-relaxed text-slate-700">{lastExplanation}</p>
+                            ) : (
+                              <p className="text-sm text-slate-500">다음 문제로 이동하세요.</p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="inline-flex items-center justify-center rounded-full bg-slate-100 px-5 py-2 text-sm font-semibold text-slate-500">
+                            정답을 제출하면 결과가 표시됩니다.
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleNext}
+                          className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2"
+                        >
+                          {nextActionLabel}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-col gap-3 text-xs uppercase tracking-[0.2em] text-slate-500 lg:ml-auto lg:max-w-sm lg:items-end">
+                  <span>시도 {currentCard?.attempts ?? 0}회 · 정답 {currentCard?.correct ?? 0}회</span>
+                </div>
               </div>
             </div>
           </div>

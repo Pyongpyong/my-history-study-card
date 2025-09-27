@@ -1,30 +1,9 @@
-import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { getQuizTypeLabel } from '../utils/quiz';
 import { QuizItem } from '../api';
-import { QuizCard } from '../components/QuizCard';
 import { buildTeacherFilename, getTeacherAssetUrl } from '../utils/assets';
+import cardFrameFront from '../assets/card_frame_front.png';
+import cardFrameBack from '../assets/card_frame_back.png';
 
-const teacherImages = Array.from({ length: 12 }, (_, index) =>
-  getTeacherAssetUrl(buildTeacherFilename(index))
-);
-
-// 퀴즈 타입별 배경색 정의
-const getQuizTypeColor = (type: string) => {
-  switch (type) {
-    case 'MCQ': return 'bg-gradient-to-br from-blue-100 to-blue-200 border-blue-300';
-    case 'SHORT': return 'bg-gradient-to-br from-green-100 to-green-200 border-green-300';
-    case 'OX': return 'bg-gradient-to-br from-purple-100 to-purple-200 border-purple-300';
-    case 'CLOZE': return 'bg-gradient-to-br from-yellow-100 to-yellow-200 border-yellow-300';
-    case 'ORDER': return 'bg-gradient-to-br from-pink-100 to-pink-200 border-pink-300';
-    case 'MATCH': return 'bg-gradient-to-br from-indigo-100 to-indigo-200 border-indigo-300';
-    default: return 'bg-gradient-to-br from-slate-100 to-slate-200 border-slate-300';
-  }
-};
-
-const quizTypes = ['MCQ', 'SHORT', 'OX', 'CLOZE', 'ORDER', 'MATCH'];
-
-// 샘플 퀴즈 데이터 (QuizItem 형식에 맞게 수정)
 const sampleQuizzes: QuizItem[] = [
   {
     id: 1,
@@ -33,11 +12,11 @@ const sampleQuizzes: QuizItem[] = [
     payload: {
       question: '고구려를 건국한 인물은 누구인가?',
       options: ['주몽', '온조', '박혁거세', '김수로'],
-      answer: 0
+      answer: 0,
     },
     created_at: new Date().toISOString(),
     visibility: 'PUBLIC',
-    owner_id: 1
+    owner_id: 1,
   },
   {
     id: 2,
@@ -45,11 +24,11 @@ const sampleQuizzes: QuizItem[] = [
     type: 'SHORT',
     payload: {
       prompt: '조선 전기 과거제도의 최고 시험은?',
-      answer: '대과(문과)'
+      answer: '대과(문과)',
     },
     created_at: new Date().toISOString(),
     visibility: 'PUBLIC',
-    owner_id: 1
+    owner_id: 1,
   },
   {
     id: 3,
@@ -57,33 +36,33 @@ const sampleQuizzes: QuizItem[] = [
     type: 'OX',
     payload: {
       statement: '세종대왕이 훈민정음을 창제했다.',
-      answer: true
+      answer: true,
     },
     created_at: new Date().toISOString(),
     visibility: 'PUBLIC',
-    owner_id: 1
+    owner_id: 1,
   },
   {
     id: 4,
     content_id: 1,
     type: 'CLOZE',
     payload: {
-      text: '1392년 {{c1::이성계}}가 조선을 건국하였다.'
+      text: '1392년 {{c1::이성계}}가 조선을 건국하였다.',
     },
     created_at: new Date().toISOString(),
     visibility: 'PUBLIC',
-    owner_id: 1
+    owner_id: 1,
   },
   {
     id: 5,
     content_id: 1,
     type: 'ORDER',
     payload: {
-      items: ['고구려 건국', '백제 건국', '신라 건국', '가야 건국']
+      items: ['고구려 건국', '백제 건국', '신라 건국', '가야 건국'],
     },
     created_at: new Date().toISOString(),
     visibility: 'PUBLIC',
-    owner_id: 1
+    owner_id: 1,
   },
   {
     id: 6,
@@ -93,98 +72,110 @@ const sampleQuizzes: QuizItem[] = [
       pairs: [
         { left: '세종대왕', right: '훈민정음' },
         { left: '이순신', right: '거북선' },
-        { left: '장보고', right: '청해진' }
-      ]
+        { left: '장보고', right: '청해진' },
+      ],
     },
     created_at: new Date().toISOString(),
     visibility: 'PUBLIC',
-    owner_id: 1
-  }
+    owner_id: 1,
+  },
 ];
 
-// 샘플 퀴즈 렌더링 함수
+type TeacherMood = 'idle' | 'correct' | 'incorrect';
+
+const teacherVariants = Array.from({ length: 12 }, (_, index) => ({
+  idle: getTeacherAssetUrl(buildTeacherFilename(index)),
+  correct: getTeacherAssetUrl(buildTeacherFilename(index, '_o')),
+  incorrect: getTeacherAssetUrl(buildTeacherFilename(index, '_x')),
+}));
+
+const sampleOutcomes = sampleQuizzes.map((_, index) => index % 3 !== 1);
+
+const sampleExplanations = [
+  '주몽이 졸본에서 고구려를 세워 한강 이북을 장악했습니다.',
+  '대과(문과)는 조선 전기 문관을 선발하는 최고 수준의 시험이었습니다.',
+  '세종대왕은 집현전을 중심으로 훈민정음을 반포했습니다.',
+  '1392년 이성계가 조선을 건국하며 새 왕조를 열었습니다.',
+  '고구려·백제·신라·가야 순서로 삼국과 가야가 성립했습니다.',
+  '세종대왕-훈민정음, 이순신-거북선, 장보고-청해진이 대표적 연결입니다.',
+];
+
 const renderSampleQuiz = (quiz: QuizItem) => {
   if (!quiz) return <div className="text-sm text-slate-600">퀴즈를 불러오는 중...</div>;
 
-  // Use QuizCard for MCQ type quizzes
+  const questionBlock = (text: string) => (
+    <p className="w-full bg-white px-4 py-3 text-base font-semibold text-primary-600 text-center shadow-sm">{text}</p>
+  );
+
   if (quiz.type === 'MCQ') {
-    return <QuizCard quiz={quiz} />;
+    const options: string[] = Array.isArray(quiz.payload.options) ? quiz.payload.options : [];
+    return (
+      <div className="space-y-4 text-sm text-slate-900">
+        {questionBlock(quiz.payload.question ?? '질문 없음')}
+        <div className="space-y-2">
+          {options.map((option, index) => (
+            <div key={`${option}-${index}`} className="flex items-center justify-center gap-3 bg-white px-3 py-2 text-sm shadow-sm">
+              <span>{option}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  // For other quiz types, use the existing renderer
   switch (quiz.type) {
     case 'SHORT':
       return (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-slate-800">{quiz.payload.prompt}</p>
-          <div className="p-2 rounded bg-slate-50 border border-slate-200">
-            <input 
-              type="text" 
-              placeholder="답을 입력하세요..." 
-              className="w-full text-xs bg-transparent border-none outline-none"
-              disabled
-            />
-          </div>
+          {questionBlock(quiz.payload.prompt)}
+          <div className="bg-white px-3 py-2 text-xs text-slate-500 shadow-sm">정답 입력 영역 (예시)</div>
         </div>
       );
-    
     case 'OX':
       return (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-slate-800">{quiz.payload.statement}</p>
+          {questionBlock(quiz.payload.statement)}
           <div className="flex gap-2">
-            <div className="flex-1 p-2 rounded bg-slate-50 text-center text-xs font-medium">O</div>
-            <div className="flex-1 p-2 rounded bg-slate-50 text-center text-xs font-medium">X</div>
+            <div className="flex-1 rounded bg-white py-3 text-center text-xs font-semibold text-emerald-600 shadow-sm">O</div>
+            <div className="flex-1 rounded bg-white py-3 text-center text-xs font-semibold text-rose-600 shadow-sm">X</div>
           </div>
         </div>
       );
-    
     case 'CLOZE':
       return (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-slate-800">
-            {quiz.payload.text?.replace(/\{\{c\d+::(.*?)\}\}/g, '____')}
-          </p>
-          <div className="p-2 rounded bg-slate-50 border border-slate-200">
-            <input 
-              type="text" 
-              placeholder="빈칸을 채우세요..." 
-              className="w-full text-xs bg-transparent border-none outline-none"
-              disabled
-            />
-          </div>
+          {questionBlock(quiz.payload.text?.replace(/\{\{c\d+::(.*?)\}\}/g, '____') ?? '')}
+          <div className="bg-white px-3 py-2 text-xs text-slate-500 shadow-sm">빈칸 입력 영역 (예시)</div>
         </div>
       );
-    
     case 'ORDER':
       return (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-slate-800">올바른 순서로 배열하세요</p>
+          {questionBlock('올바른 순서로 배열하세요')}
           <div className="space-y-1">
             {quiz.payload.items?.map((item: string, idx: number) => (
-              <div key={idx} className="p-2 rounded bg-slate-50 text-xs border border-slate-200">
+              <div key={idx} className="rounded bg-white px-3 py-2 text-xs text-center shadow-sm">
                 {item}
               </div>
             ))}
           </div>
         </div>
       );
-    
     case 'MATCH':
       return (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-slate-800">올바른 짝을 맞추세요</p>
+          {questionBlock('올바른 짝을 맞추세요')}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               {quiz.payload.pairs?.map((pair: any, idx: number) => (
-                <div key={idx} className="p-2 rounded bg-slate-50 text-xs border border-slate-200">
+                <div key={idx} className="rounded bg-white px-3 py-2 text-xs shadow-sm">
                   {pair.left}
                 </div>
               ))}
             </div>
             <div className="space-y-1">
               {quiz.payload.pairs?.map((pair: any, idx: number) => (
-                <div key={idx} className="p-2 rounded bg-slate-50 text-xs border border-slate-200">
+                <div key={idx} className="rounded bg-white px-3 py-2 text-xs shadow-sm">
                   {pair.right}
                 </div>
               ))}
@@ -192,149 +183,111 @@ const renderSampleQuiz = (quiz: QuizItem) => {
           </div>
         </div>
       );
-    
     default:
       return <div className="text-sm text-slate-600">지원하지 않는 퀴즈 유형입니다.</div>;
   }
 };
 
+const renderSampleAnswer = (isCorrect: boolean, explanation?: string) => (
+  <div className="space-y-4 text-slate-800">
+    <div
+      className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${
+        isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+      }`}
+    >
+      {isCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
+    </div>
+    {explanation ? (
+      <p className="text-sm leading-relaxed text-slate-700">{explanation}</p>
+    ) : (
+      <p className="text-sm text-slate-500">다음 문제로 이동하세요.</p>
+    )}
+  </div>
+);
+
 export default function HomePage() {
-  const navigate = useNavigate();
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [isStudyMode, setIsStudyMode] = useState(true); // true: 학습 중, false: 학습 완료
-  const [currentTeacher, setCurrentTeacher] = useState(0);
-  const [currentQuiz, setCurrentQuiz] = useState(0);
+  const [currentQuiz, setCurrentQuiz] = useState(() => Math.floor(Math.random() * sampleQuizzes.length));
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [teacherVariantIndex] = useState(() => Math.floor(Math.random() * teacherVariants.length));
+  const [teacherMood, setTeacherMood] = useState<TeacherMood>('idle');
 
-  // 슬라이드 자동 전환
+  const currentTeacherImage =
+    teacherVariants[teacherVariantIndex]?.[teacherMood] ?? teacherVariants[0].idle;
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentSlide(prev => {
-        const nextSlide = (prev + 1) % 2; // 0: 학습 중, 1: 학습 완료
-        setIsStudyMode(nextSlide === 0);
-        
-        // 새로운 슬라이드마다 랜덤 teacher와 quiz 선택
-        setCurrentTeacher(Math.floor(Math.random() * teacherImages.length));
-        setCurrentQuiz(Math.floor(Math.random() * sampleQuizzes.length));
-        
-        return nextSlide;
-      });
-    }, 4000); // 4초마다 전환
+    const timeout = window.setTimeout(() => {
+      if (showAnswer) {
+        setCurrentQuiz((prev) => {
+          const next = Math.floor(Math.random() * sampleQuizzes.length);
+          return next === prev && sampleQuizzes.length > 1 ? (next + 1) % sampleQuizzes.length : next;
+        });
+        setShowAnswer(false);
+      } else {
+        setShowAnswer(true);
+      }
+    }, showAnswer ? 4000 : 6000);
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => window.clearTimeout(timeout);
+  }, [showAnswer]);
 
-  // 초기 랜덤 설정
   useEffect(() => {
-    setCurrentTeacher(Math.floor(Math.random() * teacherImages.length));
-    setCurrentQuiz(Math.floor(Math.random() * sampleQuizzes.length));
-  }, []);
+    if (showAnswer) {
+      const isCorrect = sampleOutcomes[currentQuiz];
+      setTeacherMood(isCorrect ? 'correct' : 'incorrect');
+    } else {
+      setTeacherMood('idle');
+    }
+  }, [showAnswer, currentQuiz]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-      {/* Hero Section */}
       <section className="w-full py-12">
         <div className="container mx-auto px-4">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-center text-primary-600">
-            HiStudyCard
-          </h1>
-          <p className="text-lg md:text-xl text-center text-slate-600 mt-4">
-            한국사 학습을 위한 스마트 카드 시스템
-          </p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-center text-primary-600">HiStudyCard</h1>
+          <p className="mt-4 text-lg md:text-xl text-center text-slate-600">한국사 학습을 위한 스마트 카드 시스템</p>
         </div>
       </section>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col items-center justify-center space-y-12">
-          {/* 학습 페이지 슬라이드 */}
-          <div className="w-full max-w-7xl relative overflow-hidden rounded-2xl shadow-2xl bg-gradient-to-br from-slate-50 to-slate-100">
-            <div className="relative h-96 md:h-[500px]">
-              {/* 슬라이드 인디케이터 */}
-              <div className="absolute top-4 right-4 z-10 flex gap-2">
-                <div className={`w-3 h-3 rounded-full transition-all ${isStudyMode ? 'bg-primary-500' : 'bg-white/50'}`}></div>
-                <div className={`w-3 h-3 rounded-full transition-all ${!isStudyMode ? 'bg-primary-500' : 'bg-white/50'}`}></div>
+          <div className="relative w-full max-w-5xl rounded-[40px] bg-white p-8 shadow-[0_32px_60px_-28px_rgba(30,41,59,0.35)]">
+            <div className="flex flex-col gap-10 lg:flex-row lg:items-center">
+              <div className="relative flex-[0_0_50%]">
+                <img src={currentTeacherImage} alt="Teacher" className="w-full h-auto object-contain" />
               </div>
-              
-              {/* 학습 중 슬라이드 */}
-              <div className={`absolute inset-0 transition-transform duration-1000 ease-in-out ${isStudyMode ? 'translate-x-0' : '-translate-x-full'}`}>
-                <div className="h-full px-4 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* 왼쪽: Teacher 이미지 */}
-                  <div className="flex items-center justify-center">
-                    <div className="relative">
-                      <img 
-                        src={teacherImages[currentTeacher]} 
-                        alt="Teacher" 
-                        className="w-full max-w-xs h-auto object-contain drop-shadow-lg"
-                      />
-                      <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-full px-4 py-2 shadow-lg border border-slate-200">
-                        <p className="text-sm font-medium text-slate-700">
-                          {getQuizTypeLabel(sampleQuizzes[currentQuiz]?.type)}
-                        </p>
-                      </div>
+              <div className="relative flex-1">
+                <div className="relative w-full max-w-sm lg:ml-auto" style={{ perspective: '1500px' }}>
+                  <div
+                    className={`relative aspect-[3/5] w-full transform transition-transform duration-700 ease-in-out [transform-style:preserve-3d] ${
+                      showAnswer ? '[transform:rotateY(180deg)]' : ''
+                    }`}
+                  >
+                    <div
+                      className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden]"
+                      style={{ backgroundImage: `url(${cardFrameFront})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                    >
+                    <div className="absolute inset-0 bg-white/55" />
+                    <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6 shadow-inner">
+                        <div className="max-h-full overflow-y-auto text-slate-900">
+                          {renderSampleQuiz(sampleQuizzes[currentQuiz])}
+                        </div>
                     </div>
-                  </div>
-
-                  {/* 오른쪽: 퀴즈 카드 */}
-                  <div className="flex items-center justify-center">
-                    <div className={`w-full max-w-sm rounded-2xl border-2 shadow-xl p-6 ${getQuizTypeColor(sampleQuizzes[currentQuiz]?.type)}`}>
-                      {/* 카드 헤더 */}
-                      <div className="text-center mb-4">
-                        <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm">
-                          <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                          <span className="text-xs font-semibold text-slate-700">학습 중</span>
-                        </div>
-                      </div>
-
-                      {/* 퀴즈 콘텐츠 (예시) */}
-                      <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-sm">
-                        {renderSampleQuiz(sampleQuizzes[currentQuiz])}
-                      </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 학습 완료 슬라이드 */}
-              <div className={`absolute inset-0 transition-transform duration-1000 ease-in-out ${!isStudyMode ? 'translate-x-0' : 'translate-x-full'}`}>
-                <div className="h-full px-4 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* 왼쪽: Teacher 이미지 */}
-                  <div className="flex items-center justify-center">
-                    <div className="relative">
-                      <img 
-                        src={teacherImages[currentTeacher]} 
-                        alt="Teacher" 
-                        className="w-full max-w-xs h-auto object-contain drop-shadow-lg"
-                      />
-                      <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-full px-4 py-2 shadow-lg border border-slate-200">
-                        <p className="text-sm font-bold text-emerald-600">🏆 훌륭해요!</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 오른쪽: 결과 카드 */}
-                  <div className="flex items-center justify-center">
-                    <div className="w-full max-w-sm bg-gradient-to-br from-white to-slate-50 rounded-2xl border-2 border-slate-200 shadow-xl p-6">
-                      {/* 점수 표시 */}
-                      <div className="text-center mb-4">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full text-xl font-bold text-white shadow-lg bg-gradient-to-br from-emerald-400 to-emerald-600">
-                          95%
+                    <div
+                      className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden] [transform:rotateY(180deg)]"
+                      style={{ backgroundImage: `url(${cardFrameBack})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                    >
+                      <div className="absolute inset-0 bg-white/55" />
+                      <div className="absolute inset-[18px] flex h-full flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center shadow-inner">
+                        <div className="w-full overflow-y-auto pr-1 text-left text-slate-900">
+                          {renderSampleAnswer(sampleOutcomes[currentQuiz], sampleExplanations[currentQuiz])}
                         </div>
-                      </div>
-
-                      {/* 완료 메시지 */}
-                      <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
-                        <h3 className="text-sm font-semibold text-slate-800 mb-2 text-center">🎉 학습 완료!</h3>
-                        <p className="text-xs text-slate-600 text-center">점수: 19 / 20 (95%)</p>
-                      </div>
-
-                      {/* 버튼 (비활성화) */}
-                      <div className="space-y-2">
-                        <div className="w-full rounded-lg bg-primary-400 px-4 py-2 text-xs font-semibold text-white text-center opacity-75">
-                          🔄 다시 학습하기
-                        </div>
-                        <div className="w-full rounded-lg border border-primary-400 px-4 py-2 text-xs font-semibold text-primary-400 text-center opacity-75">
-                          📚 학습 리스트로 돌아가기
-                        </div>
+                        <button
+                          type="button"
+                          className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2"
+                        >
+                          다음 문제로 이동하세요.
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -342,20 +295,14 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-
-          {/* Description */}
           <div className="text-center max-w-2xl space-y-6">
-            <h2 className="text-2xl md:text-3xl font-semibold text-slate-800">
-              효율적인 한국사 학습의 시작
-            </h2>
+            <h2 className="text-2xl md:text-3xl font-semibold text-slate-800">효율적인 한국사 학습의 시작</h2>
             <p className="text-lg text-slate-600 leading-relaxed">
-              AI 기반 퀴즈 생성과 체계적인 학습 관리로 
-              한국사를 더 쉽고 재미있게 공부하세요.
+              AI 기반 퀴즈 생성과 체계적인 학습 관리로 한국사를 더 쉽고 재미있게 공부하세요.
             </p>
           </div>
 
-          {/* Features */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-4xl mt-16">
+          <div className="grid w-full max-w-4xl grid-cols-1 gap-8 md:grid-cols-3 mt-16">
             <div className="text-center p-6 bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-200">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -386,16 +333,12 @@ export default function HomePage() {
               <p className="text-slate-600">다양한 보상으로 학습 관리</p>
             </div>
           </div>
-
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="w-full py-8 mt-16 border-t border-slate-200">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-slate-500">
-            © {new Date().getFullYear()} HiStudyCard.
-          </p>
+          <p className="text-slate-500">© {new Date().getFullYear()} HiStudyCard.</p>
         </div>
       </footer>
     </div>
