@@ -7,22 +7,19 @@ import {
   updateStudySessionRequest,
   type StudySessionCard,
   type Reward,
+  type LearningHelperPublic,
 } from '../api';
 import CardRunner from '../components/CardRunner';
 import ProgressBar from '../components/ProgressBar';
 import { getQuizTypeLabel } from '../utils/quiz';
-import { buildTeacherFilename, getTeacherAssetUrl } from '../utils/assets';
+import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl } from '../utils/assets';
 import cardFrameFront from '../assets/card_frame_front.png';
 import cardFrameBack from '../assets/card_frame_back.png';
 import { useAuth } from '../context/AuthContext';
+import HelperPickerModal from '../components/HelperPickerModal';
+import { useLearningHelpers } from '../hooks/useLearningHelpers';
 
 type TeacherMood = 'idle' | 'correct' | 'incorrect';
-
-const teacherVariants = Array.from({ length: 12 }, (_, index) => ({
-  idle: getTeacherAssetUrl(buildTeacherFilename(index)),
-  correct: getTeacherAssetUrl(buildTeacherFilename(index, '_o')),
-  incorrect: getTeacherAssetUrl(buildTeacherFilename(index, '_x')),
-}));
 
 interface QuizResult {
   correct: boolean;
@@ -47,9 +44,6 @@ export default function StudyPage() {
   const [completed, setCompleted] = useState(false);
   const [sessionRewards, setSessionRewards] = useState<Reward[]>([]);
   const [sessionTags, setSessionTags] = useState<string[]>([]);
-  const [teacherVariantIndex, setTeacherVariantIndex] = useState(() =>
-    Math.floor(Math.random() * teacherVariants.length),
-  );
   const [teacherMood, setTeacherMood] = useState<TeacherMood>('idle');
   const [finalResultFlipped, setFinalResultFlipped] = useState(false);
   const [nextActionLabel, setNextActionLabel] = useState<'➡️ 다음 문제' | '🏁 결과 보기'>('➡️ 다음 문제');
@@ -57,12 +51,40 @@ export default function StudyPage() {
   const [finalFrontCorrect, setFinalFrontCorrect] = useState<boolean | null>(null);
   const [finalFrontExplanation, setFinalFrontExplanation] = useState<string | null>(null);
   const [restarting, setRestarting] = useState(false);
+  const [helper, setHelper] = useState<LearningHelperPublic | null>(null);
+  const [helperModalOpen, setHelperModalOpen] = useState(false);
+  const [pendingHelperId, setPendingHelperId] = useState<number | null>(null);
+  const [helperSubmitting, setHelperSubmitting] = useState(false);
   const resultResetTimer = useRef<number | null>(null);
   const restartTimer = useRef<number | null>(null);
-  const currentTeacherImage =
-    teacherVariants[teacherVariantIndex]?.[teacherMood] ?? teacherVariants[0].idle;
+  const { helpers, refresh: refreshHelpers } = useLearningHelpers();
 
   const userId = user?.id;
+
+  const baseVariants = useMemo(
+    () => ({
+      idle: getTeacherAssetUrl(buildTeacherFilename(0)),
+      correct: getTeacherAssetUrl(buildTeacherFilename(0, '_o')),
+      incorrect: getTeacherAssetUrl(buildTeacherFilename(0, '_x')),
+    }),
+    [],
+  );
+
+  const activeHelper = helper ?? user?.selected_helper ?? null;
+
+  const helperVariants = useMemo(() => {
+    const variants = activeHelper?.variants ?? {};
+    const idle = getHelperAssetUrl(variants.idle) ?? baseVariants.idle;
+    const correct = getHelperAssetUrl(variants.correct) ?? idle ?? baseVariants.correct;
+    const incorrect = getHelperAssetUrl(variants.incorrect) ?? idle ?? baseVariants.incorrect;
+    return {
+      idle,
+      correct,
+      incorrect,
+    };
+  }, [activeHelper, baseVariants]);
+
+  const currentTeacherImage = helperVariants[teacherMood] ?? baseVariants.idle;
 
   useEffect(() => {
     const load = async () => {
@@ -85,6 +107,10 @@ export default function StudyPage() {
             : [];
           setSessionRewards(session.rewards ?? []);
           setSessionTags(session.tags ?? []);
+          setHelper(session.helper ?? user?.selected_helper ?? null);
+          setPendingHelperId(
+            session.helper?.id ?? session.helper_id ?? user?.selected_helper_id ?? null,
+          );
           if (!cardsFromSession.length) {
             setError('선택된 카드가 없습니다. 학습 리스트에서 세트를 다시 생성해주세요.');
             setContent({ title: session.title?.trim() || '학습 세트', created_at: session.created_at, content: '' });
@@ -113,6 +139,8 @@ export default function StudyPage() {
           );
           setSessionRewards([]);
           setSessionTags([]);
+          setHelper(user?.selected_helper ?? null);
+          setPendingHelperId(user?.selected_helper_id ?? null);
         }
         setIndex(0);
         setSubmitted(false);
@@ -130,9 +158,6 @@ export default function StudyPage() {
           window.clearTimeout(resultResetTimer.current);
           resultResetTimer.current = null;
         }
-        // 랜덤 teacher 이미지 선택
-        const randomIndex = Math.floor(Math.random() * teacherVariants.length);
-        setTeacherVariantIndex(randomIndex);
         setTeacherMood('idle');
       } catch (err: any) {
         console.error(err);
@@ -143,11 +168,47 @@ export default function StudyPage() {
       }
     };
     load();
-  }, [id, sessionId, userId, location, navigate]);
+  }, [id, sessionId, userId, user?.selected_helper_id, user?.selected_helper, location, navigate]);
 
   const score = useMemo(() => results.filter((item) => item?.correct).length, [results]);
 
   const hasSyncedResult = useRef(false);
+
+  const handleHelperConfirm = async () => {
+    if (pendingHelperId == null) {
+      alert('학습 도우미를 선택해주세요.');
+      return;
+    }
+    const selectedHelper = helpers.find((item) => item.id === pendingHelperId);
+    if (!selectedHelper) {
+      alert('선택한 학습 도우미를 찾을 수 없습니다.');
+      return;
+    }
+    if (!selectedHelper.unlocked) {
+      alert('아직 잠금 해제되지 않은 학습 도우미입니다.');
+      return;
+    }
+
+    if (!sessionId) {
+      setHelper(selectedHelper);
+      setHelperModalOpen(false);
+      return;
+    }
+
+    setHelperSubmitting(true);
+    try {
+      const updated = await updateStudySessionRequest(sessionId, { helper_id: pendingHelperId });
+      setHelper(updated.helper ?? selectedHelper);
+      setHelperModalOpen(false);
+      refreshHelpers();
+    } catch (err: any) {
+      console.error('학습 도우미 변경 실패', err);
+      const message = err?.response?.data?.detail ?? err?.message ?? '학습 도우미를 변경하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } finally {
+      setHelperSubmitting(false);
+    }
+  };
 
   const handleSubmit = (correct: boolean) => {
     if (submitted) return;
@@ -293,8 +354,6 @@ export default function StudyPage() {
         window.clearTimeout(resultResetTimer.current);
         resultResetTimer.current = null;
       }
-      const randomIndex = Math.floor(Math.random() * teacherVariants.length);
-      setTeacherVariantIndex(randomIndex);
       setTeacherMood('idle');
       setRestarting(false);
       restartTimer.current = null;
@@ -391,6 +450,7 @@ export default function StudyPage() {
     const isExcellent = scorePercentage >= 90;
     const isGood = scorePercentage >= 70;
     return (
+      <>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <header className="bg-white border-b border-slate-200 px-4 py-4 mb-6 min-h-[120px] flex items-center">
         <div className="max-w-7xl mx-auto w-full text-center">
@@ -554,10 +614,28 @@ export default function StudyPage() {
         </div>
 
       </div>
+      <HelperPickerModal
+        isOpen={helperModalOpen}
+        helpers={helpers}
+        selectedId={pendingHelperId}
+        onSelect={setPendingHelperId}
+        onClose={() => {
+          if (!helperSubmitting) {
+            setHelperModalOpen(false);
+          }
+        }}
+        onConfirm={handleHelperConfirm}
+        userLevel={user?.level ?? 1}
+        submitting={helperSubmitting}
+        confirmLabel={sessionId ? '학습 도우미 변경' : '선택'}
+        description={sessionId ? undefined : '임시 학습에서는 선택한 도우미가 현재 화면에만 적용됩니다.'}
+      />
+      </>
     );
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* 헤더 */}
       <header className="bg-white border-b border-slate-200 px-4 py-4 mb-6 min-h-[120px] flex items-center">
@@ -702,6 +780,23 @@ export default function StudyPage() {
           </div>
         </div>
       )}
+      <HelperPickerModal
+        isOpen={helperModalOpen}
+        helpers={helpers}
+        selectedId={pendingHelperId}
+        onSelect={setPendingHelperId}
+        onClose={() => {
+          if (!helperSubmitting) {
+            setHelperModalOpen(false);
+          }
+        }}
+        onConfirm={handleHelperConfirm}
+        userLevel={user?.level ?? 1}
+        submitting={helperSubmitting}
+        confirmLabel={sessionId ? '학습 도우미 변경' : '선택'}
+        description={sessionId ? undefined : '임시 학습에서는 선택한 도우미가 현재 화면에만 적용됩니다.'}
+      />
     </div>
+    </>
   );
 }

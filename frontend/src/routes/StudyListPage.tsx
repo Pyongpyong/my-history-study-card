@@ -9,8 +9,12 @@ import {
   StudySession,
   Reward,
 } from '../api';
+import { useAuth } from '../context/AuthContext';
+import HelperPickerModal from '../components/HelperPickerModal';
+import { useLearningHelpers } from '../hooks/useLearningHelpers';
 
 export default function StudyListPage() {
+  const { user } = useAuth();
   const [sessions, setSessions] = useState<StudySession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,9 +23,13 @@ export default function StudyListPage() {
   const [rewardsLoading, setRewardsLoading] = useState(false);
   const [rewardsError, setRewardsError] = useState<string | null>(null);
   const [selectingRewardId, setSelectingRewardId] = useState<number | null>(null);
+  const [helperModalSession, setHelperModalSession] = useState<StudySession | null>(null);
+  const [pendingHelperId, setPendingHelperId] = useState<number | null>(null);
+  const [helperSubmitting, setHelperSubmitting] = useState(false);
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
+  const { helpers, loading: helpersLoading, error: helpersError, refresh: refreshHelpers } = useLearningHelpers();
 
   const load = async () => {
     setLoading(true);
@@ -136,6 +144,54 @@ export default function StudyListPage() {
     }
   };
 
+  const openHelperModal = (session: StudySession) => {
+    setHelperModalSession(session);
+    const fallback =
+      session.helper?.id ??
+      session.helper_id ??
+      user?.selected_helper_id ??
+      helpers.find((item) => item.level_requirement === 1)?.id ??
+      helpers.find((item) => item.unlocked)?.id ??
+      null;
+    setPendingHelperId(fallback);
+    void refreshHelpers();
+  };
+
+  const closeHelperModal = () => {
+    if (helperSubmitting) {
+      return;
+    }
+    setHelperModalSession(null);
+    setPendingHelperId(null);
+  };
+
+  const handleHelperConfirm = async () => {
+    if (!helperModalSession) {
+      return;
+    }
+    if (pendingHelperId == null) {
+      alert('학습 도우미를 선택해주세요.');
+      return;
+    }
+    const selectedHelper = helpers.find((item) => item.id === pendingHelperId);
+    if (selectedHelper && !selectedHelper.unlocked) {
+      alert('아직 잠금 해제되지 않은 학습 도우미입니다.');
+      return;
+    }
+    setHelperSubmitting(true);
+    try {
+      const updated = await updateStudySessionRequest(helperModalSession.id, { helper_id: pendingHelperId });
+      setSessions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      closeHelperModal();
+    } catch (err: any) {
+      console.error('학습 도우미 변경 실패', err);
+      const message = err?.response?.data?.detail ?? err?.message ?? '학습 도우미를 변경하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } finally {
+      setHelperSubmitting(false);
+    }
+  };
+
   if (loading) {
     return <p className="text-sm text-slate-600">불러오는 중…</p>;
   }
@@ -212,6 +268,9 @@ export default function StudyListPage() {
             </button>
               </div>
               <p className="mt-3 text-sm text-slate-900">퀴즈 수: {session.cards.length}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                학습 도우미: {session.helper?.name ?? 'Level 1 학습도우미'}
+              </p>
               {session.tags?.length ? (
                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-primary-600">
                   {session.tags.map((tag) => (
@@ -259,6 +318,14 @@ export default function StudyListPage() {
               className="rounded bg-primary-600 px-4 py-2 font-semibold text-white transition hover:bg-primary-500"
             >
               학습 시작
+            </button>
+            <button
+              type="button"
+              onClick={() => openHelperModal(session)}
+              className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+              disabled={helperSubmitting && helperModalSession?.id === session.id}
+            >
+              학습 도우미 교체
             </button>
             <button
               type="button"
@@ -347,6 +414,25 @@ export default function StudyListPage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {helperModalSession ? (
+        <HelperPickerModal
+          isOpen={Boolean(helperModalSession)}
+          helpers={helpers}
+          selectedId={pendingHelperId}
+          onSelect={setPendingHelperId}
+          onClose={closeHelperModal}
+          onConfirm={handleHelperConfirm}
+          userLevel={user?.level ?? 1}
+          submitting={helperSubmitting || helpersLoading}
+          confirmLabel="학습 도우미 변경"
+          description={
+            helpersLoading
+              ? '학습 도우미 정보를 불러오는 중…'
+              : helpersError ?? '사용할 학습 도우미를 선택하세요.'
+          }
+        />
       ) : null}
     </div>
   );

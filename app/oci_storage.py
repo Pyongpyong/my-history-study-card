@@ -47,3 +47,31 @@ def _ensure_client() -> Tuple[ObjectStorageClient, str]:
 def fetch_object(bucket: str, object_name: str):
     client, namespace = _ensure_client()
     return client.get_object(namespace, bucket, object_name)
+
+
+def upload_object(bucket: str, object_name: str, data: bytes, *, content_type: Optional[str] = None) -> None:
+    client, namespace = _ensure_client()
+    client.put_object(
+        namespace,
+        bucket,
+        object_name,
+        data,
+        content_type=content_type,
+    )
+
+
+def get_bucket_name() -> str:
+    bucket = os.getenv("OCI_BUCKETNAME", "").strip()
+    if not bucket:
+        raise OciStorageConfigError("OCI_BUCKETNAME environment variable is missing")
+    return bucket
+
+
+def build_object_name(filename: str) -> str:
+    prefix = os.getenv("OCI_PREFIX", "").strip()
+    if not prefix:
+        return filename
+    normalized = prefix.strip("/")
+    if not normalized:
+        return filename
+    return f"{normalized}/{filename}"

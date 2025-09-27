@@ -497,6 +497,43 @@ class QuizListOut(BaseModel):
     meta: PageMeta
 
 
+class HelperVariants(BaseModel):
+    idle: Optional[str] = None
+    correct: Optional[str] = None
+    incorrect: Optional[str] = None
+
+
+class LearningHelperBase(BaseModel):
+    name: str
+    level_requirement: int = Field(ge=1)
+    description: Optional[str] = None
+
+
+class LearningHelperPublic(LearningHelperBase):
+    id: int
+    variants: HelperVariants
+    created_at: datetime
+    updated_at: datetime
+
+
+class LearningHelperOut(LearningHelperPublic):
+    unlocked: bool
+
+
+class LearningHelperCreate(LearningHelperBase):
+    pass
+
+
+class LearningHelperUpdate(BaseModel):
+    name: Optional[str] = None
+    level_requirement: Optional[int] = Field(default=None, ge=1)
+    description: Optional[str] = None
+
+
+class LearningHelperListOut(BaseModel):
+    items: List[LearningHelperOut]
+
+
 class RewardCreate(BaseModel):
     title: str
     duration: str
@@ -539,6 +576,7 @@ class StudySessionCreate(BaseModel):
     title: str
     quiz_ids: List[int]
     cards: List[Dict[str, object]]
+    helper_id: Optional[int] = None
 
     @field_validator("title")
     @classmethod
@@ -562,6 +600,8 @@ class StudySessionOut(BaseModel):
     tags: List[str]
     rewards: List[RewardOut]
     owner_id: int
+    helper_id: Optional[int]
+    helper: Optional[LearningHelperPublic]
 
 
 class StudySessionListOut(BaseModel):
@@ -577,6 +617,7 @@ class StudySessionUpdate(BaseModel):
     total: Optional[int] = None
     completed_at: Optional[datetime] = None
     answers: Optional[Dict[str, bool]] = None
+    helper_id: Optional[int] = None
 
 
 class UserCreate(BaseModel):
@@ -605,6 +646,8 @@ class UserProfile(BaseModel):
     level: int = 1
     points_to_next_level: int = 100
     is_max_level: bool = False
+    selected_helper_id: Optional[int] = None
+    selected_helper: Optional[LearningHelperPublic] = None
 
 
 class UserAuthResponse(BaseModel):
@@ -622,6 +665,10 @@ class UserPasswordUpdate(BaseModel):
         if len(value.strip()) < 6:
             raise ValueError("password must be at least 6 characters")
         return value
+
+
+class UserHelperUpdate(BaseModel):
+    helper_id: int
 
 
 class UserDeleteRequest(BaseModel):

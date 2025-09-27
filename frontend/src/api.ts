@@ -201,6 +201,8 @@ export interface StudySession {
   tags: string[];
   rewards: Reward[];
   owner_id: number;
+  helper_id?: number | null;
+  helper?: LearningHelperPublic | null;
 }
 
 export interface StudySessionListResponse {
@@ -224,6 +226,30 @@ export interface Reward {
 
 export interface RewardListResponse {
   items: Reward[];
+}
+
+export interface HelperVariants {
+  idle?: string | null;
+  correct?: string | null;
+  incorrect?: string | null;
+}
+
+export interface LearningHelperPublic {
+  id: number;
+  name: string;
+  level_requirement: number;
+  description?: string | null;
+  variants: HelperVariants;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LearningHelperOut extends LearningHelperPublic {
+  unlocked: boolean;
+}
+
+export interface LearningHelperListResponse {
+  items: LearningHelperOut[];
 }
 
 export async function fetchContents(page = 1, size = 20): Promise<ContentListResponse> {
@@ -296,6 +322,7 @@ export async function createStudySession(payload: {
   title: string;
   quiz_ids: number[];
   cards: StudySessionCard[];
+  helper_id?: number | null;
 }): Promise<StudySession> {
   const { data } = await api.post<StudySession>('/study-sessions', payload);
   return data;
@@ -341,6 +368,46 @@ export async function updateRewardRequest(id: number, updates: Partial<Reward>):
 
 export async function assignRewardToSession(sessionId: number, rewardId: number): Promise<StudySession> {
   const { data } = await api.post<StudySession>(`/study-sessions/${sessionId}/rewards`, { reward_id: rewardId });
+  return data;
+}
+
+export async function fetchLearningHelpers(): Promise<LearningHelperOut[]> {
+  const { data } = await api.get<LearningHelperListResponse>('/helpers');
+  return data.items;
+}
+
+export async function createLearningHelperRequest(payload: {
+  name: string;
+  level_requirement: number;
+  description?: string | null;
+}): Promise<LearningHelperPublic> {
+  const { data } = await api.post<LearningHelperPublic>('/helpers', payload);
+  return data;
+}
+
+export async function updateLearningHelperRequest(
+  id: number,
+  updates: Partial<{
+    name: string;
+    level_requirement: number;
+    description?: string | null;
+  }>,
+): Promise<LearningHelperPublic> {
+  const { data } = await api.patch<LearningHelperPublic>(`/helpers/${id}`, updates);
+  return data;
+}
+
+export async function uploadLearningHelperImageRequest(
+  id: number,
+  variant: 'idle' | 'correct' | 'incorrect',
+  file: File,
+): Promise<LearningHelperPublic> {
+  const formData = new FormData();
+  formData.append('variant', variant);
+  formData.append('file', file);
+  const { data } = await api.post<LearningHelperPublic>(`/helpers/${id}/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return data;
 }
 
@@ -419,6 +486,8 @@ export interface UserProfile {
   level: number;
   points_to_next_level: number;
   is_max_level: boolean;
+  selected_helper_id?: number | null;
+  selected_helper?: LearningHelperPublic | null;
 }
 
 export interface AuthResponse {
@@ -451,6 +520,11 @@ export async function changePasswordRequest(payload: {
 
 export async function deleteAccountRequest(payload: { password: string }): Promise<void> {
   await api.request({ method: 'delete', url: '/users/me', data: payload });
+}
+
+export async function updateUserHelperRequest(helperId: number): Promise<UserProfile> {
+  const { data } = await api.patch<UserProfile>('/users/me/helper', { helper_id: helperId });
+  return data;
 }
 
 export async function fetchAllUsersRequest(): Promise<UserProfile[]> {

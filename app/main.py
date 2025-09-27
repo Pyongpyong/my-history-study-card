@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import os
+import uuid
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
-from fastapi import Body, Depends, FastAPI, File, HTTPException, Response, Security, UploadFile, status
-from fastapi.responses import HTMLResponse
+from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Response, Security, UploadFile, status
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import APIKeyHeader
@@ -18,30 +20,39 @@ from .routers import quiz as quiz_router
 from .crud import (
     add_reward_to_session,
     create_content_with_related,
+    create_learning_helper,
     create_quiz_for_content,
     create_reward,
     create_study_session,
+    create_user,
     delete_content,
     delete_quiz,
     delete_reward,
     delete_study_session,
+    delete_user,
     export_contents,
     get_content,
+    get_learning_helper,
     get_quiz,
     get_study_session,
+    get_user_by_api_key,
+    get_user_by_email,
+    helper_to_out,
+    helper_to_public,
     list_contents,
+    list_learning_helpers,
     list_quizzes,
     list_quizzes_by_content,
     list_rewards,
     list_study_sessions,
+    resolve_helper_for_user,
+    set_user_helper,
     update_content,
+    update_helper_variant,
+    update_learning_helper,
     update_quiz,
     update_reward,
     update_study_session,
-    create_user,
-    delete_user,
-    get_user_by_api_key,
-    get_user_by_email,
     update_user_credentials,
 )
 from .db import SessionLocal, init_db
@@ -54,6 +65,11 @@ from .schemas import (
     ContentUpdate,
     ImportPayload,
     ImportResponse,
+    LearningHelperCreate,
+    LearningHelperListOut,
+    LearningHelperOut,
+    LearningHelperPublic,
+    LearningHelperUpdate,
     PageMeta,
     QuizListOut,
     QuizOut,
@@ -68,15 +84,18 @@ from .schemas import (
     StudySessionUpdate,
     UserAuthResponse,
     UserCreate,
-    UserLogin,
-    UserProfile,
-    UserPasswordUpdate,
     UserDeleteRequest,
+    UserHelperUpdate,
+    UserLogin,
+    UserPasswordUpdate,
+    UserProfile,
 )
 from .security import generate_api_key, generate_password_hash, verify_password
 from .routers.ai import router as ai_router
 from .routers.assets import router as assets_router
 from .validators import validate_payload
+from .oci_storage import OciStorageConfigError, build_object_name, get_bucket_name, upload_object, fetch_object
+from oci.exceptions import ServiceError
 
 app = FastAPI(title="Flashcard Storage Service", version="0.1.0")
 
@@ -130,7 +149,9 @@ def _user_to_profile(user: User) -> UserProfile:
         points=user.points,
         level=user.level,
         points_to_next_level=user_stats.get('points_to_next_level', 0),
-        is_max_level=user.level >= 10  # Assuming level 10 is max
+        is_max_level=user.level >= 10,  # Assuming level 10 is max
+        selected_helper_id=user.selected_helper_id,
+        selected_helper=helper_to_public(user.selected_helper),
     )
 
 def _cors_config() -> Tuple[List[str], Optional[str]]:
@@ -411,15 +432,180 @@ def delete_content_endpoint(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@app.get("/helpers", response_model=LearningHelperListOut)
+def list_helpers_endpoint(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+) -> LearningHelperListOut:
+    return LearningHelperListOut(items=list_learning_helpers(db, current_user))
+
+
+@app.get("/helpers/{helper_id}", response_model=LearningHelperOut)
+def get_helper_endpoint(
+    helper_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+) -> LearningHelperOut:
+    helper = get_learning_helper(db, helper_id)
+    if helper is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Helper not found")
+    return helper_to_out(helper, current_user)
+
+
+@app.post("/helpers", response_model=LearningHelperPublic, status_code=status.HTTP_201_CREATED)
+def create_helper_endpoint(
+    payload: LearningHelperCreate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+) -> LearningHelperPublic:
+    try:
+        return create_learning_helper(db, payload)
+    except ValueError as exc:
+        if str(exc) == "LEVEL_EXISTS":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Helper level already exists")
+        raise
+
+
+@app.patch("/helpers/{helper_id}", response_model=LearningHelperPublic)
+def update_helper_endpoint(
+    helper_id: int,
+    payload: LearningHelperUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+) -> LearningHelperPublic:
+    helper = get_learning_helper(db, helper_id)
+    if helper is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Helper not found")
+    try:
+        return update_learning_helper(db, helper, payload)
+    except ValueError as exc:
+        if str(exc) == "LEVEL_EXISTS":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Helper level already exists")
+        raise
+
+
+@app.post("/helpers/{helper_id}/upload", response_model=LearningHelperPublic)
+async def upload_helper_image_endpoint(
+    helper_id: int,
+    variant: str = Form(..., description="idle/correct/incorrect"),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+) -> LearningHelperPublic:
+    helper = get_learning_helper(db, helper_id)
+    if helper is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Helper not found")
+
+    normalized_variant = variant.strip().lower()
+    if normalized_variant not in {"idle", "correct", "incorrect"}:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid variant")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file")
+
+    suffix = Path(file.filename or "").suffix.lower()
+    allowed_suffixes = {".png", ".jpg", ".jpeg", ".avif", ".webp"}
+    if suffix not in allowed_suffixes:
+        suffix = ".png"
+
+    content_type = file.content_type or mimetypes.types_map.get(suffix, "image/png")
+    if content_type is None:
+        content_type = "application/octet-stream"
+
+    raw_object_name = f"helpers/helper_{helper.level_requirement:02d}_{normalized_variant}_{uuid.uuid4().hex}{suffix}"
+
+    try:
+        bucket = get_bucket_name()
+        upload_object(bucket, build_object_name(raw_object_name), data, content_type=content_type)
+    except OciStorageConfigError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    except ServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to upload helper image to OCI") from exc
+
+    return update_helper_variant(db, helper, normalized_variant, raw_object_name)
+
+
+@app.get("/helpers/{helper_id}/image/{variant}")
+def get_helper_image_endpoint(
+    helper_id: int,
+    variant: str,
+    db: Session = Depends(get_db),
+) -> Response:
+    helper = get_learning_helper(db, helper_id)
+    if helper is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Helper not found")
+
+    variant_field_map = {
+        "idle": "image_idle",
+        "correct": "image_correct",
+        "incorrect": "image_incorrect",
+    }
+    normalized_variant = variant.strip().lower()
+    field_name = variant_field_map.get(normalized_variant)
+    if field_name is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Variant not found")
+
+    object_name = getattr(helper, field_name, None)
+    if not object_name:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+
+    try:
+        bucket = get_bucket_name()
+        response = fetch_object(bucket, build_object_name(object_name))
+    except OciStorageConfigError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    except ServiceError as exc:
+        if exc.status == 404:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found") from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to fetch image from OCI") from exc
+
+    content_type = response.headers.get("Content-Type", "image/avif")
+    content_length = response.headers.get("Content-Length")
+
+    if hasattr(response.data, "content") and response.data.content is not None:
+        headers = {"Cache-Control": "public, max-age=3600"}
+        if content_length:
+            headers["Content-Length"] = content_length
+        return Response(content=response.data.content, media_type=content_type, headers=headers)
+
+    stream = response.data.raw
+    headers = {"Cache-Control": "public, max-age=3600"}
+    if content_length:
+        headers["Content-Length"] = content_length
+    return StreamingResponse(stream, media_type=content_type, headers=headers)
+
+
+@app.patch("/users/me/helper", response_model=UserProfile)
+def set_user_helper_endpoint(
+    payload: UserHelperUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UserProfile:
+    helper = get_learning_helper(db, payload.helper_id)
+    if helper is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Helper not found")
+    if current_user.level < helper.level_requirement:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Helper locked for current level")
+    set_user_helper(db, current_user, helper)
+    return _user_to_profile(current_user)
+
+
 @app.post("/study-sessions", response_model=StudySessionOut, status_code=status.HTTP_201_CREATED)
 def create_study_session_endpoint(
     payload: StudySessionCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> StudySessionOut:
+    try:
+        resolve_helper_for_user(db, current_user, payload.helper_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Helper not found")
+    except PermissionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Helper locked for current level")
     result = create_study_session(db, payload, current_user)
     if result is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to create study session with provided quizzes")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to create study session with provided data")
     return result
 
 
@@ -456,7 +642,15 @@ def update_study_session_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> StudySessionOut:
-    result = update_study_session(db, session_id, updates.model_dump(exclude_unset=True), current_user)
+    data = updates.model_dump(exclude_unset=True)
+    if "helper_id" in data:
+        try:
+            resolve_helper_for_user(db, current_user, data.get("helper_id"))
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Helper not found")
+        except PermissionError:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Helper locked for current level")
+    result = update_study_session(db, session_id, data, current_user)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Study session not found")
     return result
