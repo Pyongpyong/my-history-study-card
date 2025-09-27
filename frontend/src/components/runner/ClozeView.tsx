@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
+const questionClass = 'w-full bg-white px-4 py-3 text-lg font-semibold text-primary-600 text-center shadow-sm';
+
 interface ClozeViewProps {
   card: any;
   disabled: boolean;
@@ -53,24 +55,15 @@ export default function ClozeView({ card, disabled, onSubmit }: ClozeViewProps) 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-sm text-slate-900">
-      <p className="text-lg font-semibold text-primary-600">빈칸을 채워보세요</p>
-      <div className="flex flex-wrap items-center gap-2 text-base leading-relaxed">{renderWithInputs()}</div>
+      <p className={questionClass}>빈칸을 채워보세요</p>
+      <div className="flex flex-wrap items-center justify-center gap-2 text-base leading-relaxed">{renderWithInputs()}</div>
       <button
         type="submit"
         disabled={disabled}
-        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="mx-auto block rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         제출
       </button>
-      {disabled ? (
-        <div className="text-xs text-slate-500">
-          {placeholders.map((key) => (
-            <p key={key}>
-              {key}: {clozes[key]}
-            </p>
-          ))}
-        </div>
-      ) : null}
     </form>
   );
 }

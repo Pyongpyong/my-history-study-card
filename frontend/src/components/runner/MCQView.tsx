@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+const questionClass = 'w-full bg-white px-4 py-3 text-lg font-semibold text-primary-600 text-center shadow-sm';
+
 interface MCQViewProps {
   card: any;
   disabled: boolean;
@@ -35,30 +37,36 @@ export default function MCQView({ card, disabled, onSubmit }: MCQViewProps) {
 
   return (
     <div className="space-y-4 text-sm text-slate-900">
-      <p className="text-lg font-semibold text-primary-600">{card.question ?? '질문 없음'}</p>
+      <p className={questionClass}>{card.question ?? '질문 없음'}</p>
       <div className="grid gap-2">
         {options.map((option, index) => {
           const isCorrect = index === Number(card.answer_index);
           const isSelected = index === selected;
-          const stateClass = disabled
-            ? isCorrect
-              ? 'border-emerald-500 bg-emerald-500/10'
-              : isSelected
-              ? 'border-rose-500 bg-rose-500/10'
-              : 'border-slate-300'
-            : isSelected
-            ? 'border-primary-500 bg-primary-50'
-            : 'border-slate-300 hover:border-primary-500';
+
+          let className = 'flex items-center justify-center gap-3 px-3 py-2 text-center transition-colors bg-white shadow-sm';
+
+          if (disabled) {
+            if (isCorrect) {
+              className += ' bg-emerald-100';
+            } else if (isSelected) {
+              className += ' bg-rose-100';
+            }
+          } else {
+            className += ' cursor-pointer hover:bg-slate-100';
+            if (isSelected) {
+              className += ' bg-slate-100';
+            }
+          }
+
           return (
             <button
               key={`${option}-${index}`}
               type="button"
-              className={`rounded border px-3 py-2 text-left transition ${stateClass}`}
+              className={className}
               onClick={() => handleSelect(index)}
               disabled={disabled}
             >
-              <span className="mr-2 text-xs text-slate-500">{index + 1}.</span>
-              {option}
+              <span>{option}</span>
             </button>
           );
         })}

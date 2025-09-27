@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
+const questionClass = 'w-full bg-white px-4 py-3 text-lg font-semibold text-primary-600 text-center shadow-sm';
+
 interface ShortViewProps {
   card: any;
   disabled: boolean;
@@ -29,7 +31,7 @@ export default function ShortView({ card, disabled, onSubmit }: ShortViewProps) 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-sm text-slate-900">
-      <p className="text-lg font-semibold text-primary-600">{card.prompt ?? '질문 없음'}</p>
+      <p className={questionClass}>{card.prompt ?? '질문 없음'}</p>
       <input
         type="text"
         value={value}
@@ -41,11 +43,10 @@ export default function ShortView({ card, disabled, onSubmit }: ShortViewProps) 
       <button
         type="submit"
         disabled={disabled}
-        className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="mx-auto block rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         제출
       </button>
-      {disabled ? <p className="text-xs text-slate-500">정답: {card.answer}</p> : null}
     </form>
   );
 }
