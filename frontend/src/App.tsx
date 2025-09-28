@@ -124,9 +124,7 @@ export default function App() {
           path="/studies"
           element={(
             <main className="app-container mx-auto max-w-6xl px-6 py-8">
-              <RequireAuth>
-                <StudyListPage />
-              </RequireAuth>
+              <StudyListPage />
             </main>
           )}
         />

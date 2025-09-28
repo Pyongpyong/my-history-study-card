@@ -197,14 +197,15 @@ export interface StudySession {
   score?: number | null;
   total?: number | null;
   completed_at?: string | null;
-  answers?: Record<number | string, boolean>;
+  answers: Record<string, boolean>;
   tags: string[];
   rewards: Reward[];
   owner_id: number;
   helper_id?: number | null;
-  helper?: LearningHelperPublic | null;
+  helper?: LearningHelperOut | null;
   card_deck_id?: number | null;
   card_deck?: CardDeck | null;
+  is_public: boolean;
 }
 
 export interface StudySessionListResponse {
@@ -326,6 +327,7 @@ export async function createStudySession(payload: {
   cards: StudySessionCard[];
   helper_id?: number | null;
   card_deck_id?: number | null;
+  is_public?: boolean;
 }): Promise<StudySession> {
   const { data } = await api.post<StudySession>('/study-sessions', payload);
   return data;
@@ -336,8 +338,18 @@ export async function fetchStudySessions(page = 1, size = 50): Promise<StudySess
   return data;
 }
 
+export async function fetchPublicStudySessions(page = 1, size = 50): Promise<StudySessionListResponse> {
+  const { data } = await api.get<StudySessionListResponse>('/public/study-sessions', { params: { page, size } });
+  return data;
+}
+
 export async function fetchStudySession(id: number | string): Promise<StudySession> {
   const { data } = await api.get<StudySession>(`/study-sessions/${id}`);
+  return data;
+}
+
+export async function fetchPublicStudySession(id: number | string): Promise<StudySession> {
+  const { data } = await api.get<StudySession>(`/public/study-sessions/${id}`);
   return data;
 }
 

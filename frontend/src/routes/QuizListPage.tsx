@@ -61,6 +61,8 @@ export default function QuizListPage() {
   const [cardDecks, setCardDecks] = useState<CardDeck[]>([]);
   const [selectedCardDeckId, setSelectedCardDeckId] = useState<number | null>(null);
   const [newSessionCardDeckId, setNewSessionCardDeckId] = useState<number | null>(null);
+  const [isPublic, setIsPublic] = useState(false);
+  const [newSessionIsPublic, setNewSessionIsPublic] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -276,6 +278,7 @@ export default function QuizListPage() {
     setSessionError(null);
     setSelectedSessionId(null);
     setNewSessionHelperId(user?.selected_helper_id ?? null);
+    setIsPublic(false);
   };
 
   const normalizedTargetCard = useMemo(() => {
@@ -380,6 +383,7 @@ export default function QuizListPage() {
         cards: [normalizedTargetCard],
         helper_id: helperIdForCreation ?? undefined,
         card_deck_id: newSessionCardDeckId ?? undefined,
+        is_public: isPublic,
       });
       setStudySessions((prev) => [created, ...prev]);
       alert('새 학습 세트가 생성되었습니다.');
@@ -543,6 +547,20 @@ export default function QuizListPage() {
                     </select>
                     <p className="text-[10px] text-slate-400">카드의 앞뒤면 디자인을 선택합니다.</p>
                   </div>
+                  {user?.is_admin && (
+                    <div className="space-y-1">
+                      <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={isPublic}
+                          onChange={(event) => setIsPublic(event.target.checked)}
+                          className="h-3 w-3 accent-primary-500"
+                        />
+                        공개 학습으로 생성
+                      </label>
+                      <p className="text-[10px] text-slate-400">공개 학습은 로그인 없이 누구나 접근할 수 있습니다.</p>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>
@@ -575,6 +593,7 @@ export default function QuizListPage() {
     if (!saving) {
       setShowCreateModal(false);
       setNewSessionHelperId(user?.selected_helper_id ?? null);
+      setNewSessionIsPublic(false);
     }
   };
 
@@ -614,6 +633,7 @@ export default function QuizListPage() {
         })),
         helper_id: helperIdForCreation ?? undefined,
         card_deck_id: selectedCardDeckId ?? undefined,
+        is_public: newSessionIsPublic,
       };
       await createStudySession(payload);
       alert('학습 리스트에 추가되었습니다.');
@@ -862,6 +882,20 @@ export default function QuizListPage() {
               </select>
               <p className="text-[10px] text-slate-400">카드의 앞뒤면 디자인을 선택합니다.</p>
             </div>
+            {user?.is_admin && (
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={newSessionIsPublic}
+                    onChange={(event) => setNewSessionIsPublic(event.target.checked)}
+                    className="h-3 w-3 accent-primary-500"
+                  />
+                  공개 학습으로 생성
+                </label>
+                <p className="text-[10px] text-slate-400">공개 학습은 로그인 없이 누구나 접근할 수 있습니다.</p>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <button
                 type="button"

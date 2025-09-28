@@ -4,6 +4,7 @@ import {
   fetchContent,
   fetchContentCards,
   fetchStudySession,
+  fetchPublicStudySession,
   updateStudySessionRequest,
   type StudySessionCard,
   type StudySession,
@@ -100,15 +101,14 @@ export default function StudyPage() {
   useEffect(() => {
     const load = async () => {
       if (!id) return;
-      if (sessionId && !userId) {
-        navigate('/auth', { state: { from: location } });
-        return;
-      }
       setLoading(true);
       setError(null);
       try {
         if (sessionId) {
-          const session = await fetchStudySession(sessionId);
+          // 로그인 상태에 따라 공개/개인 세션 API 분기
+          const session = userId
+            ? await fetchStudySession(sessionId)
+            : await fetchPublicStudySession(sessionId);
           setSession(session);
           const cardsFromSession = Array.isArray(session.cards)
             ? session.cards.map((card: any) => ({
@@ -510,7 +510,7 @@ export default function StudyPage() {
                         }}
                       >
                         <div className="absolute inset-0 bg-white/55" />
-                        <div className="absolute inset-[18px] flex flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center shadow-inner">
+                        <div className="absolute inset-[18px] flex flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center">
                           {finalFrontCorrect !== null || finalFrontExplanation ? (
                             <>
                               <div
@@ -555,7 +555,7 @@ export default function StudyPage() {
                         }}
                       >
                         <div className="absolute inset-0 bg-white/55" />
-                        <div className="absolute inset-[18px] flex flex-col rounded-[28px] bg-white/92 p-6 shadow-inner">
+                        <div className="absolute inset-[18px] flex flex-col rounded-[28px] bg-white/92 p-6">
                           <div className="flex h-full flex-col gap-5 text-slate-900">
                             <div className="text-center">
                               <div
@@ -574,7 +574,7 @@ export default function StudyPage() {
                               </p>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto rounded-2xl bg-white/90 p-4 shadow-inner">
+                            <div className="flex-1 overflow-y-auto rounded-2xl bg-white/90 p-4">
                               <h3 className="mb-3 text-center text-sm font-semibold text-slate-700">📊 상세 결과</h3>
                               <div className="space-y-2 pr-1">
                                 {cards.map((card, idx) => (
@@ -735,7 +735,7 @@ export default function StudyPage() {
                       }}
                     >
                       <div className="absolute inset-0 bg-white/55" />
-                      <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6 shadow-inner">
+                      <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6">
                         <div className="max-h-full overflow-y-auto text-slate-900">
                           <CardRunner card={currentCard} disabled={submitted} onSubmit={handleSubmit} />
                         </div>
@@ -757,7 +757,7 @@ export default function StudyPage() {
                       }}
                     >
                       <div className="absolute inset-0 bg-white/55" />
-                      <div className="absolute inset-[18px] flex flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center shadow-inner">
+                      <div className="absolute inset-[18px] flex flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center">
                         {hasResult ? (
                           <>
                             <div

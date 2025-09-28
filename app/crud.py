@@ -407,6 +407,7 @@ def _study_session_to_out(study: StudySession) -> StudySessionOut:
         helper=helper_to_public(getattr(study, "helper", None)),
         card_deck_id=study.card_deck_id,
         card_deck=_card_deck_to_out(getattr(study, "card_deck", None)),
+        is_public=getattr(study, "is_public", False),
     )
 
 
@@ -1038,6 +1039,7 @@ def create_study_session(
         owner_id=owner.id,
         helper_id=helper.id,
         card_deck_id=card_deck_id,
+        is_public=payload.is_public,
     )
     session.add(study)
     session.commit()
@@ -1235,6 +1237,10 @@ def update_study_session(
     if "completed_at" in updates:
         study.completed_at = updates["completed_at"]
     
+    # Handle is_public update
+    if "is_public" in updates:
+        study.is_public = bool(updates["is_public"])
+    
     # Handle answers update if provided
     if 'answers' in updates and updates['answers'] is not None:
         current_answers = updates['answers']
@@ -1302,6 +1308,52 @@ def delete_study_session(session: Session, session_id: int, owner: User) -> bool
     session.delete(study)
     session.commit()
     return True
+
+
+def list_public_study_sessions(session: Session, page: int, size: int) -> tuple[list[StudySessionOut], int]:
+    """공개 학습 세션 목록을 조회합니다 (로그인 불필요)"""
+    offset = (page - 1) * size
+    
+    # 공개 학습 세션만 조회
+    query = (
+        select(StudySession)
+        .options(
+            selectinload(StudySession.helper),
+            selectinload(StudySession.card_deck),
+            selectinload(StudySession.rewards)
+        )
+        .where(StudySession.is_public == True)
+        .order_by(StudySession.created_at.desc())
+        .offset(offset)
+        .limit(size)
+    )
+    
+    studies = session.execute(query).scalars().all()
+    
+    # 총 개수 조회
+    count_query = select(func.count(StudySession.id)).where(StudySession.is_public == True)
+    total = session.execute(count_query).scalar() or 0
+    
+    results = [_study_session_to_out(study) for study in studies]
+    return results, int(total)
+
+
+def get_public_study_session(session: Session, session_id: int) -> Optional[StudySessionOut]:
+    """공개 학습 세션을 조회합니다 (로그인 불필요)"""
+    study = session.execute(
+        select(StudySession)
+        .options(
+            selectinload(StudySession.helper),
+            selectinload(StudySession.card_deck),
+            selectinload(StudySession.rewards)
+        )
+        .where(StudySession.id == session_id, StudySession.is_public == True)
+    ).scalar_one_or_none()
+    
+    if study is None:
+        return None
+    
+    return _study_session_to_out(study)
 
 
 def create_reward(session: Session, payload: RewardCreate, owner: User) -> RewardOut:
