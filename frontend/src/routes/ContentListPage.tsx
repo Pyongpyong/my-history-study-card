@@ -1,6 +1,6 @@
 import { MouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { deleteContent, fetchContents, exportContents } from '../api';
+import { deleteContent, fetchContents } from '../api';
 import Badge from '../components/Badge';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,7 +10,6 @@ export default function ContentListPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeKeywords, setActiveKeywords] = useState<string[]>([]);
   const navigate = useNavigate();
-  const [exporting, setExporting] = useState(false);
   const { user } = useAuth();
 
   const load = useCallback(async () => {
@@ -74,57 +73,6 @@ export default function ContentListPage() {
     });
   }, [contents, activeKeywords]);
 
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const blob = await exportContents();
-      const exportedBlob = blob instanceof Blob ? blob : new Blob([blob]);
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      const defaultName = `my_history_data_${yyyy}${mm}${dd}.json`;
-
-      const saveAsDialog = (window as unknown as { showSaveFilePicker?: Function }).showSaveFilePicker;
-      if (saveAsDialog) {
-        try {
-          const fileHandle = await saveAsDialog({
-            suggestedName: defaultName,
-            types: [
-              {
-                description: 'JSON Files',
-                accept: { 'application/json': ['.json'] },
-              },
-            ],
-          });
-          const writable = await fileHandle.createWritable();
-          await writable.write(exportedBlob);
-          await writable.close();
-        } catch (err: any) {
-          if (err?.name !== 'AbortError') {
-            throw err;
-          }
-        }
-      } else {
-        const url = URL.createObjectURL(exportedBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = defaultName;
-        link.rel = 'noopener';
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '콘텐츠를 내보내지 못했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
-    } finally {
-      setExporting(false);
-    }
-  };
 
   if (loading) {
     return <p className="text-sm text-slate-600">불러오는 중…</p>;
@@ -151,22 +99,6 @@ export default function ContentListPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-500">총 {contents.length}개의 콘텐츠</p>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <button
-            type="button"
-            onClick={() => navigate('/upload')}
-            className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
-          >
-            JSON 가져오기
-          </button>
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={exporting || !contents.length}
-            className="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-            title="콘텐츠 본문, 키워드, 분류, 타임라인과 연결된 퀴즈까지 JSON으로 저장합니다."
-          >
-            {exporting ? '내보내는 중…' : '콘텐츠/퀴즈 JSON 내보내기'}
-          </button>
         </div>
       </div>
 

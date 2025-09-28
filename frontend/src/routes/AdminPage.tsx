@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   fetchAllUsersRequest,
   createAdminUserRequest,
@@ -11,6 +12,7 @@ import {
   updateCardDeckRequest,
   deleteCardDeckRequest,
   uploadCardDeckImageRequest,
+  exportContents,
   type UserProfile,
   type LearningHelperOut,
   type CardDeck,
@@ -23,9 +25,13 @@ import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl, getCardDec
 
 export default function AdminPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // JSON 관련 상태
+  const [exporting, setExporting] = useState(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,7 +41,7 @@ export default function AdminPage() {
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   
   // 탭 상태
-  const [activeTab, setActiveTab] = useState<'helpers' | 'cardDecks'>('helpers');
+  const [activeTab, setActiveTab] = useState<'jsonManagement' | 'helpers' | 'cardDecks'>('jsonManagement');
   const {
     helpers: helperList,
     loading: helperLoading,
@@ -664,6 +670,59 @@ export default function AdminPage() {
     }
   };
 
+  // JSON 내보내기 함수
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportContents();
+      const exportedBlob = blob instanceof Blob ? blob : new Blob([blob]);
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const defaultName = `my_history_data_${yyyy}${mm}${dd}.json`;
+
+      const saveAsDialog = (window as unknown as { showSaveFilePicker?: Function }).showSaveFilePicker;
+      if (saveAsDialog) {
+        try {
+          const fileHandle = await saveAsDialog({
+            suggestedName: defaultName,
+            types: [
+              {
+                description: 'JSON Files',
+                accept: { 'application/json': ['.json'] },
+              },
+            ],
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(exportedBlob);
+          await writable.close();
+        } catch (err: any) {
+          if (err?.name !== 'AbortError') {
+            throw err;
+          }
+        }
+      } else {
+        const url = URL.createObjectURL(exportedBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = defaultName;
+        link.rel = 'noopener';
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '콘텐츠를 내보내지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <section className="space-y-10">
       <header className="space-y-2">
@@ -765,13 +824,23 @@ export default function AdminPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-primary-600">콘텐츠 관리</h2>
-            <p className="text-xs text-slate-500">학습 도우미와 카드덱을 관리합니다.</p>
+            <p className="text-xs text-slate-500">JSON 데이터, 학습 도우미, 카드덱을 관리합니다.</p>
           </div>
         </div>
 
         {/* 탭 메뉴 */}
         <div className="border-b border-slate-200">
           <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('jsonManagement')}
+              className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium ${
+                activeTab === 'jsonManagement'
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+              }`}
+            >
+              JSON 데이터 관리
+            </button>
             <button
               onClick={() => setActiveTab('helpers')}
               className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium ${
@@ -794,6 +863,49 @@ export default function AdminPage() {
             </button>
           </nav>
         </div>
+
+        {/* JSON 데이터 관리 탭 */}
+        {activeTab === 'jsonManagement' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-medium text-slate-900">JSON 데이터 관리</h3>
+                <p className="text-xs text-slate-500">콘텐츠 데이터를 가져오거나 내보냅니다.</p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded border border-slate-200 bg-slate-50 p-4">
+                <h4 className="text-base font-medium text-slate-900 mb-2">JSON 가져오기</h4>
+                <p className="text-xs text-slate-500 mb-3">
+                  콘텐츠와 퀴즈 데이터를 JSON 파일로 가져옵니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/upload')}
+                  className="w-full rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500"
+                >
+                  JSON 파일 업로드
+                </button>
+              </div>
+
+              <div className="rounded border border-slate-200 bg-slate-50 p-4">
+                <h4 className="text-base font-medium text-slate-900 mb-2">JSON 내보내기</h4>
+                <p className="text-xs text-slate-500 mb-3">
+                  모든 콘텐츠와 퀴즈 데이터를 JSON 파일로 내보냅니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={exporting}
+                  className="w-full rounded bg-slate-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {exporting ? '내보내는 중…' : 'JSON 파일 다운로드'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 학습 도우미 관리 탭 */}
         {activeTab === 'helpers' && (
@@ -1345,6 +1457,7 @@ export default function AdminPage() {
           </div>
         )}
       </section>
+
     </section>
   );
 }

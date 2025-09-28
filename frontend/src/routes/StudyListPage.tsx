@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import HelperPickerModal from '../components/HelperPickerModal';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
+import { getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
 
 export default function StudyListPage() {
   const { user } = useAuth();
@@ -336,22 +337,39 @@ export default function StudyListPage() {
                   </div>
                 </div>
                 {user && (
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(session.id)}
-                    className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
-                  >
-                    삭제
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/study-edit/${session.id}`)}
+                      className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
+                    >
+                      편집
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(session.id)}
+                      className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
+                    >
+                      삭제
+                    </button>
+                  </div>
                 )}
               </div>
               <p className="mt-3 text-sm text-slate-900">퀴즈 수: {session.cards.length}</p>
-              <p className="mt-1 text-xs text-slate-500">
-                학습 도우미: {session.helper?.name ?? 'Level 1 학습도우미'}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                카드덱: {session.card_deck?.name ?? '기본 카드덱'}
-              </p>
+              
+              {/* 학습 도우미 정보 */}
+              <div className="mt-2">
+                <p className="text-xs text-slate-500">
+                  학습 도우미: {session.helper?.name ?? 'Level 1 학습도우미'}
+                </p>
+              </div>
+              
+              {/* 카드덱 정보 */}
+              <div className="mt-1">
+                <p className="text-xs text-slate-500">
+                  카드덱: {session.card_deck?.name ?? '기본 카드덱'}
+                </p>
+              </div>
               {session.tags?.length ? (
                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-primary-600">
                   {session.tags.map((tag) => (
@@ -400,33 +418,7 @@ export default function StudyListPage() {
             >
               학습 시작
             </button>
-            {user ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => openHelperModal(session)}
-                  className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
-                  disabled={helperSubmitting && helperModalSession?.id === session.id}
-                >
-                  학습 도우미 교체
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openCardDeckModal(session)}
-                  className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
-                  disabled={cardDeckSubmitting && cardDeckModalSession?.id === session.id}
-                >
-                  카드덱 변경
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openRewardModal(session)}
-                  className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50"
-                >
-                  보상 추가
-                </button>
-              </>
-            ) : (
+            {!user && (
               <button
                 type="button"
                 onClick={() => navigate('/auth')}
