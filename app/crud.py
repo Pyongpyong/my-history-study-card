@@ -855,13 +855,17 @@ def list_quizzes(
     if quiz_type is not None:
         conditions.append(Quiz.type == quiz_type)
 
-    base_count = select(func.count()).select_from(Quiz).join(Content, Quiz.content_id == Content.id)
-    base_query = select(Quiz).join(Content, Quiz.content_id == Content.id)
+    base_count = select(func.count()).select_from(Quiz).outerjoin(Content, Quiz.content_id == Content.id)
+    base_query = select(Quiz).outerjoin(Content, Quiz.content_id == Content.id)
 
     if not is_admin:
         if requester is None:
             quiz_visibility_clause = Quiz.visibility == VisibilityEnum.PUBLIC
-            content_visibility_clause = or_(Content.visibility == VisibilityEnum.PUBLIC, Quiz.visibility == VisibilityEnum.PUBLIC)
+            content_visibility_clause = or_(
+                Content.visibility == VisibilityEnum.PUBLIC, 
+                Quiz.visibility == VisibilityEnum.PUBLIC,
+                Quiz.content_id.is_(None)  # 독립 퀴즈 포함
+            )
         else:
             quiz_visibility_clause = or_(Quiz.visibility == VisibilityEnum.PUBLIC, Quiz.owner_id == requester.id)
             content_visibility_clause = or_(
@@ -869,6 +873,7 @@ def list_quizzes(
                 Content.owner_id == requester.id,
                 Quiz.owner_id == requester.id,
                 Quiz.visibility == VisibilityEnum.PUBLIC,
+                Quiz.content_id.is_(None)  # 독립 퀴즈 포함
             )
         base_count = base_count.where(quiz_visibility_clause, content_visibility_clause)
         base_query = base_query.where(quiz_visibility_clause, content_visibility_clause)
@@ -929,6 +934,39 @@ def get_quiz(session: Session, quiz_id: int, requester: Optional[User]) -> Optio
         owner_id=quiz.owner_id,
     )
 
+
+def create_quiz(
+    session: Session,
+    card: CardUnion,
+    requester: User,
+) -> QuizOut:
+    """독립 퀴즈 생성 (콘텐츠 없이)"""
+    card_dict = card.model_dump(mode="json", exclude_none=True)
+    card_tags = _quiz_tags_for_card(card_dict, None)
+    card_dict["tags"] = card_tags
+    quiz_visibility = _normalize_visibility(card_dict.pop("visibility", None), "PRIVATE")
+    quiz = Quiz(
+        content_id=None,  # 독립 퀴즈는 콘텐츠 ID가 없음
+        type=card_dict.get("type"),
+        payload=json_dumps(card_dict),
+        visibility=quiz_visibility,
+        owner_id=requester.id,
+    )
+    session.add(quiz)
+    session.flush()
+    if card_tags:
+        session.add_all([QuizTag(quiz_id=quiz.id, tag=tag) for tag in card_tags])
+    session.commit()
+    session.refresh(quiz)
+    return QuizOut(
+        id=quiz.id,
+        content_id=quiz.content_id,
+        type=quiz.type,  # type: ignore[arg-type]
+        payload=json_loads(quiz.payload),
+        visibility=quiz.visibility.value,
+        owner_id=quiz.owner_id,
+        created_at=quiz.created_at,
+    )
 
 def create_quiz_for_content(
     session: Session,

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  fetchContent,
-  createStudySession,
   fetchQuizzes,
   fetchStudySessions,
-  updateStudySessionRequest,
+  createStudySession,
   deleteQuizRequest,
+  fetchContent,
+  fetchContents,
   fetchCardDecksRequest,
+  updateStudySessionRequest,
   type QuizItem,
   type StudySession,
   type CardDeck,
@@ -56,6 +57,13 @@ export default function QuizListPage() {
   const [newSessionIsPublic, setNewSessionIsPublic] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [contentTitles, setContentTitles] = useState<Record<number, string>>({});
+  const [showQuizCreateModal, setShowQuizCreateModal] = useState(false);
+  const [showContentSelectModal, setShowContentSelectModal] = useState(false);
+  const [showQuizTypeModal, setShowQuizTypeModal] = useState(false);
+  const [selectedContentForQuiz, setSelectedContentForQuiz] = useState<number | null>(null);
+  const [selectedQuizType, setSelectedQuizType] = useState<string>('');
+  const [contents, setContents] = useState<any[]>([]);
+  const [contentsLoading, setContentsLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -107,8 +115,8 @@ export default function QuizListPage() {
       setQuizzes(data.items);
       setMeta(data.meta);
       
-      // 콘텐츠 타이틀 로드
-      const contentIds = [...new Set(data.items.map(quiz => quiz.content_id))];
+      // 콘텐츠 타이틀 로드 (content_id가 null이 아닌 것만)
+      const contentIds = [...new Set(data.items.map(quiz => quiz.content_id).filter(id => id !== null))];
       const titlePromises = contentIds.map(async (contentId) => {
         try {
           const content = await fetchContent(contentId);
@@ -478,6 +486,52 @@ export default function QuizListPage() {
     setShowCreateModal(true);
   }, [selectedQuizzes, user, navigate, location, helperOptions]);
 
+  const handleCreateQuiz = useCallback(() => {
+    if (!user) {
+      alert('퀴즈 생성 기능을 사용하려면 로그인해주세요.');
+      navigate('/auth', { state: { from: location } });
+      return;
+    }
+    setShowQuizCreateModal(true);
+  }, [user, navigate, location]);
+
+  const handleContentSelect = useCallback(async (contentId: number | null) => {
+    setSelectedContentForQuiz(contentId);
+    setShowContentSelectModal(false);
+    setSelectedQuizType('MCQ'); // 기본값 설정
+    setShowQuizTypeModal(true);
+  }, []);
+
+  const handleQuizTypeSelect = useCallback((quizType: string) => {
+    setShowQuizTypeModal(false);
+    
+    // 퀴즈 만들기 페이지로 이동
+    if (selectedContentForQuiz) {
+      navigate(`/quizzes/create?content=${selectedContentForQuiz}&type=${quizType}`);
+    } else {
+      navigate(`/quizzes/create?type=${quizType}`);
+    }
+    
+    // 상태 초기화
+    setSelectedContentForQuiz(null);
+    setSelectedQuizType('');
+    setShowQuizCreateModal(false);
+  }, [selectedContentForQuiz, navigate]);
+
+  const loadContents = useCallback(async () => {
+    if (!user) return;
+    
+    setContentsLoading(true);
+    try {
+      const response = await fetchContents(1, 100);
+      setContents(response.items);
+    } catch (err: any) {
+      console.error('콘텐츠 로딩 실패:', err);
+    } finally {
+      setContentsLoading(false);
+    }
+  }, [user]);
+
   const renderModal = () => {
     if (!normalizedTargetCard) {
       return null;
@@ -713,6 +767,160 @@ export default function QuizListPage() {
     }
   };
 
+  const renderQuizCreateModal = () => {
+    if (!showQuizCreateModal) return null;
+    
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div className="w-full max-w-md space-y-4 rounded-lg border border-slate-200 bg-white p-6 text-slate-900 shadow-xl">
+          <header className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-primary-600">퀴즈 생성 방식 선택</h3>
+            <button
+              type="button"
+              onClick={() => setShowQuizCreateModal(false)}
+              className="text-sm text-slate-500 transition hover:text-slate-700"
+            >
+              닫기
+            </button>
+          </header>
+          
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                setShowQuizCreateModal(false);
+                setShowContentSelectModal(true);
+                loadContents();
+              }}
+              className="w-full rounded border border-primary-500 bg-primary-50 p-4 text-left transition hover:bg-primary-100"
+            >
+              <div className="font-semibold text-primary-700">콘텐츠 기반 퀴즈 생성</div>
+              <div className="text-sm text-primary-600">기존 콘텐츠를 선택하여 퀴즈를 만듭니다</div>
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => {
+                setShowQuizCreateModal(false);
+                setSelectedQuizType('MCQ'); // 기본값 설정
+                setShowQuizTypeModal(true);
+              }}
+              className="w-full rounded border border-slate-300 bg-slate-50 p-4 text-left transition hover:bg-slate-100"
+            >
+              <div className="font-semibold text-slate-700">독립 퀴즈 생성</div>
+              <div className="text-sm text-slate-600">콘텐츠 없이 퀴즈만 만듭니다</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderContentSelectModal = () => {
+    if (!showContentSelectModal) return null;
+    
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div className="w-full max-w-2xl space-y-4 rounded-lg border border-slate-200 bg-white p-6 text-slate-900 shadow-xl">
+          <header className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-primary-600">콘텐츠 선택</h3>
+            <button
+              type="button"
+              onClick={() => setShowContentSelectModal(false)}
+              className="text-sm text-slate-500 transition hover:text-slate-700"
+            >
+              닫기
+            </button>
+          </header>
+          
+          {contentsLoading ? (
+            <p className="text-center text-sm text-slate-600">콘텐츠를 불러오는 중...</p>
+          ) : (
+            <div className="max-h-96 space-y-2 overflow-y-auto">
+              {contents.map((content) => (
+                <button
+                  key={content.id}
+                  type="button"
+                  onClick={() => handleContentSelect(content.id)}
+                  className="w-full rounded border border-slate-200 p-3 text-left transition hover:border-primary-500 hover:bg-primary-50"
+                >
+                  <div className="font-semibold text-slate-900">{content.title}</div>
+                  <div className="text-sm text-slate-600">{content.description || '설명 없음'}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderQuizTypeModal = () => {
+    if (!showQuizTypeModal) return null;
+    
+    const quizTypes = [
+      { value: 'MCQ', label: '객관식' },
+      { value: 'SHORT', label: '주관식' },
+      { value: 'OX', label: 'OX' },
+      { value: 'CLOZE', label: '빈칸채우기' },
+      { value: 'ORDER', label: '순서맞추기' },
+      { value: 'MATCH', label: '짝맞추기' },
+    ];
+    
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div className="w-full max-w-md space-y-4 rounded-lg border border-slate-200 bg-white p-6 text-slate-900 shadow-xl">
+          <header className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-primary-600">추가할 퀴즈 형식</h3>
+            <button
+              type="button"
+              onClick={() => setShowQuizTypeModal(false)}
+              className="text-sm text-slate-500 transition hover:text-slate-700"
+            >
+              닫기
+            </button>
+          </header>
+          
+          <div className="space-y-2">
+            {quizTypes.map((type, index) => (
+              <label
+                key={type.value}
+                className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+              >
+                <span>{type.label}</span>
+                <input
+                  type="radio"
+                  name="quiz-type"
+                  value={type.value}
+                  checked={selectedQuizType === type.value}
+                  onChange={() => setSelectedQuizType(type.value)}
+                  className="h-4 w-4 accent-primary-500"
+                />
+              </label>
+            ))}
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowQuizTypeModal(false)}
+              className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-100"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => selectedQuizType && handleQuizTypeSelect(selectedQuizType)}
+              disabled={!selectedQuizType}
+              className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:opacity-50"
+            >
+              만들기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (loading) {
     return <p className="text-sm text-slate-600">불러오는 중…</p>;
@@ -731,7 +939,7 @@ export default function QuizListPage() {
             <p className="text-xs text-slate-500">총 {meta.total}개 · 페이지 {page} / {totalPages}</p>
           </div>
           <div className="flex items-center gap-2">
-            {editMode ? (
+            {user && editMode ? (
               <>
                 <button
                   type="button"
@@ -758,16 +966,26 @@ export default function QuizListPage() {
                   취소
                 </button>
               </>
-            ) : (
-              <button
-                type="button"
-                onClick={handleEditMode}
-                disabled={saving}
-                className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                편집
-              </button>
-            )}
+            ) : user && !editMode ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCreateQuiz}
+                  disabled={saving}
+                  className="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  퀴즈 추가
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEditMode}
+                  disabled={saving}
+                  className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  편집
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
       {availableTags.length ? (
@@ -805,7 +1023,9 @@ export default function QuizListPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredQuizzes.map((quiz) => {
             const cardData = { ...quiz.payload, type: quiz.type };
-            const contentTitle = contentTitles[quiz.content_id] || `콘텐츠 #${quiz.content_id}`;
+            const contentTitle = quiz.content_id 
+              ? (contentTitles[quiz.content_id] || `콘텐츠 #${quiz.content_id}`)
+              : '독립 퀴즈';
             return (
               <div
                 key={quiz.id}
@@ -826,13 +1046,19 @@ export default function QuizListPage() {
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleNavigateToContent(quiz.content_id)}
-                      className="text-xs text-primary-600 hover:text-primary-800 hover:underline"
-                    >
-                      {contentTitle}
-                    </button>
+                    {quiz.content_id ? (
+                      <button
+                        type="button"
+                        onClick={() => handleNavigateToContent(quiz.content_id)}
+                        className="text-xs text-primary-600 hover:text-primary-800 hover:underline"
+                      >
+                        {contentTitle}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-slate-500">
+                        {contentTitle}
+                      </span>
+                    )}
                     {editMode && user?.id === quiz.owner_id && (
                       <button
                         type="button"
@@ -1002,6 +1228,10 @@ export default function QuizListPage() {
           </div>
         </div>
       ) : null}
+      
+      {renderQuizCreateModal()}
+      {renderContentSelectModal()}
+      {renderQuizTypeModal()}
     </>
   );
 }
