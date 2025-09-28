@@ -6,7 +6,6 @@ interface CardPreviewProps {
 
 export default function CardPreview({ card }: CardPreviewProps) {
   const label = getQuizTypeLabel(card.type);
-  const tags = Array.isArray(card.tags) ? card.tags.filter(Boolean) : [];
 
   const body = (() => {
     switch (card.type) {
@@ -25,7 +24,7 @@ export default function CardPreview({ card }: CardPreviewProps) {
         return (
           <>
             <p className="text-sm text-slate-900">{card.prompt ?? '질문 없음'}</p>
-            <p className="mt-2 text-xs text-slate-600">Answer: {card.answer}</p>
+            <p className="mt-2 text-xs text-slate-600">정답: {card.answer}</p>
           </>
         );
       case 'OX':
@@ -37,7 +36,16 @@ export default function CardPreview({ card }: CardPreviewProps) {
         );
       case 'CLOZE':
         return (
-          <p className="text-sm text-slate-900">{(card.text ?? '').replace(/\{\{c\d+\}\}/g, '____')}</p>
+          <>
+            <p className="text-sm text-slate-900">{(card.text ?? '').replace(/\{\{c\d+\}\}/g, '____')}</p>
+            <ul className="mt-2 space-y-1 text-xs text-slate-600">
+              {Object.entries((card.clozes ?? {}) as Record<string, string>).map(
+                ([key, value]) => (
+                  <li key={key}>{value}</li>
+                )
+              )}
+            </ul>
+          </>
         );
       case 'ORDER':
         return (
@@ -75,13 +83,6 @@ export default function CardPreview({ card }: CardPreviewProps) {
     <div>
       <h3 className="font-semibold text-primary-600">{label}</h3>
       {body}
-      {tags.length ? (
-        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-primary-700">
-          {tags.map((tag: string) => (
-            <span key={tag} className="rounded bg-primary-100 px-2 py-1">#{tag}</span>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }
