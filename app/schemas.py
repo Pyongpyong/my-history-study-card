@@ -578,6 +578,7 @@ class StudySessionCreate(BaseModel):
     cards: List[Dict[str, object]]
     helper_id: Optional[int] = None
     card_deck_id: Optional[int] = None
+    is_public: bool = False
 
     @field_validator("title")
     @classmethod
@@ -605,6 +606,7 @@ class StudySessionOut(BaseModel):
     helper: Optional[LearningHelperPublic]
     card_deck_id: Optional[int]
     card_deck: Optional[CardDeckOut]
+    is_public: bool
 
 
 class StudySessionListOut(BaseModel):
@@ -622,6 +624,7 @@ class StudySessionUpdate(BaseModel):
     answers: Optional[Dict[str, bool]] = None
     helper_id: Optional[int] = None
     card_deck_id: Optional[int] = None
+    is_public: Optional[bool] = None
 
 
 class UserCreate(BaseModel):

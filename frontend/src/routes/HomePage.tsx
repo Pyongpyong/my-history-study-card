@@ -227,7 +227,7 @@ export default function HomePage() {
                       }}
                     >
                     <div className="absolute inset-0 bg-white/55" />
-                    <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6 shadow-inner">
+                    <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6">
                         <div className="max-h-full overflow-y-auto text-slate-900">
                           <div className="pointer-events-none select-none">
                             <CardRunner
@@ -254,7 +254,7 @@ export default function HomePage() {
                       }}
                     >
                       <div className="absolute inset-0 bg-white/55" />
-                      <div className="absolute inset-[18px] flex h-full flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center shadow-inner">
+                      <div className="absolute inset-[18px] flex h-full flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center">
                         <div className="w-full overflow-y-auto px-1 text-center text-slate-900">
                           {renderSampleAnswer(sampleCards[answerIndex])}
                         </div>

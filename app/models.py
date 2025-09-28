@@ -175,6 +175,7 @@ class StudySession(Base):
     card_deck_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("card_decks.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
 
     rewards: Mapped[list["Reward"]] = relationship(
         "Reward",

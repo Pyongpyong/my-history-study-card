@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   fetchStudySessions,
+  fetchPublicStudySessions,
   deleteStudySessionRequest,
   updateStudySessionRequest,
   assignRewardToSession,
@@ -50,11 +51,13 @@ export default function StudyListPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchStudySessions();
+      // 로그인한 사용자는 개인 학습 세션을, 비로그인 사용자는 공개 학습 세션을 가져옴
+      const data = user ? await fetchStudySessions() : await fetchPublicStudySessions();
       const normalized = await Promise.all(
         data.items.map(async (session, index) => {
           const defaultTitle = session.title && session.title.trim() ? session.title : `학습 ${index + 1}`;
-          if (!session.title || !session.title.trim()) {
+          // 로그인한 사용자만 제목 업데이트 가능
+          if (user && (!session.title || !session.title.trim())) {
             try {
               await updateStudySessionRequest(session.id, { title: defaultTitle });
             } catch (error) {
@@ -77,7 +80,7 @@ export default function StudyListPage() {
   useEffect(() => {
     load();
     loadCardDecks();
-  }, [location.key, location.state?.refresh]);
+  }, [location.key, location.state?.refresh, user]);
 
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
@@ -248,11 +251,26 @@ export default function StudyListPage() {
   }
 
   if (!sessions.length) {
-    return <p className="text-sm text-slate-600">저장된 학습 세트가 없습니다.</p>;
+    return (
+      <p className="text-sm text-slate-600">
+        {user ? '저장된 학습 세트가 없습니다.' : '공개된 학습 세트가 없습니다.'}
+      </p>
+    );
   }
 
   return (
     <div className="space-y-4">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-primary-600">
+          {user ? '내 학습 세트' : '공개 학습 세트'}
+        </h1>
+        <p className="mt-2 text-sm text-slate-600">
+          {user 
+            ? '나만의 학습 세트를 관리하고 학습을 시작하세요.' 
+            : '누구나 접근할 수 있는 공개 학습 세트입니다. 로그인하면 개인 학습 세트를 만들 수 있습니다.'
+          }
+        </p>
+      </div>
       {availableTags.length ? (
         <div className="flex flex-wrap gap-2">
           {availableTags.map((tag) => {
@@ -290,29 +308,42 @@ export default function StudyListPage() {
             <div key={session.id} className="rounded-lg border border-slate-200 bg-white p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <input
-                    value={session.title}
-                onChange={(event) =>
-                  setSessions((prev) =>
-                    prev.map((item) =>
-                      item.id === session.id ? { ...item, title: event.target.value } : item,
-                    ),
-                  )
-                }
-                onBlur={(event) => handleTitleBlur(session, event.target.value, index)}
-                className="w-full rounded bg-transparent text-lg font-semibold text-primary-600 focus:outline-none"
-              />
-              <p className="text-xs text-slate-500">
-                생성일: {new Date(session.created_at).toLocaleString()}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleDelete(session.id)}
-              className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
-            >
-              삭제
-            </button>
+                  {user ? (
+                    <input
+                      value={session.title}
+                      onChange={(event) =>
+                        setSessions((prev) =>
+                          prev.map((item) =>
+                            item.id === session.id ? { ...item, title: event.target.value } : item,
+                          ),
+                        )
+                      }
+                      onBlur={(event) => handleTitleBlur(session, event.target.value, index)}
+                      className="w-full rounded bg-transparent text-lg font-semibold text-primary-600 focus:outline-none"
+                    />
+                  ) : (
+                    <h3 className="text-lg font-semibold text-primary-600">{session.title}</h3>
+                  )}
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-slate-500">
+                      생성일: {new Date(session.created_at).toLocaleString()}
+                    </p>
+                    {!user && session.is_public && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                        공개
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {user && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(session.id)}
+                    className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
+                  >
+                    삭제
+                  </button>
+                )}
               </div>
               <p className="mt-3 text-sm text-slate-900">퀴즈 수: {session.cards.length}</p>
               <p className="mt-1 text-xs text-slate-500">
@@ -369,29 +400,41 @@ export default function StudyListPage() {
             >
               학습 시작
             </button>
-            <button
-              type="button"
-              onClick={() => openHelperModal(session)}
-              className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
-              disabled={helperSubmitting && helperModalSession?.id === session.id}
-            >
-              학습 도우미 교체
-            </button>
-            <button
-              type="button"
-              onClick={() => openCardDeckModal(session)}
-              className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
-              disabled={cardDeckSubmitting && cardDeckModalSession?.id === session.id}
-            >
-              카드덱 변경
-            </button>
-            <button
-              type="button"
-              onClick={() => openRewardModal(session)}
-              className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50"
-            >
-              보상 추가
-            </button>
+            {user ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => openHelperModal(session)}
+                  className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                  disabled={helperSubmitting && helperModalSession?.id === session.id}
+                >
+                  학습 도우미 교체
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openCardDeckModal(session)}
+                  className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                  disabled={cardDeckSubmitting && cardDeckModalSession?.id === session.id}
+                >
+                  카드덱 변경
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openRewardModal(session)}
+                  className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50"
+                >
+                  보상 추가
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate('/auth')}
+                className="rounded border border-slate-300 px-4 py-2 font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                로그인하여 개인 학습 만들기
+              </button>
+            )}
           </div>
           </div>
         ))}

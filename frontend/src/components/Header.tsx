@@ -27,16 +27,14 @@ export default function Header() {
           <NavLink to="/quizzes" className={navClass}>
             퀴즈
           </NavLink>
-          {user ? (
-            <>
-              <NavLink to="/studies" className={navClass}>
-                학습
-              </NavLink>
-              <NavLink to="/rewards" className={navClass}>
-                보상
-              </NavLink>
-            </>
-          ) : null}
+          <NavLink to="/studies" className={navClass}>
+            {user ? '내 학습' : '공개 학습'}
+          </NavLink>
+          {user && (
+            <NavLink to="/rewards" className={navClass}>
+              보상
+            </NavLink>
+          )}
         </nav>
         <div className="header-actions flex items-center gap-3">
           {user ? (

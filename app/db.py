@@ -239,3 +239,15 @@ def _ensure_card_deck_extensions() -> None:
                     SET card_deck_id = {default_deck_result.id} 
                     WHERE card_deck_id IS NULL
                 """))
+        
+        # study_sessions 테이블에 is_public 컬럼이 있는지 확인
+        if "is_public" not in study_sessions_columns:
+            # MySQL과 SQLite 호환 방식으로 컬럼 추가
+            is_mysql = connection.dialect.name == 'mysql'
+            if is_mysql:
+                connection.execute(text("ALTER TABLE study_sessions ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT FALSE"))
+            else:
+                connection.execute(text("ALTER TABLE study_sessions ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0"))
+            
+            # 기존 학습 세션들은 모두 비공개로 설정
+            connection.execute(text("UPDATE study_sessions SET is_public = 0 WHERE is_public IS NULL"))

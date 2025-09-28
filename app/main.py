@@ -12,8 +12,8 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import APIKeyHeader
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import select, func
+from sqlalchemy.orm import Session, selectinload
 
 from .routers import quiz as quiz_router
 
@@ -50,6 +50,8 @@ from .crud import (
     list_quizzes_by_content,
     list_rewards,
     list_study_sessions,
+    list_public_study_sessions,
+    get_public_study_session,
     resolve_helper_for_user,
     set_user_helper,
     update_card_deck,
@@ -62,7 +64,7 @@ from .crud import (
     update_user_credentials,
 )
 from .db import SessionLocal, init_db
-from .models import User
+from .models import User, StudySession
 from .schemas import (
     AdminUserCreate,
     CardDeckCreate,
@@ -627,6 +629,13 @@ def create_study_session_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> StudySessionOut:
+    # 관리자가 아닌 사용자가 공개 학습을 생성하려고 하면 거부
+    if payload.is_public and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only administrators can create public study sessions"
+        )
+    
     try:
         resolve_helper_for_user(db, current_user, payload.helper_id)
     except ValueError:
@@ -636,6 +645,22 @@ def create_study_session_endpoint(
     result = create_study_session(db, payload, current_user)
     if result is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to create study session with provided data")
+    return result
+
+
+@app.post("/admin/public-study-sessions", response_model=StudySessionOut, status_code=status.HTTP_201_CREATED)
+def create_public_study_session_endpoint(
+    payload: StudySessionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+) -> StudySessionOut:
+    """관리자가 공개 학습 세션을 생성합니다."""
+    # 관리자는 모든 헬퍼에 접근 가능하므로 헬퍼 검증을 건너뜁니다
+    # 공개 학습으로 강제 설정
+    payload.is_public = True
+    result = create_study_session(db, payload, current_user)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to create public study session with provided data")
     return result
 
 
@@ -653,6 +678,58 @@ def list_study_sessions_endpoint(
     return StudySessionListOut(items=items, meta=meta)
 
 
+@app.get("/public/study-sessions", response_model=StudySessionListOut)
+def list_public_study_sessions_endpoint(
+    page: int = 1,
+    size: int = 50,
+    db: Session = Depends(get_db),
+) -> StudySessionListOut:
+    """공개 학습 세션 목록을 조회합니다 (로그인 불필요)"""
+    page = max(page, 1)
+    size = max(min(size, 100), 1)
+    items, total = list_public_study_sessions(db, page, size)
+    meta = PageMeta(page=page, size=size, total=total)
+    return StudySessionListOut(items=items, meta=meta)
+
+
+@app.get("/admin/study-sessions", response_model=StudySessionListOut)
+def admin_list_study_sessions_endpoint(
+    page: int = 1,
+    size: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+) -> StudySessionListOut:
+    """관리자가 모든 학습 세션을 조회합니다"""
+    
+    page = max(page, 1)
+    size = max(min(size, 100), 1)
+    offset = (page - 1) * size
+    
+    # 모든 학습 세션 조회 (소유자 제한 없음)
+    query = (
+        select(StudySession)
+        .options(
+            selectinload(StudySession.helper),
+            selectinload(StudySession.card_deck),
+            selectinload(StudySession.rewards)
+        )
+        .order_by(StudySession.created_at.desc())
+        .offset(offset)
+        .limit(size)
+    )
+    
+    studies = db.execute(query).scalars().all()
+    
+    # 총 개수 조회
+    count_query = select(func.count(StudySession.id))
+    total = db.execute(count_query).scalar() or 0
+    
+    from .crud import _study_session_to_out
+    results = [_study_session_to_out(study) for study in studies]
+    meta = PageMeta(page=page, size=size, total=total)
+    return StudySessionListOut(items=results, meta=meta)
+
+
 @app.get("/study-sessions/{session_id}", response_model=StudySessionOut)
 def get_study_session_endpoint(
     session_id: int,
@@ -662,6 +739,18 @@ def get_study_session_endpoint(
     result = get_study_session(db, session_id, current_user)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Study session not found")
+    return result
+
+
+@app.get("/public/study-sessions/{session_id}", response_model=StudySessionOut)
+def get_public_study_session_endpoint(
+    session_id: int,
+    db: Session = Depends(get_db),
+) -> StudySessionOut:
+    """공개 학습 세션을 조회합니다 (로그인 불필요)"""
+    result = get_public_study_session(db, session_id)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Public study session not found")
     return result
 
 
@@ -681,6 +770,28 @@ def update_study_session_endpoint(
         except PermissionError:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Helper locked for current level")
     result = update_study_session(db, session_id, data, current_user)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Study session not found")
+    return result
+
+
+@app.patch("/admin/study-sessions/{session_id}", response_model=StudySessionOut)
+def admin_update_study_session_endpoint(
+    session_id: int,
+    updates: StudySessionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+) -> StudySessionOut:
+    """관리자가 모든 학습 세션을 업데이트할 수 있습니다 (공개/비공개 전환 포함)"""
+    data = updates.model_dump(exclude_unset=True)
+    
+    # 관리자는 소유자 확인 없이 모든 학습 세션을 수정할 수 있도록 특별한 로직 필요
+    study = db.execute(select(StudySession).where(StudySession.id == session_id)).scalar_one_or_none()
+    if study is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Study session not found")
+    
+    # 관리자는 헬퍼 제한 없이 업데이트 가능
+    result = update_study_session(db, session_id, data, study.owner)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Study session not found")
     return result
