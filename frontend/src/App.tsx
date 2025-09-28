@@ -82,6 +82,16 @@ export default function App() {
           } 
         />
         <Route
+          path="/quizzes/create"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
+              <RequireAuth>
+                <QuizCreatePage />
+              </RequireAuth>
+            </main>
+          )}
+        />
+        <Route
           path="/ai"
           element={(
             <main className="app-container mx-auto max-w-6xl px-6 py-8">

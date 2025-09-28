@@ -826,6 +826,16 @@ def create_reward_endpoint(
     return create_reward(db, payload, current_user)
 
 
+@app.post("/quizzes", response_model=QuizOut, status_code=status.HTTP_201_CREATED)
+def create_quiz_endpoint(
+    payload: CardUnion,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> QuizOut:
+    from .crud import create_quiz
+    result = create_quiz(db, payload, current_user)
+    return result
+
 @app.post("/contents/{content_id}/quizzes", response_model=QuizOut, status_code=status.HTTP_201_CREATED)
 def create_content_quiz_endpoint(
     content_id: int,

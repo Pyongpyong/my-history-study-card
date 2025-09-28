@@ -251,3 +251,17 @@ def _ensure_card_deck_extensions() -> None:
             
             # 기존 학습 세션들은 모두 비공개로 설정
             connection.execute(text("UPDATE study_sessions SET is_public = 0 WHERE is_public IS NULL"))
+        
+        # quizzes 테이블의 content_id를 nullable로 변경 (독립 퀴즈 지원)
+        quizzes_columns = {column["name"] for column in inspector.get_columns("quizzes")}
+        if "quizzes" in inspector.get_table_names():
+            # SQLite는 ALTER COLUMN을 지원하지 않으므로 테이블 재생성이 필요할 수 있음
+            # 하지만 기존 데이터가 있으므로 새로운 독립 퀴즈만 content_id가 NULL이 되도록 함
+            # MySQL의 경우 ALTER COLUMN 사용
+            if connection.dialect.name == 'mysql':
+                try:
+                    connection.execute(text("ALTER TABLE quizzes MODIFY COLUMN content_id INTEGER NULL"))
+                except Exception as e:
+                    print(f"Quiz content_id 마이그레이션 실패 (MySQL): {e}")
+            # SQLite의 경우 기존 데이터는 그대로 두고 새로운 퀴즈만 NULL 허용
+            # (SQLite는 컬럼 수정이 제한적이므로 애플리케이션 레벨에서 처리)

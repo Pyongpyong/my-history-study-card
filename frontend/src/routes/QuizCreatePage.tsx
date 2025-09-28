@@ -6,6 +6,7 @@ import QuizForm from '../components/QuizForm';
 import { useAuth } from '../context/AuthContext';
 import {
   createQuizForContent,
+  createQuiz,
   fetchContent,
   fetchContentCards,
   aiGenerateRequest,
@@ -41,6 +42,8 @@ export default function QuizCreatePage() {
   const { user } = useAuth();
   const quizTypeParam = (searchParams.get('type') ?? '').toUpperCase();
   const quizType = quizTypeParam as QuizType;
+  const contentIdParam = searchParams.get('content');
+  const contentId = id || contentIdParam; // URL path의 id 또는 query parameter의 content 사용
   const isAdmin = user?.is_admin === true;
   const [content, setContent] = useState<ContentDetail | null>(null);
   const [cards, setCards] = useState<QuizItem[]>([]);
@@ -106,11 +109,15 @@ export default function QuizCreatePage() {
 
   useEffect(() => {
     const load = async () => {
-      if (!id) return;
+      if (!contentId) {
+        // 콘텐츠 없이 퀴즈 생성하는 경우
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
-        const [detail, cardList] = await Promise.all([fetchContent(id), fetchContentCards(id)]);
+        const [detail, cardList] = await Promise.all([fetchContent(contentId), fetchContentCards(contentId)]);
         setContent(detail);
         setCards(cardList);
         setVisibility(detail.visibility);
@@ -123,7 +130,7 @@ export default function QuizCreatePage() {
       }
     };
     load();
-  }, [id]);
+  }, [contentId]);
 
   const buildGeneratePayload = (): AiGenerateRequest | null => {
     if (!content) return null;
@@ -181,12 +188,19 @@ export default function QuizCreatePage() {
   };
 
   const handleSubmit = async (payload: Record<string, any>) => {
-    if (!id) return;
     setSubmitting(true);
     try {
-      await createQuizForContent(id, { ...payload, visibility });
-      alert('퀴즈가 생성되었습니다.');
-      navigate(`/contents/${id}`, { replace: true, state: { refresh: Date.now() } });
+      if (contentId) {
+        // 콘텐츠 기반 퀴즈 생성
+        await createQuizForContent(contentId, { ...payload, visibility });
+        alert('퀴즈가 생성되었습니다.');
+        navigate(`/contents/${contentId}`, { replace: true, state: { refresh: Date.now() } });
+      } else {
+        // 독립 퀴즈 생성
+        await createQuiz({ ...payload, visibility });
+        alert('퀴즈가 생성되었습니다.');
+        navigate('/quizzes', { replace: true });
+      }
     } catch (err: any) {
       console.error(err);
       const message = err?.response?.data?.detail ?? '퀴즈를 생성하지 못했습니다.';
@@ -200,8 +214,11 @@ export default function QuizCreatePage() {
     return (
       <section className="space-y-4">
         <p className="text-sm text-rose-600">지원하지 않는 퀴즈 형식입니다.</p>
-        <Link to={`/contents/${id}`} className="text-sm text-primary-600 hover:text-primary-700">
-          콘텐츠 상세로 돌아가기
+        <Link 
+          to={contentId ? `/contents/${contentId}` : '/quizzes'} 
+          className="text-sm text-primary-600 hover:text-primary-700"
+        >
+          {contentId ? '콘텐츠 상세로 돌아가기' : '퀴즈 목록으로 돌아가기'}
         </Link>
       </section>
     );
@@ -211,8 +228,18 @@ export default function QuizCreatePage() {
     return <p className="text-sm text-slate-600">불러오는 중…</p>;
   }
 
-  if (error || !content) {
-    return <p className="text-sm text-rose-600">{error ?? '콘텐츠를 찾을 수 없습니다.'}</p>;
+  if (error || (contentId && !content)) {
+    return (
+      <section className="space-y-4">
+        <p className="text-sm text-rose-600">{error ?? '콘텐츠를 불러오지 못했습니다.'}</p>
+        <Link 
+          to={contentId ? `/contents/${contentId}` : '/quizzes'} 
+          className="text-sm text-primary-600 hover:text-primary-700"
+        >
+          {contentId ? '콘텐츠 상세로 돌아가기' : '퀴즈 목록으로 돌아가기'}
+        </Link>
+      </section>
+    );
   }
 
   return (
@@ -249,11 +276,11 @@ export default function QuizCreatePage() {
         <QuizForm
           type={quizType}
           onSubmit={handleSubmit}
-          keywordOptions={content.keywords ?? []}
+          keywordOptions={content?.keywords ?? []}
         />
       </div>
 
-      {isAdmin && (
+      {isAdmin && contentId && (
         <div className="space-y-4 rounded-lg border border-primary-200 bg-primary-50 p-5">
         <header className="space-y-1">
           <h2 className="text-lg font-semibold text-primary-600">AI 생성 테스트</h2>
@@ -429,28 +456,30 @@ export default function QuizCreatePage() {
         </div>
       )}
 
-      <section className="space-y-6 rounded-lg border border-slate-200 bg-slate-50 p-6">
-        <header className="space-y-2">
-          <h2 className="text-lg font-semibold text-primary-600">콘텐츠 정보</h2>
-          <p className="text-xs text-slate-500">새 퀴즈를 작성할 때 참고하세요.</p>
-        </header>
-        <ContentSnapshot content={content} />
-        {cards.length ? (
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-primary-600">기존 퀴즈 미리보기</h3>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {cards.map((card) => (
-                <div key={card.id} className="space-y-2 rounded border border-slate-200 bg-white p-4 text-xs">
-                  <CardPreview card={card} />
-                  <p className="text-[11px] text-slate-500">
-                    생성일: {new Date(card.created_at).toLocaleString()}
-                  </p>
-                </div>
-              ))}
+      {contentId && (
+        <section className="space-y-6 rounded-lg border border-slate-200 bg-slate-50 p-6">
+          <header className="space-y-2">
+            <h2 className="text-lg font-semibold text-primary-600">콘텐츠 정보</h2>
+            <p className="text-xs text-slate-500">새 퀴즈를 작성할 때 참고하세요.</p>
+          </header>
+          <ContentSnapshot content={content!} />
+          {cards.length ? (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-primary-600">기존 퀴즈 미리보기</h3>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {cards.map((card) => (
+                  <div key={card.id} className="space-y-2 rounded border border-slate-200 bg-white p-4 text-xs">
+                    <CardPreview card={card} />
+                    <p className="text-[11px] text-slate-500">
+                      생성일: {new Date(card.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ) : null}
-      </section>
+          ) : null}
+        </section>
+      )}
     </section>
   );
 }

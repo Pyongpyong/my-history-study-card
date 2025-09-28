@@ -484,7 +484,7 @@ class ContentListOut(BaseModel):
 
 class QuizOut(BaseModel):
     id: int
-    content_id: int
+    content_id: Optional[int]
     type: CardType
     payload: Dict[str, object]
     created_at: datetime

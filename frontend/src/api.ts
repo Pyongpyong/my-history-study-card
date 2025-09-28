@@ -440,6 +440,11 @@ export async function createQuizForContent<T extends Record<string, any>>(conten
   return data;
 }
 
+export async function createQuiz<T extends Record<string, any>>(payload: T): Promise<QuizItem> {
+  const { data } = await api.post<QuizItem>('/quizzes', payload);
+  return data;
+}
+
 export async function createContentRequest(payload: Record<string, any>): Promise<number> {
   const { data } = await api.post('/import/json', payload);
   if (Array.isArray(data)) {

@@ -111,7 +111,7 @@ class Quiz(Base):
     __tablename__ = "quizzes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    content_id: Mapped[int] = mapped_column(Integer, ForeignKey("contents.id", ondelete="CASCADE"), index=True)
+    content_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("contents.id", ondelete="CASCADE"), index=True, nullable=True)
     type: Mapped[str] = mapped_column(String(32), nullable=False)
     payload: Mapped[str] = mapped_column(Text, nullable=False)
     visibility: Mapped[VisibilityEnum] = mapped_column(
@@ -123,7 +123,7 @@ class Quiz(Base):
     owner_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    content: Mapped[Content] = relationship("Content", back_populates="quizzes")
+    content: Mapped[Optional[Content]] = relationship("Content", back_populates="quizzes")
     owner: Mapped[Optional[User]] = relationship("User", back_populates="quizzes")
     tag_links: Mapped[list["QuizTag"]] = relationship(
         "QuizTag",
