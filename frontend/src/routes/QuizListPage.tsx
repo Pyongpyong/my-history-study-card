@@ -20,16 +20,7 @@ import { useLearningHelpers } from '../hooks/useLearningHelpers';
 
 const PAGE_SIZE = 40;
 
-function getStem(quiz: any): string {
-  const payload = quiz.payload ?? {};
-  if (payload.question) return payload.question;
-  if (payload.prompt) return payload.prompt;
-  if (payload.statement) return payload.statement;
-  if (typeof payload.text === 'string') {
-    return payload.text.replace(/\{\{c\d+\}\}/g, '____');
-  }
-  return '설명 없음';
-}
+
 
 export default function QuizListPage() {
   const { user } = useAuth();
@@ -63,6 +54,8 @@ export default function QuizListPage() {
   const [newSessionCardDeckId, setNewSessionCardDeckId] = useState<number | null>(null);
   const [isPublic, setIsPublic] = useState(false);
   const [newSessionIsPublic, setNewSessionIsPublic] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [contentTitles, setContentTitles] = useState<Record<number, string>>({});
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -113,6 +106,25 @@ export default function QuizListPage() {
       const data = await fetchQuizzes(page, PAGE_SIZE);
       setQuizzes(data.items);
       setMeta(data.meta);
+      
+      // 콘텐츠 타이틀 로드
+      const contentIds = [...new Set(data.items.map(quiz => quiz.content_id))];
+      const titlePromises = contentIds.map(async (contentId) => {
+        try {
+          const content = await fetchContent(contentId);
+          return { id: contentId, title: content.title };
+        } catch {
+          return { id: contentId, title: `콘텐츠 #${contentId}` };
+        }
+      });
+      
+      const titles = await Promise.all(titlePromises);
+      const titleMap = titles.reduce((acc, { id, title }) => {
+        acc[id] = title;
+        return acc;
+      }, {} as Record<number, string>);
+      
+      setContentTitles(titleMap);
     } catch (err: any) {
       console.error(err);
       const message = err?.response?.data?.detail ?? '퀴즈 목록을 불러오지 못했습니다.';
@@ -180,27 +192,6 @@ export default function QuizListPage() {
   };
 
   const selectedQuizzes = useMemo(() => Object.values(selectedDetails), [selectedDetails]);
-
-  const handleAddToStudy = async () => {
-    if (!user) {
-      alert('학습 기능을 사용하려면 로그인해주세요.');
-      navigate('/auth', { state: { from: location } });
-      return;
-    }
-    if (selectedQuizzes.length === 0) {
-      alert('학습 리스트에 추가할 퀴즈를 선택하세요.');
-      return;
-    }
-    const defaultTitle = `학습 ${new Date().toLocaleString()}`;
-    setSessionTitleInput(defaultTitle);
-    const defaultHelperId =
-      user?.selected_helper_id ??
-      helperOptions.find((item) => item.unlocked)?.id ??
-      helperOptions[0]?.id ??
-      null;
-    setNewSessionHelperId(defaultHelperId);
-    setShowCreateModal(true);
-  };
 
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
@@ -400,10 +391,10 @@ export default function QuizListPage() {
   const canGoPrev = page > 1;
   const canGoNext = page < totalPages;
 
-  const handleNavigateToContent = async (quiz: QuizItem) => {
+  const handleNavigateToContent = async (contentId: number) => {
     try {
-      await fetchContent(quiz.content_id);
-      navigate(`/contents/${quiz.content_id}`);
+      const content = await fetchContent(contentId);
+      navigate(`/contents/${contentId}`, { state: { content } });
     } catch (err: any) {
       const status = err?.response?.status;
       if (status === 404 || status === 403) {
@@ -414,6 +405,78 @@ export default function QuizListPage() {
       alert(typeof message === 'string' ? message : JSON.stringify(message));
     }
   };
+
+  const handleEditMode = useCallback(() => {
+    if (editMode) {
+      // 편집 모드 종료
+      setEditMode(false);
+      setSelected({});
+      setSelectedDetails({});
+    } else {
+      // 편집 모드 시작
+      setEditMode(true);
+    }
+  }, [editMode]);
+
+  const handleDeleteSelected = useCallback(async () => {
+    if (!selectedQuizzes.length) {
+      alert('선택된 퀴즈가 없습니다.');
+      return;
+    }
+    
+    if (!confirm(`선택된 ${selectedQuizzes.length}개의 퀴즈를 삭제하시겠습니까?`)) {
+      return;
+    }
+    
+    try {
+      await Promise.all(selectedQuizzes.map(quiz => deleteQuizRequest(quiz.id)));
+      setSelected({});
+      setSelectedDetails({});
+      load();
+      alert('선택된 퀴즈가 삭제되었습니다.');
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '퀴즈 삭제에 실패했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    }
+  }, [selectedQuizzes, load]);
+
+  const handleDeleteSingle = useCallback(async (quizId: number) => {
+    if (!confirm('이 퀴즈를 삭제하시겠습니까?')) {
+      return;
+    }
+    
+    try {
+      await deleteQuizRequest(quizId);
+      load();
+      alert('퀴즈가 삭제되었습니다.');
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '퀴즈 삭제에 실패했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    }
+  }, [load]);
+
+  const handleAddToStudy = useCallback(async () => {
+    if (!user) {
+      alert('학습 기능을 사용하려면 로그인해주세요.');
+      navigate('/auth', { state: { from: location } });
+      return;
+    }
+    if (selectedQuizzes.length === 0) {
+      alert('학습 리스트에 추가할 퀴즈를 선택하세요.');
+      return;
+    }
+    const defaultTitle = `학습 ${new Date().toLocaleString()}`;
+    setSessionTitleInput(defaultTitle);
+    const defaultHelperId =
+      user?.selected_helper_id ??
+      helperOptions.find((item) => item.unlocked)?.id ??
+      helperOptions[0]?.id ??
+      null;
+    setNewSessionHelperId(defaultHelperId);
+    setShowCreateModal(true);
+  }, [selectedQuizzes, user, navigate, location, helperOptions]);
 
   const renderModal = () => {
     if (!normalizedTargetCard) {
@@ -664,17 +727,48 @@ export default function QuizListPage() {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-primary-600">등록된 퀴즈</h2>
+            <h2 className="text-lg font-semibold text-primary-600">퀴즈 리스트</h2>
             <p className="text-xs text-slate-500">총 {meta.total}개 · 페이지 {page} / {totalPages}</p>
           </div>
-          <button
-            type="button"
-            onClick={handleAddToStudy}
-            disabled={saving}
-            className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-          >
-            학습 리스트에 추가
-          </button>
+          <div className="flex items-center gap-2">
+            {editMode ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleAddToStudy}
+                  disabled={!selectedQuizzes.length || saving}
+                  className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  학습 리스트에 추가 ({selectedQuizzes.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteSelected}
+                  disabled={!selectedQuizzes.length || saving}
+                  className="rounded bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  삭제 ({selectedQuizzes.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEditMode}
+                  disabled={saving}
+                  className="rounded bg-slate-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  취소
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={handleEditMode}
+                disabled={saving}
+                className="rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                편집
+              </button>
+            )}
+          </div>
         </div>
       {availableTags.length ? (
         <div className="flex flex-wrap gap-2">
@@ -711,80 +805,71 @@ export default function QuizListPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredQuizzes.map((quiz) => {
             const cardData = { ...quiz.payload, type: quiz.type };
+            const contentTitle = contentTitles[quiz.content_id] || `콘텐츠 #${quiz.content_id}`;
             return (
               <div
                 key={quiz.id}
-                className="relative cursor-pointer rounded-lg border border-slate-200 bg-white p-4 transition hover:border-primary-500"
-                onClick={() => {
-                  void handleNavigateToContent(quiz);
-                }}
+                className="relative flex flex-col rounded-lg border border-slate-200 bg-white p-4 transition hover:border-primary-500"
               >
-                <div className="absolute left-3 top-3">
-                  <input
-                    type="checkbox"
-                    checked={!!selected[quiz.id]}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) => toggleSelection(event.currentTarget.checked, quiz)}
-                    className="h-4 w-4 accent-primary-500"
-                  />
-                </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Badge color="primary">{getQuizTypeLabel(quiz.type)}</Badge>
+                    {editMode && (
+                      <input
+                        type="checkbox"
+                        checked={!!selected[quiz.id]}
+                        onChange={(event) => toggleSelection(event.currentTarget.checked, quiz)}
+                        className="h-4 w-4 accent-primary-500"
+                      />
+                    )}
                     <Badge color={quiz.visibility === 'PUBLIC' ? 'success' : 'default'}>
                       {quiz.visibility === 'PUBLIC' ? '공개' : '비공개'}
                     </Badge>
                   </div>
-                  <span className="text-xs text-slate-500">#{quiz.content_id}</span>
-                </div>
-                <div className="mt-3">
-                  <CardPreview card={cardData} />
-                </div>
-                <p className="mt-3 text-xs text-slate-500">{getStem(quiz)}</p>
-                <p className="mt-1 text-xs text-slate-500">{new Date(quiz.created_at).toLocaleString()}</p>
-                <div className="mt-3 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      handleOpenModal(quiz);
-                    }}
-                    className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
-                  >
-                    학습에 추가
-                  </button>
-                  {user?.id === quiz.owner_id ? (
-                    <>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleNavigateToContent(quiz.content_id)}
+                      className="text-xs text-primary-600 hover:text-primary-800 hover:underline"
+                    >
+                      {contentTitle}
+                    </button>
+                    {editMode && user?.id === quiz.owner_id && (
                       <button
                         type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          navigate(`/quizzes/${quiz.id}/edit?content=${quiz.content_id}`);
-                        }}
-                        className="rounded border border-sky-500 px-3 py-1 text-xs font-semibold text-sky-600 transition hover:bg-sky-500/10"
-                      >
-                        편집
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async (event) => {
-                          event.stopPropagation();
-                          if (!confirm('이 퀴즈를 삭제하시겠습니까?')) return;
-                          try {
-                            await deleteQuizRequest(quiz.id);
-                            load();
-                          } catch (err: any) {
-                            console.error(err);
-                            const message = err?.response?.data?.detail ?? '퀴즈를 삭제하지 못했습니다.';
-                            alert(typeof message === 'string' ? message : JSON.stringify(message));
-                          }
-                        }}
-                        className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
+                        onClick={() => handleDeleteSingle(quiz.id)}
+                        className="rounded border border-rose-500 px-2 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
                       >
                         삭제
                       </button>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-3 flex-1">
+                  <CardPreview card={cardData} />
+                </div>
+                <p className="mt-3 text-xs text-slate-500"></p>
+                <p className="mt-1 text-xs text-slate-500">{new Date(quiz.created_at).toLocaleString()}</p>
+                <div className="mt-3 flex justify-end gap-2">
+                  {!editMode && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenModal(quiz)}
+                        className="rounded border border-primary-500 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50"
+                      >
+                        학습에 추가
+                      </button>
+                      {user?.id === quiz.owner_id && (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/quizzes/${quiz.id}/edit?content=${quiz.content_id}`)}
+                          className="rounded border border-sky-500 px-3 py-1 text-xs font-semibold text-sky-600 transition hover:bg-sky-500/10"
+                        >
+                          편집
+                        </button>
+                      )}
                     </>
-                  ) : null}
+                  )}
                 </div>
               </div>
             );
