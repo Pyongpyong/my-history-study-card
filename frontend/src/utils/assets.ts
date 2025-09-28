@@ -18,3 +18,10 @@ export const getHelperAssetUrl = (path: string | null | undefined) => {
   }
   return `${apiBase}/${trimLeadingSlash(path)}`;
 };
+
+export const getCardDeckImageUrl = (imageName: string | null | undefined) => {
+  if (!imageName) {
+    return null;
+  }
+  return `${apiBase}/assets/card-decks/${trimLeadingSlash(imageName)}`;
+};

@@ -1,8 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl } from '../utils/assets';
+import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
 import CardRunner from '../components/CardRunner';
-import cardFrameFront from '../assets/card_frame_front.png';
-import cardFrameBack from '../assets/card_frame_back.png';
 import { fetchLearningHelpers, type LearningHelperPublic } from '../api';
 import { useAuth } from '../context/AuthContext';
 
@@ -115,6 +113,10 @@ export default function HomePage() {
 
   const activeHelper = user?.selected_helper ?? fallbackHelper;
 
+  // 기본 카드덱 이미지 URL
+  const cardDeckFrontImage = getCardDeckImageUrl('card_frame_front.png');
+  const cardDeckBackImage = getCardDeckImageUrl('card_frame_back.png');
+
   const helperVariants = useMemo(() => {
     const variants = activeHelper?.variants ?? {};
     const idle = getHelperAssetUrl(variants.idle) ?? baseVariants.idle;
@@ -212,7 +214,17 @@ export default function HomePage() {
                   >
                     <div
                       className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden]"
-                      style={{ backgroundImage: `url(${cardFrameFront})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                      style={{
+                        ...(cardDeckFrontImage) 
+                          ? {
+                              backgroundImage: `url(${cardDeckFrontImage})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                            }
+                          : {
+                              backgroundColor: '#f8fafc',
+                            }
+                      }}
                     >
                     <div className="absolute inset-0 bg-white/55" />
                     <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6 shadow-inner">
@@ -229,7 +241,17 @@ export default function HomePage() {
                     </div>
                     <div
                       className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden] [transform:rotateY(180deg)]"
-                      style={{ backgroundImage: `url(${cardFrameBack})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                      style={{
+                        ...(cardDeckBackImage) 
+                          ? {
+                              backgroundImage: `url(${cardDeckBackImage})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                            }
+                          : {
+                              backgroundColor: '#f8fafc',
+                            }
+                      }}
                     >
                       <div className="absolute inset-0 bg-white/55" />
                       <div className="absolute inset-[18px] flex h-full flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center shadow-inner">

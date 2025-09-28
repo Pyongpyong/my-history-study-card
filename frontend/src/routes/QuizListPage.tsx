@@ -7,8 +7,10 @@ import {
   fetchStudySessions,
   updateStudySessionRequest,
   deleteQuizRequest,
+  fetchCardDecksRequest,
   type QuizItem,
   type StudySession,
+  type CardDeck,
 } from '../api';
 import Badge from '../components/Badge';
 import CardPreview from '../components/CardPreview';
@@ -56,6 +58,9 @@ export default function QuizListPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [sessionTitleInput, setSessionTitleInput] = useState('');
   const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [cardDecks, setCardDecks] = useState<CardDeck[]>([]);
+  const [selectedCardDeckId, setSelectedCardDeckId] = useState<number | null>(null);
+  const [newSessionCardDeckId, setNewSessionCardDeckId] = useState<number | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -80,6 +85,24 @@ export default function QuizListPage() {
       setNewSessionHelperId(defaultId);
     }
   }, [helperOptions, showModal, showCreateModal, selection, user?.selected_helper_id, newSessionHelperId]);
+
+  useEffect(() => {
+    const loadCardDecks = async () => {
+      try {
+        const response = await fetchCardDecksRequest(1, 100);
+        setCardDecks(response.items);
+        // 기본 카드덱을 선택
+        const defaultDeck = response.items.find(deck => deck.is_default);
+        if (defaultDeck) {
+          setSelectedCardDeckId(defaultDeck.id);
+          setNewSessionCardDeckId(defaultDeck.id);
+        }
+      } catch (err) {
+        console.error('카드덱 로딩 실패:', err);
+      }
+    };
+    loadCardDecks();
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -356,6 +379,7 @@ export default function QuizListPage() {
         quiz_ids: [normalizedTargetCard.id],
         cards: [normalizedTargetCard],
         helper_id: helperIdForCreation ?? undefined,
+        card_deck_id: newSessionCardDeckId ?? undefined,
       });
       setStudySessions((prev) => [created, ...prev]);
       alert('새 학습 세트가 생성되었습니다.');
@@ -500,6 +524,25 @@ export default function QuizListPage() {
                     ) : null}
                     <p className="text-[10px] text-slate-400">선택하지 않으면 Level 1 학습 도우미가 적용됩니다.</p>
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600">카드덱 선택</label>
+                    <select
+                      value={newSessionCardDeckId ?? ''}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setNewSessionCardDeckId(value ? parseInt(value, 10) : null);
+                      }}
+                      className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    >
+                      <option value="">기본 카드덱</option>
+                      {cardDecks.map((deck) => (
+                        <option key={deck.id} value={deck.id}>
+                          {deck.name} {deck.is_default ? '(기본)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-slate-400">카드의 앞뒤면 디자인을 선택합니다.</p>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -570,6 +613,7 @@ export default function QuizListPage() {
           content_id: quiz.content_id,
         })),
         helper_id: helperIdForCreation ?? undefined,
+        card_deck_id: selectedCardDeckId ?? undefined,
       };
       await createStudySession(payload);
       alert('학습 리스트에 추가되었습니다.');
@@ -798,6 +842,25 @@ export default function QuizListPage() {
                 <p className="text-[11px] text-rose-600">{helperFetchError}</p>
               ) : null}
               <p className="text-[10px] text-slate-400">선택하지 않으면 Level 1 학습 도우미가 적용됩니다.</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">카드덱 선택</label>
+              <select
+                value={selectedCardDeckId ?? ''}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSelectedCardDeckId(value ? parseInt(value, 10) : null);
+                }}
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                <option value="">기본 카드덱</option>
+                {cardDecks.map((deck) => (
+                  <option key={deck.id} value={deck.id}>
+                    {deck.name} {deck.is_default ? '(기본)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-400">카드의 앞뒤면 디자인을 선택합니다.</p>
             </div>
             <div className="flex justify-end gap-2">
               <button

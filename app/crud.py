@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 json_loads = json.loads
 
 from .models import (
+    CardDeck,
     Content,
     Highlight,
     LearningHelper,
@@ -278,6 +279,29 @@ def update_helper_variant(
     return helper_to_public(helper)
 
 
+def delete_learning_helper(session: Session, helper_id: int) -> bool:
+    """학습 도우미를 삭제합니다."""
+    helper = get_learning_helper(session, helper_id)
+    if not helper:
+        return False
+    
+    # 사용자들이 이 학습 도우미를 선택하고 있다면 기본 학습 도우미로 변경
+    users_with_helper = session.execute(
+        select(User).where(User.selected_helper_id == helper_id)
+    ).scalars().all()
+    
+    default_helper = get_default_learning_helper(session)
+    for user in users_with_helper:
+        if default_helper and default_helper.id != helper_id:
+            user.selected_helper_id = default_helper.id
+        else:
+            user.selected_helper_id = None
+    
+    session.delete(helper)
+    session.commit()
+    return True
+
+
 def set_user_helper(session: Session, user: User, helper: LearningHelper) -> User:
     if user.level < helper.level_requirement:
         raise PermissionError("LOCKED_HELPER")
@@ -337,6 +361,22 @@ def _reward_to_out(reward: Reward) -> RewardOut:
     )
 
 
+def _card_deck_to_out(card_deck: Optional[CardDeck]) -> Optional[dict]:
+    """카드덱을 출력 형태로 변환합니다."""
+    if not card_deck:
+        return None
+    return {
+        "id": card_deck.id,
+        "name": card_deck.name,
+        "description": card_deck.description,
+        "front_image": card_deck.front_image,
+        "back_image": card_deck.back_image,
+        "is_default": card_deck.is_default,
+        "created_at": card_deck.created_at,
+        "updated_at": card_deck.updated_at,
+    }
+
+
 def _study_session_to_out(study: StudySession) -> StudySessionOut:
     cards = _normalize_cards(json_loads(study.card_payloads))
     try:
@@ -365,6 +405,8 @@ def _study_session_to_out(study: StudySession) -> StudySessionOut:
         owner_id=study.owner_id,
         helper_id=study.helper_id,
         helper=helper_to_public(getattr(study, "helper", None)),
+        card_deck_id=study.card_deck_id,
+        card_deck=_card_deck_to_out(getattr(study, "card_deck", None)),
     )
 
 
@@ -975,6 +1017,19 @@ def create_study_session(
     if helper is None:
         return None
 
+    # 카드덱 처리
+    card_deck_id = payload.card_deck_id
+    if card_deck_id:
+        card_deck = session.get(CardDeck, card_deck_id)
+        if not card_deck:
+            # 지정된 카드덱이 없으면 기본 카드덱 사용
+            card_deck = get_default_card_deck(session)
+            card_deck_id = card_deck.id if card_deck else None
+    else:
+        # 카드덱이 지정되지 않으면 기본 카드덱 사용
+        card_deck = get_default_card_deck(session)
+        card_deck_id = card_deck.id if card_deck else None
+
     study = StudySession(
         title=payload.title.strip(),
         quiz_ids=json_dumps(payload.quiz_ids),
@@ -982,6 +1037,7 @@ def create_study_session(
         tags=json_dumps(tags),
         owner_id=owner.id,
         helper_id=helper.id,
+        card_deck_id=card_deck_id,
     )
     session.add(study)
     session.commit()
@@ -992,7 +1048,7 @@ def create_study_session(
 def get_study_session(session: Session, session_id: int, owner: User) -> Optional[StudySessionOut]:
     study = session.execute(
         select(StudySession)
-        .options(selectinload(StudySession.rewards), selectinload(StudySession.helper))
+        .options(selectinload(StudySession.rewards), selectinload(StudySession.helper), selectinload(StudySession.card_deck))
         .where(StudySession.id == session_id, StudySession.owner_id == owner.id)
     ).scalar_one_or_none()
     if study is None:
@@ -1005,7 +1061,7 @@ def list_study_sessions(session: Session, page: int, size: int, owner: User) -> 
     total = session.scalar(count_stmt) or 0
     stmt = (
         select(StudySession)
-        .options(selectinload(StudySession.rewards), selectinload(StudySession.helper))
+        .options(selectinload(StudySession.rewards), selectinload(StudySession.helper), selectinload(StudySession.card_deck))
         .where(StudySession.owner_id == owner.id)
         .order_by(StudySession.created_at.desc())
         .offset((page - 1) * size)
@@ -1044,6 +1100,19 @@ def update_study_session(
             print("[ERROR] Could not resolve helper for study session")
             return None
         study.helper_id = helper.id
+
+    if "card_deck_id" in updates:
+        card_deck_id = updates.get("card_deck_id")
+        if card_deck_id:
+            card_deck = session.get(CardDeck, card_deck_id)
+            if not card_deck:
+                print(f"[ERROR] Card deck {card_deck_id} not found")
+                return None
+            study.card_deck_id = card_deck_id
+        else:
+            # 카드덱을 제거하거나 기본 카드덱으로 설정
+            default_deck = get_default_card_deck(session)
+            study.card_deck_id = default_deck.id if default_deck else None
 
     if "title" in updates and updates["title"] is not None:
         study.title = updates["title"].strip()
@@ -1466,3 +1535,75 @@ def submit_quiz_answer(
             "total_points": user.points or 0 if user else 0,
             "message": f"퀴즈 제출 중 오류가 발생했습니다: {exc}",
         }
+
+
+# Card Deck CRUD Functions
+def create_card_deck(session: Session, card_deck_data: dict) -> CardDeck:
+    """카드덱을 생성합니다."""
+    # 기본 카드덱으로 설정하는 경우, 다른 기본 카드덱들의 is_default를 False로 변경
+    if card_deck_data.get("is_default", False):
+        session.query(CardDeck).filter(CardDeck.is_default == True).update({"is_default": False})
+    
+    card_deck = CardDeck(**card_deck_data)
+    session.add(card_deck)
+    session.commit()
+    session.refresh(card_deck)
+    return card_deck
+
+
+def get_card_deck(session: Session, card_deck_id: int) -> Optional[CardDeck]:
+    """ID로 카드덱을 조회합니다."""
+    return session.get(CardDeck, card_deck_id)
+
+
+def get_default_card_deck(session: Session) -> Optional[CardDeck]:
+    """기본 카드덱을 조회합니다."""
+    return session.query(CardDeck).filter(CardDeck.is_default == True).first()
+
+
+def list_card_decks(
+    session: Session,
+    skip: int = 0,
+    limit: int = 100,
+) -> Tuple[List[CardDeck], int]:
+    """카드덱 목록을 조회합니다."""
+    query = session.query(CardDeck).order_by(CardDeck.is_default.desc(), CardDeck.created_at.desc())
+    
+    total = query.count()
+    items = query.offset(skip).limit(limit).all()
+    
+    return items, total
+
+
+def update_card_deck(session: Session, card_deck_id: int, update_data: dict) -> Optional[CardDeck]:
+    """카드덱을 수정합니다."""
+    card_deck = session.get(CardDeck, card_deck_id)
+    if not card_deck:
+        return None
+    
+    # 기본 카드덱으로 설정하는 경우, 다른 기본 카드덱들의 is_default를 False로 변경
+    if update_data.get("is_default", False):
+        session.query(CardDeck).filter(CardDeck.id != card_deck_id, CardDeck.is_default == True).update({"is_default": False})
+    
+    for key, value in update_data.items():
+        if value is not None:
+            setattr(card_deck, key, value)
+    
+    session.commit()
+    session.refresh(card_deck)
+    return card_deck
+
+
+def delete_card_deck(session: Session, card_deck_id: int) -> bool:
+    """카드덱을 삭제합니다."""
+    card_deck = session.get(CardDeck, card_deck_id)
+    if not card_deck:
+        return False
+    
+    # 기본 카드덱은 삭제할 수 없습니다
+    if card_deck.is_default:
+        return False
+    
+    session.delete(card_deck)
+    session.commit()
+    return True

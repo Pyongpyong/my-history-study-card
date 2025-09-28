@@ -137,6 +137,23 @@ class Quiz(Base):
     )
 
 
+class CardDeck(Base):
+    __tablename__ = "card_decks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    front_image: Mapped[str] = mapped_column(String(255), nullable=False)
+    back_image: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    sessions: Mapped[list["StudySession"]] = relationship("StudySession", back_populates="card_deck")
+
+
 class StudySession(Base):
     __tablename__ = "study_sessions"
 
@@ -155,6 +172,9 @@ class StudySession(Base):
     helper_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("learning_helpers.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    card_deck_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("card_decks.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     rewards: Mapped[list["Reward"]] = relationship(
         "Reward",
@@ -163,6 +183,7 @@ class StudySession(Base):
     )
     owner: Mapped["User"] = relationship("User", back_populates="study_sessions")
     helper: Mapped[Optional[LearningHelper]] = relationship("LearningHelper", back_populates="sessions")
+    card_deck: Mapped[Optional[CardDeck]] = relationship("CardDeck", back_populates="sessions")
 
 
 class Reward(Base):

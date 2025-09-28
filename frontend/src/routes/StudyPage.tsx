@@ -6,15 +6,14 @@ import {
   fetchStudySession,
   updateStudySessionRequest,
   type StudySessionCard,
+  type StudySession,
   type Reward,
   type LearningHelperPublic,
 } from '../api';
 import CardRunner from '../components/CardRunner';
 import ProgressBar from '../components/ProgressBar';
 import { getQuizTypeLabel } from '../utils/quiz';
-import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl } from '../utils/assets';
-import cardFrameFront from '../assets/card_frame_front.png';
-import cardFrameBack from '../assets/card_frame_back.png';
+import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
 import { useAuth } from '../context/AuthContext';
 import HelperPickerModal from '../components/HelperPickerModal';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
@@ -33,6 +32,7 @@ export default function StudyPage() {
   const location = useLocation();
   const { user, refresh } = useAuth();
   const [content, setContent] = useState<any | null>(null);
+  const [session, setSession] = useState<StudySession | null>(null);
   const [cards, setCards] = useState<StudySessionCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +72,17 @@ export default function StudyPage() {
 
   const activeHelper = helper ?? user?.selected_helper ?? null;
 
+  // 카드덱 이미지 URL 생성
+  const cardDeckFrontImage = useMemo(() => {
+    const deckFrontImage = session?.card_deck?.front_image;
+    return getCardDeckImageUrl(deckFrontImage) ?? getCardDeckImageUrl('card_frame_front.png') ?? null;
+  }, [session?.card_deck?.front_image]);
+
+  const cardDeckBackImage = useMemo(() => {
+    const deckBackImage = session?.card_deck?.back_image;
+    return getCardDeckImageUrl(deckBackImage) ?? getCardDeckImageUrl('card_frame_back.png') ?? null;
+  }, [session?.card_deck?.back_image]);
+
   const helperVariants = useMemo(() => {
     const variants = activeHelper?.variants ?? {};
     const idle = getHelperAssetUrl(variants.idle) ?? baseVariants.idle;
@@ -98,6 +109,7 @@ export default function StudyPage() {
       try {
         if (sessionId) {
           const session = await fetchStudySession(sessionId);
+          setSession(session);
           const cardsFromSession = Array.isArray(session.cards)
             ? session.cards.map((card: any) => ({
                 ...card,
@@ -486,9 +498,15 @@ export default function StudyPage() {
                       <div
                         className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden]"
                         style={{
-                          backgroundImage: `url(${isResultFrame ? cardFrameBack : cardFrameFront})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
+                          ...(isResultFrame ? cardDeckBackImage : cardDeckFrontImage) 
+                            ? {
+                                backgroundImage: `url(${isResultFrame ? cardDeckBackImage : cardDeckFrontImage})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                              }
+                            : {
+                                backgroundColor: '#f8fafc',
+                              }
                         }}
                       >
                         <div className="absolute inset-0 bg-white/55" />
@@ -524,7 +542,17 @@ export default function StudyPage() {
 
                       <div
                         className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [transform:rotateY(180deg)] [backface-visibility:hidden]"
-                        style={{ backgroundImage: `url(${cardFrameBack})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                        style={{
+                          ...(cardDeckBackImage) 
+                            ? {
+                                backgroundImage: `url(${cardDeckBackImage})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                              }
+                            : {
+                                backgroundColor: '#f8fafc',
+                              }
+                        }}
                       >
                         <div className="absolute inset-0 bg-white/55" />
                         <div className="absolute inset-[18px] flex flex-col rounded-[28px] bg-white/92 p-6 shadow-inner">
@@ -694,7 +722,17 @@ export default function StudyPage() {
                   >
                     <div
                       className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden]"
-                      style={{ backgroundImage: `url(${cardFrameFront})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                      style={{
+                        ...(cardDeckFrontImage) 
+                          ? {
+                              backgroundImage: `url(${cardDeckFrontImage})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                            }
+                          : {
+                              backgroundColor: '#f8fafc',
+                            }
+                      }}
                     >
                       <div className="absolute inset-0 bg-white/55" />
                       <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6 shadow-inner">
@@ -706,7 +744,17 @@ export default function StudyPage() {
 
                     <div
                       className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [transform:rotateY(180deg)] [backface-visibility:hidden]"
-                      style={{ backgroundImage: `url(${cardFrameBack})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                      style={{
+                        ...(cardDeckBackImage) 
+                          ? {
+                              backgroundImage: `url(${cardDeckBackImage})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                            }
+                          : {
+                              backgroundColor: '#f8fafc',
+                            }
+                      }}
                     >
                       <div className="absolute inset-0 bg-white/55" />
                       <div className="absolute inset-[18px] flex flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center shadow-inner">

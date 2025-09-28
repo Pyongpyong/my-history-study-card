@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
-from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Response, Security, UploadFile, status
+from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Query, Response, Security, UploadFile, status
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -19,19 +19,23 @@ from .routers import quiz as quiz_router
 
 from .crud import (
     add_reward_to_session,
+    create_card_deck,
     create_content_with_related,
     create_learning_helper,
     create_quiz_for_content,
     create_reward,
     create_study_session,
     create_user,
+    delete_card_deck,
     delete_content,
     delete_quiz,
     delete_reward,
     delete_study_session,
     delete_user,
     export_contents,
+    get_card_deck,
     get_content,
+    get_default_card_deck,
     get_learning_helper,
     get_quiz,
     get_study_session,
@@ -39,6 +43,7 @@ from .crud import (
     get_user_by_email,
     helper_to_out,
     helper_to_public,
+    list_card_decks,
     list_contents,
     list_learning_helpers,
     list_quizzes,
@@ -47,6 +52,7 @@ from .crud import (
     list_study_sessions,
     resolve_helper_for_user,
     set_user_helper,
+    update_card_deck,
     update_content,
     update_helper_variant,
     update_learning_helper,
@@ -59,6 +65,10 @@ from .db import SessionLocal, init_db
 from .models import User
 from .schemas import (
     AdminUserCreate,
+    CardDeckCreate,
+    CardDeckListOut,
+    CardDeckOut,
+    CardDeckUpdate,
     CardUnion,
     ContentListOut,
     ContentOut,
@@ -526,6 +536,26 @@ async def upload_helper_image_endpoint(
     return update_helper_variant(db, helper, normalized_variant, raw_object_name)
 
 
+@app.delete("/helpers/{helper_id}")
+def delete_helper_endpoint(
+    helper_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    """학습 도우미를 삭제합니다. (관리자 전용)"""
+    from .crud import get_learning_helper, delete_learning_helper
+    
+    helper = get_learning_helper(db, helper_id)
+    if not helper:
+        raise HTTPException(status_code=404, detail="학습 도우미를 찾을 수 없습니다.")
+    
+    try:
+        delete_learning_helper(db, helper_id)
+        return {"message": "학습 도우미가 성공적으로 삭제되었습니다."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"학습 도우미 삭제 실패: {str(e)}")
+
+
 @app.get("/helpers/{helper_id}/image/{variant}")
 def get_helper_image_endpoint(
     helper_id: int,
@@ -846,6 +876,139 @@ def delete_current_user(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="비밀번호가 올바르지 않습니다.")
     delete_user(db, current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# Card Deck endpoints
+@app.post("/card-decks", response_model=CardDeckOut)
+def create_card_deck_endpoint(
+    card_deck_data: CardDeckCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    """카드덱을 생성합니다. (관리자 전용)"""
+    try:
+        card_deck = create_card_deck(db, card_deck_data.model_dump())
+        return card_deck
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"카드덱 생성 실패: {str(e)}")
+
+
+@app.get("/card-decks", response_model=CardDeckListOut)
+def list_card_decks_endpoint(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """카드덱 목록을 조회합니다."""
+    skip = (page - 1) * size
+    items, total = list_card_decks(db, skip=skip, limit=size)
+    
+    return CardDeckListOut(
+        items=items,
+        meta=PageMeta(
+            page=page,
+            size=size,
+            total=total,
+            pages=(total + size - 1) // size,
+        ),
+    )
+
+
+@app.get("/card-decks/default", response_model=CardDeckOut)
+def get_default_card_deck_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """기본 카드덱을 조회합니다."""
+    card_deck = get_default_card_deck(db)
+    if not card_deck:
+        raise HTTPException(status_code=404, detail="기본 카드덱을 찾을 수 없습니다")
+    return card_deck
+
+
+@app.get("/card-decks/{card_deck_id}", response_model=CardDeckOut)
+def get_card_deck_endpoint(
+    card_deck_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """특정 카드덱을 조회합니다."""
+    card_deck = get_card_deck(db, card_deck_id)
+    if not card_deck:
+        raise HTTPException(status_code=404, detail="카드덱을 찾을 수 없습니다")
+    return card_deck
+
+
+@app.put("/card-decks/{card_deck_id}", response_model=CardDeckOut)
+def update_card_deck_endpoint(
+    card_deck_id: int,
+    update_data: CardDeckUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    """카드덱을 수정합니다. (관리자 전용)"""
+    card_deck = update_card_deck(
+        db, card_deck_id, update_data.model_dump(exclude_unset=True)
+    )
+    if not card_deck:
+        raise HTTPException(status_code=404, detail="카드덱을 찾을 수 없습니다")
+    return card_deck
+
+
+@app.delete("/card-decks/{card_deck_id}")
+def delete_card_deck_endpoint(
+    card_deck_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    """카드덱을 삭제합니다. (관리자 전용)"""
+    success = delete_card_deck(db, card_deck_id)
+    if not success:
+        raise HTTPException(
+            status_code=400, 
+            detail="카드덱을 삭제할 수 없습니다. 기본 카드덱이거나 존재하지 않는 카드덱입니다."
+        )
+    return {"message": "카드덱이 성공적으로 삭제되었습니다"}
+
+
+@app.post("/upload-card-deck-image")
+async def upload_card_deck_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_admin),
+):
+    """카드덱 이미지를 업로드합니다. (관리자 전용)"""
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="이미지 파일만 업로드 가능합니다.")
+    
+    # 파일 확장자 확인
+    allowed_extensions = {'.png', '.jpg', '.jpeg', '.webp', '.avif'}
+    file_extension = Path(file.filename or '').suffix.lower()
+    if file_extension not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="지원하지 않는 파일 형식입니다.")
+    
+    try:
+        # 고유한 파일명 생성
+        unique_filename = f"card_deck_{uuid.uuid4().hex}{file_extension}"
+        
+        # OCI 버킷에 업로드
+        bucket = get_bucket_name()
+        object_name = build_object_name(unique_filename)
+        
+        # 파일 내용 읽기
+        file_content = await file.read()
+        
+        # OCI에 업로드
+        upload_object(bucket, object_name, file_content, content_type=file.content_type)
+        
+        return {"filename": unique_filename}
+        
+    except OciStorageConfigError as exc:
+        raise HTTPException(status_code=500, detail=f"스토리지 설정 오류: {str(exc)}") from exc
+    except ServiceError as exc:
+        raise HTTPException(status_code=502, detail=f"파일 업로드 실패: {str(exc)}") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"업로드 중 오류가 발생했습니다: {str(exc)}") from exc
 
 
 # Include routers
