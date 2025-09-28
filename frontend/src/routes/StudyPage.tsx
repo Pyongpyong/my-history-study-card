@@ -463,20 +463,25 @@ export default function StudyPage() {
     const isGood = scorePercentage >= 70;
     return (
       <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <header className="bg-white border-b border-slate-200 px-4 py-4 mb-6 min-h-[120px] flex items-center">
-        <div className="max-w-7xl mx-auto w-full text-center">
-            <h2 className="text-3xl font-bold text-primary-600">🎉 학습 완료!</h2>
-            <p className="text-lg text-slate-700 mt-2">
-              점수: <span className="font-bold text-primary-600">{score}</span> / {cards.length}
-              <span className="ml-2 text-sm">({scorePercentage}%)</span>
-            </p>
-          </div>
-        </header>
-
+      <div className="min-h-screen bg-white py-6">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col items-center gap-10">
             <div className="relative w-full max-w-5xl rounded-[40px] bg-white p-8 shadow-[0_32px_60px_-28px_rgba(30,41,59,0.35)]">
+              {/* 작은 헤더 - 중앙 상단 */}
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-white rounded-xl px-4 py-2 shadow-lg border border-slate-200 z-10">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm font-semibold text-primary-600">🎉 학습 완료!</h3>
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <span>{score}/{cards.length} ({scorePercentage}%)</span>
+                    <div className="w-12 bg-slate-200 rounded-full h-1">
+                      <div 
+                        className="bg-primary-500 h-1 rounded-full transition-all duration-300"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div className="flex flex-col gap-10 lg:flex-row lg:items-center">
                 <div className="relative flex-[0_0_50%]">
                   <img
@@ -664,42 +669,26 @@ export default function StudyPage() {
 
   return (
     <>
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* 헤더 */}
-      <header className="bg-white border-b border-slate-200 px-4 py-4 mb-6 min-h-[120px] flex items-center">
-        <div className="max-w-7xl mx-auto w-full">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-primary-600">학습 중: {content.title}</h2>
-            {sessionId ? (
-              content.contentIds?.length === 1 && content.contentIds[0] > 0 ? (
-                <Link
-                  to={`/contents/${content.contentIds[0]}`}
-                  className="text-xs text-primary-600 hover:text-primary-700"
-                >
-                  관련 콘텐츠 보기
-                </Link>
-              ) : (
-                <Link to="/studies" className="text-xs text-primary-600 hover:text-primary-700">
-                  학습 리스트로 돌아가기
-                </Link>
-              )
-            ) : (
-              <Link to={`/contents/${id}`} className="text-xs text-primary-600 hover:text-primary-700">
-                콘텐츠 보기
-              </Link>
-            )}
-          </div>
-          <p className="text-xs uppercase tracking-wide text-slate-500 mt-2">
-            진행도 {index + 1} / {cards.length}
-          </p>
-          <ProgressBar current={index + (submitted ? 1 : 0)} total={cards.length} />
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-white py-6">
       {/* 메인 콘텐츠 - 통합 프레임 */}
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex flex-col items-center gap-10">
           <div className="relative w-full max-w-5xl rounded-[40px] bg-white p-8 shadow-[0_32px_60px_-28px_rgba(30,41,59,0.35)]">
+            {/* 작은 헤더 - 중앙 상단 */}
+            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-white rounded-xl px-4 py-2 shadow-lg border border-slate-200 z-10">
+              <div className="flex items-center gap-3">
+                <h3 className="text-sm font-semibold text-primary-600">{content.title}</h3>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span>{index + 1}/{cards.length}</span>
+                  <div className="w-12 bg-slate-200 rounded-full h-1">
+                    <div 
+                      className="bg-primary-500 h-1 rounded-full transition-all duration-300"
+                      style={{ width: `${((index + (submitted ? 1 : 0)) / cards.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
             <div className="flex flex-col gap-10 lg:flex-row lg:items-center">
               {/* Teacher 영역 */}
               <div className="relative flex-[0_0_50%]">
@@ -797,37 +786,6 @@ export default function StudyPage() {
         </div>
       </div>
 
-      {/* 추가 정보 (태그, 보상) */}
-      {(sessionTags.length > 0 || sessionRewards.length > 0) && (
-        <div className="max-w-7xl mx-auto px-4 mt-8">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-            {sessionTags.length > 0 && (
-              <div className="mb-4">
-                <p className="text-sm font-semibold text-primary-600 mb-2">🏷️ 학습 태그</p>
-                <div className="flex flex-wrap gap-2">
-                  {sessionTags.map((tag) => (
-                    <span key={tag} className="rounded-full border border-primary-500/40 bg-primary-50 px-3 py-1 text-xs">
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {sessionRewards.length > 0 && (
-              <div>
-                <p className="text-sm font-semibold text-primary-600 mb-2">🎁 보상</p>
-                <div className="flex flex-wrap gap-2">
-                  {sessionRewards.map((reward) => (
-                    <span key={reward.id} className="rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs">
-                      {reward.title} · {reward.duration}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
       <HelperPickerModal
         isOpen={helperModalOpen}
         helpers={helpers}

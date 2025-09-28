@@ -10,6 +10,7 @@ import QuizListPage from './routes/QuizListPage';
 import UploadJSONPage from './routes/UploadJSONPage';
 import StudyListPage from './routes/StudyListPage';
 import StudyPage from './routes/StudyPage';
+import StudyEditPage from './routes/StudyEditPage';
 import RewardListPage from './routes/RewardListPage';
 import QuizCreatePage from './routes/QuizCreatePage';
 import QuizEditPage from './routes/QuizEditPage';
@@ -135,6 +136,16 @@ export default function App() {
               <StudyPage />
             </main>
           } 
+        />
+        <Route
+          path="/study-edit/:id"
+          element={(
+            <main className="app-container mx-auto max-w-6xl px-6 py-8">
+              <RequireAuth>
+                <StudyEditPage />
+              </RequireAuth>
+            </main>
+          )}
         />
         <Route 
           path="/auth" 

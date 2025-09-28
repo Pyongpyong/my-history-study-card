@@ -348,6 +348,11 @@ export async function fetchStudySession(id: number | string): Promise<StudySessi
   return data;
 }
 
+export async function fetchStudySessionById(id: number): Promise<StudySession> {
+  const { data } = await api.get<StudySession>(`/study-sessions/${id}`);
+  return data;
+}
+
 export async function fetchPublicStudySession(id: number | string): Promise<StudySession> {
   const { data } = await api.get<StudySession>(`/public/study-sessions/${id}`);
   return data;
