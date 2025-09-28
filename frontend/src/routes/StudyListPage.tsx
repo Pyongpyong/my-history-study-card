@@ -6,11 +6,17 @@ import {
   updateStudySessionRequest,
   assignRewardToSession,
   fetchRewards,
+  fetchCardDecksRequest,
   StudySession,
   Reward,
+  CardDeck,
 } from '../api';
+import { useAuth } from '../context/AuthContext';
+import HelperPickerModal from '../components/HelperPickerModal';
+import { useLearningHelpers } from '../hooks/useLearningHelpers';
 
 export default function StudyListPage() {
+  const { user } = useAuth();
   const [sessions, setSessions] = useState<StudySession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,9 +25,26 @@ export default function StudyListPage() {
   const [rewardsLoading, setRewardsLoading] = useState(false);
   const [rewardsError, setRewardsError] = useState<string | null>(null);
   const [selectingRewardId, setSelectingRewardId] = useState<number | null>(null);
+  const [helperModalSession, setHelperModalSession] = useState<StudySession | null>(null);
+  const [pendingHelperId, setPendingHelperId] = useState<number | null>(null);
+  const [helperSubmitting, setHelperSubmitting] = useState(false);
   const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [cardDecks, setCardDecks] = useState<CardDeck[]>([]);
+  const [cardDeckModalSession, setCardDeckModalSession] = useState<StudySession | null>(null);
+  const [pendingCardDeckId, setPendingCardDeckId] = useState<number | null>(null);
+  const [cardDeckSubmitting, setCardDeckSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { helpers, loading: helpersLoading, error: helpersError, refresh: refreshHelpers } = useLearningHelpers();
+
+  const loadCardDecks = async () => {
+    try {
+      const data = await fetchCardDecksRequest();
+      setCardDecks(data.items);
+    } catch (err) {
+      console.error('Failed to load card decks:', err);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -53,6 +76,7 @@ export default function StudyListPage() {
 
   useEffect(() => {
     load();
+    loadCardDecks();
   }, [location.key, location.state?.refresh]);
 
   const availableTags = useMemo(() => {
@@ -136,6 +160,85 @@ export default function StudyListPage() {
     }
   };
 
+  const openHelperModal = (session: StudySession) => {
+    setHelperModalSession(session);
+    const fallback =
+      session.helper?.id ??
+      session.helper_id ??
+      user?.selected_helper_id ??
+      helpers.find((item) => item.level_requirement === 1)?.id ??
+      helpers.find((item) => item.unlocked)?.id ??
+      null;
+    setPendingHelperId(fallback);
+    void refreshHelpers();
+  };
+
+  const closeHelperModal = () => {
+    if (helperSubmitting) {
+      return;
+    }
+    setHelperModalSession(null);
+    setPendingHelperId(null);
+  };
+
+  const handleHelperConfirm = async () => {
+    if (!helperModalSession) {
+      return;
+    }
+    if (pendingHelperId == null) {
+      alert('학습 도우미를 선택해주세요.');
+      return;
+    }
+    const selectedHelper = helpers.find((item) => item.id === pendingHelperId);
+    if (selectedHelper && !selectedHelper.unlocked) {
+      alert('아직 잠금 해제되지 않은 학습 도우미입니다.');
+      return;
+    }
+    setHelperSubmitting(true);
+    try {
+      const updated = await updateStudySessionRequest(helperModalSession.id, { helper_id: pendingHelperId });
+      setSessions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      closeHelperModal();
+    } catch (err: any) {
+      console.error('학습 도우미 변경 실패', err);
+      const message = err?.response?.data?.detail ?? err?.message ?? '학습 도우미를 변경하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } finally {
+      setHelperSubmitting(false);
+    }
+  };
+
+  const openCardDeckModal = (session: StudySession) => {
+    setCardDeckModalSession(session);
+    setPendingCardDeckId(session.card_deck?.id ?? null);
+  };
+
+  const closeCardDeckModal = () => {
+    if (cardDeckSubmitting) {
+      return;
+    }
+    setCardDeckModalSession(null);
+    setPendingCardDeckId(null);
+  };
+
+  const handleCardDeckConfirm = async () => {
+    if (!cardDeckModalSession) {
+      return;
+    }
+    setCardDeckSubmitting(true);
+    try {
+      const updated = await updateStudySessionRequest(cardDeckModalSession.id, { card_deck_id: pendingCardDeckId });
+      setSessions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      closeCardDeckModal();
+    } catch (err: any) {
+      console.error('카드덱 변경 실패', err);
+      const message = err?.response?.data?.detail ?? err?.message ?? '카드덱을 변경하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } finally {
+      setCardDeckSubmitting(false);
+    }
+  };
+
   if (loading) {
     return <p className="text-sm text-slate-600">불러오는 중…</p>;
   }
@@ -212,6 +315,12 @@ export default function StudyListPage() {
             </button>
               </div>
               <p className="mt-3 text-sm text-slate-900">퀴즈 수: {session.cards.length}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                학습 도우미: {session.helper?.name ?? 'Level 1 학습도우미'}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                카드덱: {session.card_deck?.name ?? '기본 카드덱'}
+              </p>
               {session.tags?.length ? (
                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-primary-600">
                   {session.tags.map((tag) => (
@@ -259,6 +368,22 @@ export default function StudyListPage() {
               className="rounded bg-primary-600 px-4 py-2 font-semibold text-white transition hover:bg-primary-500"
             >
               학습 시작
+            </button>
+            <button
+              type="button"
+              onClick={() => openHelperModal(session)}
+              className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+              disabled={helperSubmitting && helperModalSession?.id === session.id}
+            >
+              학습 도우미 교체
+            </button>
+            <button
+              type="button"
+              onClick={() => openCardDeckModal(session)}
+              className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+              disabled={cardDeckSubmitting && cardDeckModalSession?.id === session.id}
+            >
+              카드덱 변경
             </button>
             <button
               type="button"
@@ -343,6 +468,73 @@ export default function StudyListPage() {
                 disabled={!rewards.length}
               >
                 보상 추가
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {helperModalSession ? (
+        <HelperPickerModal
+          isOpen={Boolean(helperModalSession)}
+          helpers={helpers}
+          selectedId={pendingHelperId}
+          onSelect={setPendingHelperId}
+          onClose={closeHelperModal}
+          onConfirm={handleHelperConfirm}
+          userLevel={user?.level ?? 1}
+          submitting={helperSubmitting || helpersLoading}
+          confirmLabel="학습 도우미 변경"
+          description={
+            helpersLoading
+              ? '학습 도우미 정보를 불러오는 중…'
+              : helpersError ?? '사용할 학습 도우미를 선택하세요.'
+          }
+        />
+      ) : null}
+
+      {/* 카드덱 변경 모달 */}
+      {cardDeckModalSession ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">카드덱 변경</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              "{cardDeckModalSession.title}"의 카드덱을 변경합니다.
+            </p>
+            
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-slate-700">카드덱 선택</label>
+              <select
+                value={pendingCardDeckId ?? ''}
+                onChange={(e) => setPendingCardDeckId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                <option value="">기본 카드덱</option>
+                {cardDecks.map((deck) => (
+                  <option key={deck.id} value={deck.id}>
+                    {deck.name} {deck.is_default ? '(기본)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">카드의 앞뒤면 디자인을 선택합니다.</p>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeCardDeckModal}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                disabled={cardDeckSubmitting}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleCardDeckConfirm}
+                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={cardDeckSubmitting}
+              >
+                {cardDeckSubmitting ? '변경 중...' : '변경'}
               </button>
             </div>
           </div>

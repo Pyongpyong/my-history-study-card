@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { buildTeacherFilename, getTeacherAssetUrl } from '../utils/assets';
+import { useState, useEffect, useMemo } from 'react';
+import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
 import CardRunner from '../components/CardRunner';
-import cardFrameFront from '../assets/card_frame_front.png';
-import cardFrameBack from '../assets/card_frame_back.png';
+import { fetchLearningHelpers, type LearningHelperPublic } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 interface SampleCardConfig {
   card: any;
@@ -76,12 +76,6 @@ const sampleCards: SampleCardConfig[] = [
 
 type TeacherMood = 'idle' | 'correct' | 'incorrect';
 
-const teacherVariants = Array.from({ length: 12 }, (_, index) => ({
-  idle: getTeacherAssetUrl(buildTeacherFilename(index)),
-  correct: getTeacherAssetUrl(buildTeacherFilename(index, '_o')),
-  incorrect: getTeacherAssetUrl(buildTeacherFilename(index, '_x')),
-}));
-
 const renderSampleAnswer = ({ correct, explanation }: SampleCardConfig) => (
   <div className="space-y-4 text-slate-800">
     <div
@@ -100,15 +94,67 @@ const renderSampleAnswer = ({ correct, explanation }: SampleCardConfig) => (
 );
 
 export default function HomePage() {
+  const { user } = useAuth();
   const initialIndex = Math.floor(Math.random() * sampleCards.length);
   const [frontIndex, setFrontIndex] = useState(initialIndex);
   const [answerIndex, setAnswerIndex] = useState(initialIndex);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [teacherVariantIndex] = useState(() => Math.floor(Math.random() * teacherVariants.length));
   const [teacherMood, setTeacherMood] = useState<TeacherMood>('idle');
+  const [fallbackHelper, setFallbackHelper] = useState<LearningHelperPublic | null>(null);
 
-  const currentTeacherImage =
-    teacherVariants[teacherVariantIndex]?.[teacherMood] ?? teacherVariants[0].idle;
+  const baseVariants = useMemo(
+    () => ({
+      idle: getTeacherAssetUrl(buildTeacherFilename(0)),
+      correct: getTeacherAssetUrl(buildTeacherFilename(0, '_o')),
+      incorrect: getTeacherAssetUrl(buildTeacherFilename(0, '_x')),
+    }),
+    [],
+  );
+
+  const activeHelper = user?.selected_helper ?? fallbackHelper;
+
+  // 기본 카드덱 이미지 URL
+  const cardDeckFrontImage = getCardDeckImageUrl('card_frame_front.png');
+  const cardDeckBackImage = getCardDeckImageUrl('card_frame_back.png');
+
+  const helperVariants = useMemo(() => {
+    const variants = activeHelper?.variants ?? {};
+    const idle = getHelperAssetUrl(variants.idle) ?? baseVariants.idle;
+    const correct = getHelperAssetUrl(variants.correct) ?? idle ?? baseVariants.correct;
+    const incorrect = getHelperAssetUrl(variants.incorrect) ?? idle ?? baseVariants.incorrect;
+    return {
+      idle,
+      correct,
+      incorrect,
+    } as Record<TeacherMood, string>;
+  }, [activeHelper, baseVariants]);
+
+  const currentTeacherImage = helperVariants[teacherMood] ?? baseVariants.idle;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (user?.selected_helper) {
+      setFallbackHelper(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+    fetchLearningHelpers()
+      .then((items) => {
+        if (cancelled) return;
+        const defaultHelper =
+          items.find((item) => item.level_requirement === 1) ?? items.find((item) => item.unlocked) ?? items[0] ?? null;
+        setFallbackHelper(defaultHelper ?? null);
+      })
+      .catch((error: any) => {
+        if (cancelled) return;
+        console.error('학습 도우미 정보를 불러오지 못했습니다.', error);
+        setFallbackHelper(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.selected_helper_id, user?.selected_helper]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -168,7 +214,17 @@ export default function HomePage() {
                   >
                     <div
                       className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden]"
-                      style={{ backgroundImage: `url(${cardFrameFront})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                      style={{
+                        ...(cardDeckFrontImage) 
+                          ? {
+                              backgroundImage: `url(${cardDeckFrontImage})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                            }
+                          : {
+                              backgroundColor: '#f8fafc',
+                            }
+                      }}
                     >
                     <div className="absolute inset-0 bg-white/55" />
                     <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6 shadow-inner">
@@ -185,7 +241,17 @@ export default function HomePage() {
                     </div>
                     <div
                       className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden] [transform:rotateY(180deg)]"
-                      style={{ backgroundImage: `url(${cardFrameBack})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                      style={{
+                        ...(cardDeckBackImage) 
+                          ? {
+                              backgroundImage: `url(${cardDeckBackImage})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                            }
+                          : {
+                              backgroundColor: '#f8fafc',
+                            }
+                      }}
                     >
                       <div className="absolute inset-0 bg-white/55" />
                       <div className="absolute inset-[18px] flex h-full flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center shadow-inner">

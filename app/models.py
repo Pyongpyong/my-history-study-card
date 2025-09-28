@@ -10,6 +10,27 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base
 
 
+class LearningHelper(Base):
+    __tablename__ = "learning_helpers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    level_requirement: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_idle: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    image_correct: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    image_incorrect: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    users: Mapped[list["User"]] = relationship("User", back_populates="selected_helper")
+    sessions: Mapped[list["StudySession"]] = relationship("StudySession", back_populates="helper")
+
+
 class VisibilityEnum(str, Enum):
     PUBLIC = "PUBLIC"
     PRIVATE = "PRIVATE"
@@ -25,6 +46,9 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     points: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     level: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    selected_helper_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("learning_helpers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
@@ -39,6 +63,7 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan"
     )
+    selected_helper: Mapped[Optional[LearningHelper]] = relationship("LearningHelper", back_populates="users")
 
 
 class Content(Base):
@@ -112,6 +137,23 @@ class Quiz(Base):
     )
 
 
+class CardDeck(Base):
+    __tablename__ = "card_decks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    front_image: Mapped[str] = mapped_column(String(255), nullable=False)
+    back_image: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    sessions: Mapped[list["StudySession"]] = relationship("StudySession", back_populates="card_deck")
+
+
 class StudySession(Base):
     __tablename__ = "study_sessions"
 
@@ -127,6 +169,12 @@ class StudySession(Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     tags: Mapped[str] = mapped_column(Text, nullable=False, default=lambda: "[]")
     answers: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
+    helper_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("learning_helpers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    card_deck_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("card_decks.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     rewards: Mapped[list["Reward"]] = relationship(
         "Reward",
@@ -134,6 +182,8 @@ class StudySession(Base):
         back_populates="sessions",
     )
     owner: Mapped["User"] = relationship("User", back_populates="study_sessions")
+    helper: Mapped[Optional[LearningHelper]] = relationship("LearningHelper", back_populates="sessions")
+    card_deck: Mapped[Optional[CardDeck]] = relationship("CardDeck", back_populates="sessions")
 
 
 class Reward(Base):

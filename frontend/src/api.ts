@@ -201,6 +201,10 @@ export interface StudySession {
   tags: string[];
   rewards: Reward[];
   owner_id: number;
+  helper_id?: number | null;
+  helper?: LearningHelperPublic | null;
+  card_deck_id?: number | null;
+  card_deck?: CardDeck | null;
 }
 
 export interface StudySessionListResponse {
@@ -224,6 +228,30 @@ export interface Reward {
 
 export interface RewardListResponse {
   items: Reward[];
+}
+
+export interface HelperVariants {
+  idle?: string | null;
+  correct?: string | null;
+  incorrect?: string | null;
+}
+
+export interface LearningHelperPublic {
+  id: number;
+  name: string;
+  level_requirement: number;
+  description?: string | null;
+  variants: HelperVariants;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LearningHelperOut extends LearningHelperPublic {
+  unlocked: boolean;
+}
+
+export interface LearningHelperListResponse {
+  items: LearningHelperOut[];
 }
 
 export async function fetchContents(page = 1, size = 20): Promise<ContentListResponse> {
@@ -296,6 +324,8 @@ export async function createStudySession(payload: {
   title: string;
   quiz_ids: number[];
   cards: StudySessionCard[];
+  helper_id?: number | null;
+  card_deck_id?: number | null;
 }): Promise<StudySession> {
   const { data } = await api.post<StudySession>('/study-sessions', payload);
   return data;
@@ -342,6 +372,50 @@ export async function updateRewardRequest(id: number, updates: Partial<Reward>):
 export async function assignRewardToSession(sessionId: number, rewardId: number): Promise<StudySession> {
   const { data } = await api.post<StudySession>(`/study-sessions/${sessionId}/rewards`, { reward_id: rewardId });
   return data;
+}
+
+export async function fetchLearningHelpers(): Promise<LearningHelperOut[]> {
+  const { data } = await api.get<LearningHelperListResponse>('/helpers');
+  return data.items;
+}
+
+export async function createLearningHelperRequest(payload: {
+  name: string;
+  level_requirement: number;
+  description?: string | null;
+}): Promise<LearningHelperPublic> {
+  const { data } = await api.post<LearningHelperPublic>('/helpers', payload);
+  return data;
+}
+
+export async function updateLearningHelperRequest(
+  id: number,
+  updates: Partial<{
+    name: string;
+    level_requirement: number;
+    description?: string | null;
+  }>,
+): Promise<LearningHelperPublic> {
+  const { data } = await api.patch<LearningHelperPublic>(`/helpers/${id}`, updates);
+  return data;
+}
+
+export async function uploadLearningHelperImageRequest(
+  id: number,
+  variant: 'idle' | 'correct' | 'incorrect',
+  file: File,
+): Promise<LearningHelperPublic> {
+  const formData = new FormData();
+  formData.append('variant', variant);
+  formData.append('file', file);
+  const { data } = await api.post<LearningHelperPublic>(`/helpers/${id}/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
+export async function deleteLearningHelperRequest(id: number): Promise<void> {
+  await api.delete(`/helpers/${id}`);
 }
 
 export async function createQuizForContent<T extends Record<string, any>>(contentId: number | string, payload: T): Promise<QuizItem> {
@@ -419,6 +493,8 @@ export interface UserProfile {
   level: number;
   points_to_next_level: number;
   is_max_level: boolean;
+  selected_helper_id?: number | null;
+  selected_helper?: LearningHelperPublic | null;
 }
 
 export interface AuthResponse {
@@ -453,6 +529,11 @@ export async function deleteAccountRequest(payload: { password: string }): Promi
   await api.request({ method: 'delete', url: '/users/me', data: payload });
 }
 
+export async function updateUserHelperRequest(helperId: number): Promise<UserProfile> {
+  const { data } = await api.patch<UserProfile>('/users/me/helper', { helper_id: helperId });
+  return data;
+}
+
 export async function fetchAllUsersRequest(): Promise<UserProfile[]> {
   const { data } = await api.get<UserProfile[]>('/admin/users');
   return data;
@@ -478,3 +559,84 @@ export async function aiGenerateAndImportRequest(
   const { data } = await api.post<AiGenerateAndImportResponse>('/ai/generate-and-import', payload);
   return data;
 }
+
+// Card Deck Types
+export interface CardDeck {
+  id: number;
+  name: string;
+  description?: string;
+  front_image: string;
+  back_image: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CardDeckCreate {
+  name: string;
+  description?: string;
+  front_image: string;
+  back_image: string;
+  is_default?: boolean;
+}
+
+export interface CardDeckUpdate {
+  name?: string;
+  description?: string;
+  front_image?: string;
+  back_image?: string;
+  is_default?: boolean;
+}
+
+export interface CardDeckListResponse {
+  items: CardDeck[];
+  meta: {
+    page: number;
+    size: number;
+    total: number;
+    pages: number;
+  };
+}
+
+// Card Deck API Functions
+export async function fetchCardDecksRequest(page: number = 1, size: number = 20): Promise<CardDeckListResponse> {
+  const { data } = await api.get<CardDeckListResponse>(`/card-decks?page=${page}&size=${size}`);
+  return data;
+}
+
+export async function fetchDefaultCardDeckRequest(): Promise<CardDeck> {
+  const { data } = await api.get<CardDeck>('/card-decks/default');
+  return data;
+}
+
+export async function fetchCardDeckRequest(id: number): Promise<CardDeck> {
+  const { data } = await api.get<CardDeck>(`/card-decks/${id}`);
+  return data;
+}
+
+export async function createCardDeckRequest(payload: CardDeckCreate): Promise<CardDeck> {
+  const { data } = await api.post<CardDeck>('/card-decks', payload);
+  return data;
+}
+
+export async function updateCardDeckRequest(id: number, payload: CardDeckUpdate): Promise<CardDeck> {
+  const { data } = await api.put<CardDeck>(`/card-decks/${id}`, payload);
+  return data;
+}
+
+export async function deleteCardDeckRequest(id: number): Promise<void> {
+  await api.delete(`/card-decks/${id}`);
+}
+
+export async function uploadCardDeckImageRequest(file: File): Promise<{ filename: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const { data } = await api.post<{ filename: string }>('/upload-card-deck-image', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return data;
+}
+

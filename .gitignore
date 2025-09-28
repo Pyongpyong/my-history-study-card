@@ -44,3 +44,4 @@ npm-debug.log*
 *.pid
 /app/cache
 
+/migrations

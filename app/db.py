@@ -107,6 +107,7 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _ensure_content_extensions()
+    _ensure_card_deck_extensions()
 
 
 def _ensure_content_extensions() -> None:
@@ -190,3 +191,51 @@ def _rebuild_sqlite_contents_without_tags(connection) -> None:
         )
     )
     connection.execute(text("DROP TABLE contents_backup"))
+
+
+def _ensure_card_deck_extensions() -> None:
+    """카드덱 테이블 확장 및 기본 데이터 생성"""
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        
+        # 카드덱 테이블이 존재하는지 확인
+        if "card_decks" not in inspector.get_table_names():
+            return
+            
+        # 기본 카드덱이 있는지 확인
+        result = connection.execute(text("SELECT COUNT(*) as count FROM card_decks WHERE is_default = 1")).fetchone()
+        if result and result.count == 0:
+            # 기본 카드덱 생성 - MySQL과 SQLite 호환
+            is_mysql = connection.dialect.name == 'mysql'
+            now_func = "NOW()" if is_mysql else "datetime('now')"
+            
+            connection.execute(text(f"""
+                INSERT INTO card_decks (name, description, front_image, back_image, is_default, created_at, updated_at)
+                VALUES (
+                    '기본 카드덱',
+                    '기본 카드 앞뒤면 이미지',
+                    'card_frame_front.png',
+                    'card_frame_back.png',
+                    1,
+                    {now_func},
+                    {now_func}
+                )
+            """))
+            
+        # study_sessions 테이블에 card_deck_id 컬럼이 있는지 확인
+        study_sessions_columns = {column["name"] for column in inspector.get_columns("study_sessions")}
+        if "card_deck_id" not in study_sessions_columns:
+            connection.execute(text("ALTER TABLE study_sessions ADD COLUMN card_deck_id INTEGER"))
+            connection.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_study_sessions_card_deck_id 
+                ON study_sessions(card_deck_id)
+            """))
+            
+            # 기존 학습 세션들에 기본 카드덱 할당
+            default_deck_result = connection.execute(text("SELECT id FROM card_decks WHERE is_default = 1 LIMIT 1")).fetchone()
+            if default_deck_result:
+                connection.execute(text(f"""
+                    UPDATE study_sessions 
+                    SET card_deck_id = {default_deck_result.id} 
+                    WHERE card_deck_id IS NULL
+                """))

@@ -15,9 +15,11 @@ import Badge from '../components/Badge';
 import CardPreview from '../components/CardPreview';
 import { getQuizTypeLabel } from '../utils/quiz';
 import { useAuth } from '../context/AuthContext';
+import { useLearningHelpers } from '../hooks/useLearningHelpers';
 
 export default function ContentDetailPage() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [content, setContent] = useState<ContentDetail | null>(null);
   const [cards, setCards] = useState<any[]>([]);
   const [expanded, setExpanded] = useState(false);
@@ -31,12 +33,35 @@ export default function ContentDetailPage() {
   const [selection, setSelection] = useState<'existing' | 'new'>('existing');
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [newSessionTitle, setNewSessionTitle] = useState('');
+  const [newSessionHelperId, setNewSessionHelperId] = useState<number | null>(user?.selected_helper_id ?? null);
   const [submitting, setSubmitting] = useState(false);
   const [showQuizTypeModal, setShowQuizTypeModal] = useState(false);
   const [selectedQuizTypeIndex, setSelectedQuizTypeIndex] = useState<number>(0);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const {
+    helpers: helperOptions,
+    loading: helperLoading,
+    error: helperFetchError,
+  } = useLearningHelpers();
+
+  useEffect(() => {
+    if (!showModal) {
+      return;
+    }
+    if (selection !== 'new') {
+      return;
+    }
+    if (!helperOptions.length) {
+      return;
+    }
+    const defaultId =
+      user?.selected_helper_id ??
+      helperOptions.find((item) => item.unlocked)?.id ??
+      helperOptions[0]?.id ??
+      null;
+    setNewSessionHelperId((prev) => (prev == null ? defaultId : prev));
+  }, [helperOptions, selection, showModal, user?.selected_helper_id]);
 
   const loadContent = useCallback(async () => {
     if (!id) return;
@@ -134,6 +159,12 @@ export default function ContentDetailPage() {
     setSelection('existing');
     setSelectedSessionId(null);
     setNewSessionTitle('');
+    const defaultHelperId =
+      user?.selected_helper_id ??
+      helperOptions.find((item) => item.unlocked)?.id ??
+      helperOptions[0]?.id ??
+      null;
+    setNewSessionHelperId(defaultHelperId);
     void loadStudySessions();
     setShowModal(true);
   };
@@ -144,6 +175,7 @@ export default function ContentDetailPage() {
     setSubmitting(false);
     setSessionError(null);
     setSelectedSessionId(null);
+    setNewSessionHelperId(user?.selected_helper_id ?? null);
   };
 
   const quizTypeLabels = [
@@ -201,12 +233,26 @@ export default function ContentDetailPage() {
     }
 
     const title = newSessionTitle.trim() || `학습 ${new Date().toLocaleString()}`;
+    const helperIdForCreation =
+      newSessionHelperId ??
+      user?.selected_helper_id ??
+      helperOptions.find((item) => item.unlocked)?.id ??
+      helperOptions[0]?.id ??
+      null;
+    const helperRecord = helperIdForCreation
+      ? helperOptions.find((item) => item.id === helperIdForCreation)
+      : null;
+    if (helperRecord && !helperRecord.unlocked) {
+      alert('현재 레벨에서 사용할 수 없는 학습 도우미입니다.');
+      return;
+    }
     setSubmitting(true);
     try {
       const created = await createStudySession({
         title,
         quiz_ids: [normalizedCard.id],
         cards: [{ ...normalizedCard, attempts: 0, correct: 0 }],
+        helper_id: helperIdForCreation ?? undefined,
       });
       setStudySessions((prev) => [created, ...prev]);
       alert('새 학습 세트가 생성되었습니다.');
@@ -510,13 +556,41 @@ export default function ContentDetailPage() {
                   <span>새 학습 세트 생성</span>
                 </label>
                 {selection === 'new' ? (
-                  <input
-                    type="text"
-                    value={newSessionTitle}
-                    onChange={(event) => setNewSessionTitle(event.target.value)}
-                    placeholder="새 학습 세트 이름"
-                    className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  />
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={newSessionTitle}
+                      onChange={(event) => setNewSessionTitle(event.target.value)}
+                      placeholder="새 학습 세트 이름"
+                      className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-600">학습 도우미 선택</label>
+                      <select
+                        value={newSessionHelperId ?? ''}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setNewSessionHelperId(value ? Number(value) : null);
+                        }}
+                        className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        disabled={helperLoading}
+                      >
+                        {helperOptions.map((helper) => (
+                          <option key={helper.id} value={helper.id} disabled={!helper.unlocked}>
+                            {helper.name} {helper.unlocked ? '' : '(잠금)'}
+                          </option>
+                        ))}
+                        {!helperOptions.length ? <option value="">사용 가능한 학습 도우미가 없습니다</option> : null}
+                      </select>
+                      {helperLoading ? (
+                        <p className="text-[11px] text-slate-500">학습 도우미 정보를 불러오는 중…</p>
+                      ) : null}
+                      {helperFetchError ? (
+                        <p className="text-[11px] text-rose-600">{helperFetchError}</p>
+                      ) : null}
+                      <p className="text-[10px] text-slate-400">선택하지 않으면 Level 1 학습 도우미가 적용됩니다.</p>
+                    </div>
+                  </div>
                 ) : null}
               </div>
             </div>

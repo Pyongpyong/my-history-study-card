@@ -9,7 +9,19 @@ from sqlalchemy.orm import Session, selectinload
 # JSON utilities
 json_loads = json.loads
 
-from .models import Content, Highlight, Quiz, QuizAttempt, QuizTag, Reward, StudySession, User, VisibilityEnum
+from .models import (
+    CardDeck,
+    Content,
+    Highlight,
+    LearningHelper,
+    Quiz,
+    QuizAttempt,
+    QuizTag,
+    Reward,
+    StudySession,
+    User,
+    VisibilityEnum,
+)
 from .schemas import (
     CardUnion,
     ContentOut,
@@ -23,6 +35,11 @@ from .schemas import (
     RewardOut,
     RewardUpdate,
     RewardAssignPayload,
+    HelperVariants,
+    LearningHelperCreate,
+    LearningHelperOut,
+    LearningHelperPublic,
+    LearningHelperUpdate,
     StudySessionCreate,
     StudySessionOut,
 )
@@ -138,6 +155,187 @@ def _extract_tags_from_cards(cards: list[dict]) -> list[str]:
     return tags
 
 
+def _helper_variant_url(helper: LearningHelper, variant: str) -> str:
+    base_path = f"/helpers/{helper.id}/image/{variant}"
+    updated_at = getattr(helper, "updated_at", None)
+    if not updated_at:
+        return base_path
+    try:
+        version = int(updated_at.timestamp())
+    except AttributeError:
+        return base_path
+    return f"{base_path}?v={version}"
+
+
+def _build_helper_variants(helper: LearningHelper) -> HelperVariants:
+    return HelperVariants(
+        idle=_helper_variant_url(helper, "idle") if helper.image_idle else None,
+        correct=_helper_variant_url(helper, "correct") if helper.image_correct else None,
+        incorrect=_helper_variant_url(helper, "incorrect") if helper.image_incorrect else None,
+    )
+
+
+def helper_to_public(helper: Optional[LearningHelper]) -> Optional[LearningHelperPublic]:
+    if helper is None:
+        return None
+    return LearningHelperPublic(
+        id=helper.id,
+        name=helper.name,
+        level_requirement=helper.level_requirement,
+        description=helper.description,
+        variants=_build_helper_variants(helper),
+        created_at=helper.created_at,
+        updated_at=helper.updated_at,
+    )
+
+
+def helper_to_out(helper: LearningHelper, user: Optional[User]) -> LearningHelperOut:
+    return LearningHelperOut(
+        **helper_to_public(helper).model_dump(),
+        unlocked=True if user is None else user.level >= helper.level_requirement,
+    )
+
+
+def list_learning_helpers(session: Session, user: Optional[User]) -> list[LearningHelperOut]:
+    helpers = (
+        session.execute(select(LearningHelper).order_by(LearningHelper.level_requirement.asc()))
+        .scalars()
+        .all()
+    )
+    return [helper_to_out(helper, user) for helper in helpers]
+
+
+def get_learning_helper(session: Session, helper_id: int) -> Optional[LearningHelper]:
+    return session.get(LearningHelper, helper_id)
+
+
+def get_helper_by_level(session: Session, level_requirement: int) -> Optional[LearningHelper]:
+    return (
+        session.execute(
+            select(LearningHelper).where(LearningHelper.level_requirement == level_requirement)
+        ).scalar_one_or_none()
+    )
+
+
+def get_default_learning_helper(session: Session) -> Optional[LearningHelper]:
+    return (
+        session.execute(
+            select(LearningHelper).order_by(LearningHelper.level_requirement.asc()).limit(1)
+        ).scalar_one_or_none()
+    )
+
+
+def create_learning_helper(session: Session, payload: LearningHelperCreate) -> LearningHelperPublic:
+    existing = get_helper_by_level(session, payload.level_requirement)
+    if existing is not None:
+        raise ValueError("LEVEL_EXISTS")
+    helper = LearningHelper(
+        name=payload.name.strip(),
+        level_requirement=payload.level_requirement,
+        description=payload.description.strip() if payload.description else None,
+    )
+    session.add(helper)
+    session.commit()
+    session.refresh(helper)
+    return helper_to_public(helper)
+
+
+def update_learning_helper(
+    session: Session,
+    helper: LearningHelper,
+    payload: LearningHelperUpdate,
+) -> LearningHelperPublic:
+    if payload.name is not None:
+        helper.name = payload.name.strip()
+    if payload.description is not None:
+        helper.description = payload.description.strip() if payload.description else None
+    if payload.level_requirement is not None and payload.level_requirement != helper.level_requirement:
+        existing = get_helper_by_level(session, payload.level_requirement)
+        if existing is not None and existing.id != helper.id:
+            raise ValueError("LEVEL_EXISTS")
+        helper.level_requirement = payload.level_requirement
+    session.commit()
+    session.refresh(helper)
+    return helper_to_public(helper)
+
+
+def update_helper_variant(
+    session: Session,
+    helper: LearningHelper,
+    variant: str,
+    object_name: str,
+) -> LearningHelperPublic:
+    normalized_variant = variant.lower().strip()
+    variant_field_map = {
+        "idle": "image_idle",
+        "correct": "image_correct",
+        "incorrect": "image_incorrect",
+    }
+    if normalized_variant not in variant_field_map:
+        raise ValueError("INVALID_VARIANT")
+    setattr(helper, variant_field_map[normalized_variant], object_name)
+    session.commit()
+    session.refresh(helper)
+    return helper_to_public(helper)
+
+
+def delete_learning_helper(session: Session, helper_id: int) -> bool:
+    """학습 도우미를 삭제합니다."""
+    helper = get_learning_helper(session, helper_id)
+    if not helper:
+        return False
+    
+    # 사용자들이 이 학습 도우미를 선택하고 있다면 기본 학습 도우미로 변경
+    users_with_helper = session.execute(
+        select(User).where(User.selected_helper_id == helper_id)
+    ).scalars().all()
+    
+    default_helper = get_default_learning_helper(session)
+    for user in users_with_helper:
+        if default_helper and default_helper.id != helper_id:
+            user.selected_helper_id = default_helper.id
+        else:
+            user.selected_helper_id = None
+    
+    session.delete(helper)
+    session.commit()
+    return True
+
+
+def set_user_helper(session: Session, user: User, helper: LearningHelper) -> User:
+    if user.level < helper.level_requirement:
+        raise PermissionError("LOCKED_HELPER")
+    user.selected_helper_id = helper.id
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def resolve_helper_for_user(
+    session: Session,
+    user: User,
+    requested_helper_id: Optional[int],
+) -> Optional[LearningHelper]:
+    if requested_helper_id is not None:
+        helper = get_learning_helper(session, requested_helper_id)
+        if helper is None:
+            raise ValueError("HELPER_NOT_FOUND")
+        if user.level < helper.level_requirement:
+            raise PermissionError("LOCKED_HELPER")
+        return helper
+
+    if user.selected_helper_id:
+        helper = get_learning_helper(session, user.selected_helper_id)
+        if helper is not None and user.level >= helper.level_requirement:
+            return helper
+
+    helper = get_default_learning_helper(session)
+    if helper is not None and user.level >= helper.level_requirement:
+        return helper
+
+    return helper
+
+
 
 def _quiz_tags_for_card(card_dict: dict, taxonomy=None) -> list[str]:
     raw_tags = card_dict.get("tags") if isinstance(card_dict.get("tags"), list) else []
@@ -161,6 +359,22 @@ def _reward_to_out(reward: Reward) -> RewardOut:
         used=reward.used,
         owner_id=reward.owner_id,
     )
+
+
+def _card_deck_to_out(card_deck: Optional[CardDeck]) -> Optional[dict]:
+    """카드덱을 출력 형태로 변환합니다."""
+    if not card_deck:
+        return None
+    return {
+        "id": card_deck.id,
+        "name": card_deck.name,
+        "description": card_deck.description,
+        "front_image": card_deck.front_image,
+        "back_image": card_deck.back_image,
+        "is_default": card_deck.is_default,
+        "created_at": card_deck.created_at,
+        "updated_at": card_deck.updated_at,
+    }
 
 
 def _study_session_to_out(study: StudySession) -> StudySessionOut:
@@ -189,6 +403,10 @@ def _study_session_to_out(study: StudySession) -> StudySessionOut:
         tags=tags,
         rewards=[_reward_to_out(reward) for reward in getattr(study, "rewards", [])],
         owner_id=study.owner_id,
+        helper_id=study.helper_id,
+        helper=helper_to_public(getattr(study, "helper", None)),
+        card_deck_id=study.card_deck_id,
+        card_deck=_card_deck_to_out(getattr(study, "card_deck", None)),
     )
 
 
@@ -791,12 +1009,35 @@ def create_study_session(
     for quiz in quizzes:
         if not _user_can_access_quiz(quiz, owner):
             return None
+    try:
+        helper = resolve_helper_for_user(session, owner, payload.helper_id)
+    except (ValueError, PermissionError):
+        return None
+
+    if helper is None:
+        return None
+
+    # 카드덱 처리
+    card_deck_id = payload.card_deck_id
+    if card_deck_id:
+        card_deck = session.get(CardDeck, card_deck_id)
+        if not card_deck:
+            # 지정된 카드덱이 없으면 기본 카드덱 사용
+            card_deck = get_default_card_deck(session)
+            card_deck_id = card_deck.id if card_deck else None
+    else:
+        # 카드덱이 지정되지 않으면 기본 카드덱 사용
+        card_deck = get_default_card_deck(session)
+        card_deck_id = card_deck.id if card_deck else None
+
     study = StudySession(
         title=payload.title.strip(),
         quiz_ids=json_dumps(payload.quiz_ids),
         card_payloads=json_dumps(normalized_cards),
         tags=json_dumps(tags),
         owner_id=owner.id,
+        helper_id=helper.id,
+        card_deck_id=card_deck_id,
     )
     session.add(study)
     session.commit()
@@ -807,7 +1048,7 @@ def create_study_session(
 def get_study_session(session: Session, session_id: int, owner: User) -> Optional[StudySessionOut]:
     study = session.execute(
         select(StudySession)
-        .options(selectinload(StudySession.rewards))
+        .options(selectinload(StudySession.rewards), selectinload(StudySession.helper), selectinload(StudySession.card_deck))
         .where(StudySession.id == session_id, StudySession.owner_id == owner.id)
     ).scalar_one_or_none()
     if study is None:
@@ -820,7 +1061,7 @@ def list_study_sessions(session: Session, page: int, size: int, owner: User) -> 
     total = session.scalar(count_stmt) or 0
     stmt = (
         select(StudySession)
-        .options(selectinload(StudySession.rewards))
+        .options(selectinload(StudySession.rewards), selectinload(StudySession.helper), selectinload(StudySession.card_deck))
         .where(StudySession.owner_id == owner.id)
         .order_by(StudySession.created_at.desc())
         .offset((page - 1) * size)
@@ -849,6 +1090,30 @@ def update_study_session(
         
     # Track previous completion state for future use if needed
     
+    if "helper_id" in updates:
+        try:
+            helper = resolve_helper_for_user(session, owner, updates.get("helper_id"))
+        except (ValueError, PermissionError) as exc:
+            print(f"[ERROR] Helper update failed: {exc}")
+            return None
+        if helper is None:
+            print("[ERROR] Could not resolve helper for study session")
+            return None
+        study.helper_id = helper.id
+
+    if "card_deck_id" in updates:
+        card_deck_id = updates.get("card_deck_id")
+        if card_deck_id:
+            card_deck = session.get(CardDeck, card_deck_id)
+            if not card_deck:
+                print(f"[ERROR] Card deck {card_deck_id} not found")
+                return None
+            study.card_deck_id = card_deck_id
+        else:
+            # 카드덱을 제거하거나 기본 카드덱으로 설정
+            default_deck = get_default_card_deck(session)
+            study.card_deck_id = default_deck.id if default_deck else None
+
     if "title" in updates and updates["title"] is not None:
         study.title = updates["title"].strip()
         
@@ -1177,6 +1442,9 @@ def create_user(session: Session, email: str, password_hash: str, api_key: str, 
         api_key=api_key,
         is_admin=is_admin,
     )
+    default_helper = get_default_learning_helper(session)
+    if default_helper is not None:
+        user.selected_helper_id = default_helper.id
     session.add(user)
     session.commit()
     session.refresh(user)
@@ -1267,3 +1535,75 @@ def submit_quiz_answer(
             "total_points": user.points or 0 if user else 0,
             "message": f"퀴즈 제출 중 오류가 발생했습니다: {exc}",
         }
+
+
+# Card Deck CRUD Functions
+def create_card_deck(session: Session, card_deck_data: dict) -> CardDeck:
+    """카드덱을 생성합니다."""
+    # 기본 카드덱으로 설정하는 경우, 다른 기본 카드덱들의 is_default를 False로 변경
+    if card_deck_data.get("is_default", False):
+        session.query(CardDeck).filter(CardDeck.is_default == True).update({"is_default": False})
+    
+    card_deck = CardDeck(**card_deck_data)
+    session.add(card_deck)
+    session.commit()
+    session.refresh(card_deck)
+    return card_deck
+
+
+def get_card_deck(session: Session, card_deck_id: int) -> Optional[CardDeck]:
+    """ID로 카드덱을 조회합니다."""
+    return session.get(CardDeck, card_deck_id)
+
+
+def get_default_card_deck(session: Session) -> Optional[CardDeck]:
+    """기본 카드덱을 조회합니다."""
+    return session.query(CardDeck).filter(CardDeck.is_default == True).first()
+
+
+def list_card_decks(
+    session: Session,
+    skip: int = 0,
+    limit: int = 100,
+) -> Tuple[List[CardDeck], int]:
+    """카드덱 목록을 조회합니다."""
+    query = session.query(CardDeck).order_by(CardDeck.is_default.desc(), CardDeck.created_at.desc())
+    
+    total = query.count()
+    items = query.offset(skip).limit(limit).all()
+    
+    return items, total
+
+
+def update_card_deck(session: Session, card_deck_id: int, update_data: dict) -> Optional[CardDeck]:
+    """카드덱을 수정합니다."""
+    card_deck = session.get(CardDeck, card_deck_id)
+    if not card_deck:
+        return None
+    
+    # 기본 카드덱으로 설정하는 경우, 다른 기본 카드덱들의 is_default를 False로 변경
+    if update_data.get("is_default", False):
+        session.query(CardDeck).filter(CardDeck.id != card_deck_id, CardDeck.is_default == True).update({"is_default": False})
+    
+    for key, value in update_data.items():
+        if value is not None:
+            setattr(card_deck, key, value)
+    
+    session.commit()
+    session.refresh(card_deck)
+    return card_deck
+
+
+def delete_card_deck(session: Session, card_deck_id: int) -> bool:
+    """카드덱을 삭제합니다."""
+    card_deck = session.get(CardDeck, card_deck_id)
+    if not card_deck:
+        return False
+    
+    # 기본 카드덱은 삭제할 수 없습니다
+    if card_deck.is_default:
+        return False
+    
+    session.delete(card_deck)
+    session.commit()
+    return True

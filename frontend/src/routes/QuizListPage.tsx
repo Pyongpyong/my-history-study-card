@@ -7,13 +7,16 @@ import {
   fetchStudySessions,
   updateStudySessionRequest,
   deleteQuizRequest,
+  fetchCardDecksRequest,
   type QuizItem,
   type StudySession,
+  type CardDeck,
 } from '../api';
 import Badge from '../components/Badge';
 import CardPreview from '../components/CardPreview';
 import { getQuizTypeLabel } from '../utils/quiz';
 import { useAuth } from '../context/AuthContext';
+import { useLearningHelpers } from '../hooks/useLearningHelpers';
 
 const PAGE_SIZE = 40;
 
@@ -29,6 +32,7 @@ function getStem(quiz: any): string {
 }
 
 export default function QuizListPage() {
+  const { user } = useAuth();
   const [quizzes, setQuizzes] = useState<Awaited<ReturnType<typeof fetchQuizzes>>['items']>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,13 +53,56 @@ export default function QuizListPage() {
   const [selection, setSelection] = useState<'existing' | 'new'>('existing');
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [newSessionTitle, setNewSessionTitle] = useState('');
+  const [newSessionHelperId, setNewSessionHelperId] = useState<number | null>(user?.selected_helper_id ?? null);
   const [submitting, setSubmitting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [sessionTitleInput, setSessionTitleInput] = useState('');
   const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [cardDecks, setCardDecks] = useState<CardDeck[]>([]);
+  const [selectedCardDeckId, setSelectedCardDeckId] = useState<number | null>(null);
+  const [newSessionCardDeckId, setNewSessionCardDeckId] = useState<number | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const {
+    helpers: helperOptions,
+    loading: helperLoading,
+    error: helperFetchError,
+  } = useLearningHelpers();
+
+  useEffect(() => {
+    if (!helperOptions.length) {
+      return;
+    }
+    const defaultId =
+      user?.selected_helper_id ??
+      helperOptions.find((item) => item.unlocked)?.id ??
+      helperOptions[0]?.id ??
+      null;
+    if (showModal && selection === 'new' && newSessionHelperId == null) {
+      setNewSessionHelperId(defaultId);
+    }
+    if (showCreateModal && newSessionHelperId == null) {
+      setNewSessionHelperId(defaultId);
+    }
+  }, [helperOptions, showModal, showCreateModal, selection, user?.selected_helper_id, newSessionHelperId]);
+
+  useEffect(() => {
+    const loadCardDecks = async () => {
+      try {
+        const response = await fetchCardDecksRequest(1, 100);
+        setCardDecks(response.items);
+        // 기본 카드덱을 선택
+        const defaultDeck = response.items.find(deck => deck.is_default);
+        if (defaultDeck) {
+          setSelectedCardDeckId(defaultDeck.id);
+          setNewSessionCardDeckId(defaultDeck.id);
+        }
+      } catch (err) {
+        console.error('카드덱 로딩 실패:', err);
+      }
+    };
+    loadCardDecks();
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,6 +191,12 @@ export default function QuizListPage() {
     }
     const defaultTitle = `학습 ${new Date().toLocaleString()}`;
     setSessionTitleInput(defaultTitle);
+    const defaultHelperId =
+      user?.selected_helper_id ??
+      helperOptions.find((item) => item.unlocked)?.id ??
+      helperOptions[0]?.id ??
+      null;
+    setNewSessionHelperId(defaultHelperId);
     setShowCreateModal(true);
   };
 
@@ -206,6 +259,12 @@ export default function QuizListPage() {
     setSelection('existing');
     setSelectedSessionId(null);
     setNewSessionTitle('');
+    const defaultHelperId =
+      user?.selected_helper_id ??
+      helperOptions.find((item) => item.unlocked)?.id ??
+      helperOptions[0]?.id ??
+      null;
+    setNewSessionHelperId(defaultHelperId);
     void loadStudySessions();
     setShowModal(true);
   };
@@ -216,6 +275,7 @@ export default function QuizListPage() {
     setSubmitting(false);
     setSessionError(null);
     setSelectedSessionId(null);
+    setNewSessionHelperId(user?.selected_helper_id ?? null);
   };
 
   const normalizedTargetCard = useMemo(() => {
@@ -271,8 +331,6 @@ export default function QuizListPage() {
           updatePayload.cards = [...session.cards, normalizedTargetCard];
         }
 
-        console.log('Updating study session with:', updatePayload);
-        
         const updated = await updateStudySessionRequest(session.id, updatePayload);
         
         // Update the local state with the updated session
@@ -301,12 +359,27 @@ export default function QuizListPage() {
     }
 
     const title = newSessionTitle.trim() || `학습 ${new Date().toLocaleString()}`;
+    const helperIdForCreation =
+      newSessionHelperId ??
+      user?.selected_helper_id ??
+      helperOptions.find((item) => item.unlocked)?.id ??
+      helperOptions[0]?.id ??
+      null;
+    const helperRecord = helperIdForCreation
+      ? helperOptions.find((item) => item.id === helperIdForCreation)
+      : null;
+    if (helperRecord && !helperRecord.unlocked) {
+      alert('현재 레벨에서 사용할 수 없는 학습 도우미입니다.');
+      return;
+    }
     setSubmitting(true);
     try {
       const created = await createStudySession({
         title,
         quiz_ids: [normalizedTargetCard.id],
         cards: [normalizedTargetCard],
+        helper_id: helperIdForCreation ?? undefined,
+        card_deck_id: newSessionCardDeckId ?? undefined,
       });
       setStudySessions((prev) => [created, ...prev]);
       alert('새 학습 세트가 생성되었습니다.');
@@ -417,13 +490,60 @@ export default function QuizListPage() {
                 <span>새 학습 세트 생성</span>
               </label>
               {selection === 'new' ? (
-                <input
-                  type="text"
-                  value={newSessionTitle}
-                  onChange={(event) => setNewSessionTitle(event.target.value)}
-                  placeholder="새 학습 세트 이름"
-                  className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                />
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={newSessionTitle}
+                    onChange={(event) => setNewSessionTitle(event.target.value)}
+                    placeholder="새 학습 세트 이름"
+                    className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600">학습 도우미 선택</label>
+                    <select
+                      value={newSessionHelperId ?? ''}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setNewSessionHelperId(value ? Number(value) : null);
+                      }}
+                      className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      disabled={helperLoading}
+                    >
+                      {helperOptions.map((helper) => (
+                        <option key={helper.id} value={helper.id} disabled={!helper.unlocked}>
+                          {helper.name} {helper.unlocked ? '' : '(잠금)'}
+                        </option>
+                      ))}
+                      {!helperOptions.length ? <option value="">사용 가능한 학습 도우미가 없습니다</option> : null}
+                    </select>
+                    {helperLoading ? (
+                      <p className="text-[11px] text-slate-500">학습 도우미 정보를 불러오는 중…</p>
+                    ) : null}
+                    {helperFetchError ? (
+                      <p className="text-[11px] text-rose-600">{helperFetchError}</p>
+                    ) : null}
+                    <p className="text-[10px] text-slate-400">선택하지 않으면 Level 1 학습 도우미가 적용됩니다.</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600">카드덱 선택</label>
+                    <select
+                      value={newSessionCardDeckId ?? ''}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setNewSessionCardDeckId(value ? parseInt(value, 10) : null);
+                      }}
+                      className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    >
+                      <option value="">기본 카드덱</option>
+                      {cardDecks.map((deck) => (
+                        <option key={deck.id} value={deck.id}>
+                          {deck.name} {deck.is_default ? '(기본)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-slate-400">카드의 앞뒤면 디자인을 선택합니다.</p>
+                  </div>
+                </div>
               ) : null}
             </div>
           </div>
@@ -454,6 +574,7 @@ export default function QuizListPage() {
   const handleCreateModalClose = () => {
     if (!saving) {
       setShowCreateModal(false);
+      setNewSessionHelperId(user?.selected_helper_id ?? null);
     }
   };
 
@@ -467,6 +588,19 @@ export default function QuizListPage() {
       setShowCreateModal(false);
       return;
     }
+    const helperIdForCreation =
+      newSessionHelperId ??
+      user?.selected_helper_id ??
+      helperOptions.find((item) => item.unlocked)?.id ??
+      helperOptions[0]?.id ??
+      null;
+    const helperRecord = helperIdForCreation
+      ? helperOptions.find((item) => item.id === helperIdForCreation)
+      : null;
+    if (helperRecord && !helperRecord.unlocked) {
+      alert('현재 레벨에서 사용할 수 없는 학습 도우미입니다.');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -478,6 +612,8 @@ export default function QuizListPage() {
           type: quiz.type,
           content_id: quiz.content_id,
         })),
+        helper_id: helperIdForCreation ?? undefined,
+        card_deck_id: selectedCardDeckId ?? undefined,
       };
       await createStudySession(payload);
       alert('학습 리스트에 추가되었습니다.');
@@ -681,6 +817,51 @@ export default function QuizListPage() {
                 autoFocus
               />
             </label>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">학습 도우미 선택</label>
+              <select
+                value={newSessionHelperId ?? ''}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setNewSessionHelperId(value ? Number(value) : null);
+                }}
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                disabled={helperLoading}
+              >
+                {helperOptions.map((helper) => (
+                  <option key={helper.id} value={helper.id} disabled={!helper.unlocked}>
+                    {helper.name} {helper.unlocked ? '' : '(잠금)'}
+                  </option>
+                ))}
+                {!helperOptions.length ? <option value="">사용 가능한 학습 도우미가 없습니다</option> : null}
+              </select>
+              {helperLoading ? (
+                <p className="text-[11px] text-slate-500">학습 도우미 정보를 불러오는 중…</p>
+              ) : null}
+              {helperFetchError ? (
+                <p className="text-[11px] text-rose-600">{helperFetchError}</p>
+              ) : null}
+              <p className="text-[10px] text-slate-400">선택하지 않으면 Level 1 학습 도우미가 적용됩니다.</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">카드덱 선택</label>
+              <select
+                value={selectedCardDeckId ?? ''}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSelectedCardDeckId(value ? parseInt(value, 10) : null);
+                }}
+                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                <option value="">기본 카드덱</option>
+                {cardDecks.map((deck) => (
+                  <option key={deck.id} value={deck.id}>
+                    {deck.name} {deck.is_default ? '(기본)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-400">카드의 앞뒤면 디자인을 선택합니다.</p>
+            </div>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
