@@ -49,7 +49,7 @@ export default function CardPreview({ card }: CardPreviewProps) {
         );
       case 'ORDER':
         return (
-          <ol className="mt-2 list-decimal space-y-1 text-xs text-slate-600">
+          <ol className="mt-2 list-decimal list-inside space-y-1 text-xs text-slate-600">
             {(card.items ?? []).map((item: string, idx: number) => (
               <li key={`${item}-${idx}`}>{item}</li>
             ))}
