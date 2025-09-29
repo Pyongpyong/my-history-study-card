@@ -80,7 +80,9 @@ export default function StudyListPage() {
 
   useEffect(() => {
     load();
-    loadCardDecks();
+    if (user) {
+      loadCardDecks();
+    }
   }, [location.key, location.state?.refresh, user]);
 
   const availableTags = useMemo(() => {
@@ -528,8 +530,8 @@ export default function StudyListPage() {
         />
       ) : null}
 
-      {/* 카드덱 변경 모달 */}
-      {cardDeckModalSession ? (
+      {/* 카드덱 변경 모달 - 로그인 사용자만 */}
+      {user && cardDeckModalSession ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-slate-900">카드덱 변경</h3>

@@ -57,6 +57,19 @@ export default function QuizListPage() {
   const [newSessionIsPublic, setNewSessionIsPublic] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [contentTitles, setContentTitles] = useState<Record<number, string>>({});
+  const [activePeriod, setActivePeriod] = useState<string>('전체');
+  const [activeQuizType, setActiveQuizType] = useState<string>('전체');
+
+  const periods = ['전체', '고대', '고려', '조선', '근대', '현대'];
+  const quizTypes = [
+    { value: '전체', label: '전체' },
+    { value: 'MCQ', label: '객관식' },
+    { value: 'SHORT', label: '주관식' },
+    { value: 'OX', label: 'OX' },
+    { value: 'CLOZE', label: '빈칸채우기' },
+    { value: 'ORDER', label: '순서맞추기' },
+    { value: 'MATCH', label: '짝맞추기' },
+  ];
   const [showQuizCreateModal, setShowQuizCreateModal] = useState(false);
   const [showContentSelectModal, setShowContentSelectModal] = useState(false);
   const [showQuizTypeModal, setShowQuizTypeModal] = useState(false);
@@ -91,6 +104,8 @@ export default function QuizListPage() {
 
   useEffect(() => {
     const loadCardDecks = async () => {
+      if (!user) return; // 로그인한 사용자만 카드덱 로드
+      
       try {
         const response = await fetchCardDecksRequest(1, 100);
         setCardDecks(response.items);
@@ -105,7 +120,7 @@ export default function QuizListPage() {
       }
     };
     loadCardDecks();
-  }, []);
+  }, [user]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,24 +130,44 @@ export default function QuizListPage() {
       setQuizzes(data.items);
       setMeta(data.meta);
       
-      // 콘텐츠 타이틀 로드 (content_id가 null이 아닌 것만)
+      // 콘텐츠 타이틀과 eras 정보 로드 (content_id가 null이 아닌 것만)
       const contentIds = [...new Set(data.items.map(quiz => quiz.content_id).filter(id => id !== null))];
-      const titlePromises = contentIds.map(async (contentId) => {
+      const contentPromises = contentIds.map(async (contentId) => {
         try {
           const content = await fetchContent(contentId);
-          return { id: contentId, title: content.title };
+          return { 
+            id: contentId, 
+            title: content.title,
+            eras: content.eras || []
+          };
         } catch {
-          return { id: contentId, title: `콘텐츠 #${contentId}` };
+          return { 
+            id: contentId, 
+            title: `콘텐츠 #${contentId}`,
+            eras: []
+          };
         }
       });
       
-      const titles = await Promise.all(titlePromises);
-      const titleMap = titles.reduce((acc, { id, title }) => {
+      const contentData = await Promise.all(contentPromises);
+      const titleMap = contentData.reduce((acc, { id, title }) => {
         acc[id] = title;
         return acc;
       }, {} as Record<number, string>);
       
+      // 콘텐츠별 eras 정보도 저장
+      const contentErasMap = contentData.reduce((acc, { id, eras }) => {
+        acc[id] = eras;
+        return acc;
+      }, {} as Record<number, any[]>);
+      
       setContentTitles(titleMap);
+      // 콘텐츠 eras 정보를 퀴즈에 연결
+      const enrichedQuizzes = data.items.map(quiz => ({
+        ...quiz,
+        contentEras: quiz.content_id ? contentErasMap[quiz.content_id] || [] : []
+      }));
+      setQuizzes(enrichedQuizzes);
     } catch (err: any) {
       console.error(err);
       const message = err?.response?.data?.detail ?? '퀴즈 목록을 불러오지 못했습니다.';
@@ -221,14 +256,32 @@ export default function QuizListPage() {
   };
 
   const filteredQuizzes = useMemo(() => {
-    if (!activeTags.length) {
-      return quizzes;
+    let filtered = quizzes;
+    
+    // 시대별 필터링
+    if (activePeriod !== '전체') {
+      filtered = filtered.filter((quiz) => {
+        if (!quiz.content_id) return false; // 독립 퀴즈는 시대별 필터에서 제외
+        const contentEras = (quiz as any).contentEras || [];
+        return contentEras.some((era: any) => era.period === activePeriod);
+      });
     }
-    return quizzes.filter((quiz) => {
-      const payloadTags = Array.isArray((quiz.payload as any)?.tags) ? (quiz.payload as any).tags : [];
-      return activeTags.every((tag) => payloadTags.includes(tag));
-    });
-  }, [quizzes, activeTags]);
+    
+    // 퀴즈 타입별 필터링
+    if (activeQuizType !== '전체') {
+      filtered = filtered.filter((quiz) => quiz.type === activeQuizType);
+    }
+    
+    // 태그 필터링
+    if (activeTags.length) {
+      filtered = filtered.filter((quiz) => {
+        const payloadTags = Array.isArray((quiz.payload as any)?.tags) ? (quiz.payload as any).tags : [];
+        return activeTags.every((tag) => payloadTags.includes(tag));
+      });
+    }
+    
+    return filtered;
+  }, [quizzes, activeTags, activePeriod, activeQuizType]);
 
   const loadStudySessions = async () => {
     if (!user) {
@@ -936,7 +989,12 @@ export default function QuizListPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-primary-600">퀴즈 리스트</h2>
-            <p className="text-xs text-slate-500">총 {meta.total}개 · 페이지 {page} / {totalPages}</p>
+            <p className="text-xs text-slate-500">
+              총 {meta.total}개 · 페이지 {page} / {totalPages}
+              {(activePeriod !== '전체' || activeQuizType !== '전체') && 
+                ` (필터링됨: ${filteredQuizzes.length}개)`
+              }
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {user && editMode ? (
@@ -988,6 +1046,45 @@ export default function QuizListPage() {
             ) : null}
           </div>
         </div>
+
+        {/* 시대별 탭 메뉴 */}
+        <div className="border-b border-slate-200">
+          <nav className="flex space-x-8 overflow-x-auto">
+            {periods.map((period) => (
+              <button
+                key={period}
+                onClick={() => setActivePeriod(period)}
+                className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium transition ${
+                  activePeriod === period
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                {period}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* 퀴즈 타입별 탭 메뉴 */}
+        <div className="border-b border-slate-200">
+          <nav className="flex space-x-6 overflow-x-auto">
+            {quizTypes.map((type) => (
+              <button
+                key={type.value}
+                onClick={() => setActiveQuizType(type.value)}
+                className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium transition ${
+                  activeQuizType === type.value
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                {type.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+
       {availableTags.length ? (
         <div className="flex flex-wrap gap-2">
           {availableTags.map((tag) => {
@@ -1102,7 +1199,12 @@ export default function QuizListPage() {
           })}
         </div>
       ) : (
-        <p className="text-sm text-slate-600">선택한 태그에 해당하는 퀴즈가 없습니다.</p>
+        <p className="text-sm text-slate-600">
+          {activePeriod !== '전체' || activeQuizType !== '전체' || activeTags.length > 0
+            ? '선택한 필터 조건에 해당하는 퀴즈가 없습니다.'
+            : '등록된 퀴즈가 없습니다.'
+          }
+        </p>
       )}
       <div className="flex items-center justify-center gap-3 pt-2">
         <button

@@ -6,7 +6,7 @@
   ],
   "scripts": {
     "dev": "npm-run-all --parallel backend frontend",
-    "backend": "python -m uvicorn app.main:app --reload --port 8000",
+    "backend": "source venv/bin/activate && python -m uvicorn app.main:app --reload --port 8000",
     "frontend": "cd frontend && npm run dev"
   },
   "devDependencies": {

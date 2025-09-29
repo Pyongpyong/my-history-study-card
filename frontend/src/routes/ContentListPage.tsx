@@ -9,8 +9,11 @@ export default function ContentListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeKeywords, setActiveKeywords] = useState<string[]>([]);
+  const [activePeriod, setActivePeriod] = useState<string>('전체');
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const periods = ['전체', '고대', '고려', '조선', '근대', '현대'];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,14 +67,26 @@ export default function ContentListPage() {
   };
 
   const filteredContents = useMemo(() => {
-    if (!activeKeywords.length) {
-      return contents;
+    let filtered = contents;
+    
+    // 시대별 필터링
+    if (activePeriod !== '전체') {
+      filtered = filtered.filter((item) => {
+        const itemPeriods = item.eras?.map(era => era.period) ?? [];
+        return itemPeriods.includes(activePeriod);
+      });
     }
-    return contents.filter((item) => {
-      const itemKeywords = item.keywords ?? [];
-      return activeKeywords.every((keyword) => itemKeywords.includes(keyword));
-    });
-  }, [contents, activeKeywords]);
+    
+    // 키워드 필터링
+    if (activeKeywords.length) {
+      filtered = filtered.filter((item) => {
+        const itemKeywords = item.keywords ?? [];
+        return activeKeywords.every((keyword) => itemKeywords.includes(keyword));
+      });
+    }
+    
+    return filtered;
+  }, [contents, activeKeywords, activePeriod]);
 
 
   if (loading) {
@@ -96,8 +111,30 @@ export default function ContentListPage() {
           </button>
         ) : null}
       </div>
+      {/* 시대별 탭 메뉴 */}
+      <div className="border-b border-slate-200">
+        <nav className="flex space-x-8">
+          {periods.map((period) => (
+            <button
+              key={period}
+              onClick={() => setActivePeriod(period)}
+              className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium transition ${
+                activePeriod === period
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+              }`}
+            >
+              {period}
+            </button>
+          ))}
+        </nav>
+      </div>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-slate-500">총 {contents.length}개의 콘텐츠</p>
+        <p className="text-sm text-slate-500">
+          총 {contents.length}개의 콘텐츠 
+          {activePeriod !== '전체' && ` (${activePeriod}: ${filteredContents.length}개)`}
+        </p>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         </div>
       </div>
@@ -138,63 +175,70 @@ export default function ContentListPage() {
       ) : null}
 
       {filteredContents.length ? (
-        filteredContents.map((item) => (
-          <Link
-            key={item.id}
-            to={`/contents/${item.id}`}
-            className="block rounded-lg border border-slate-200 bg-white p-4 transition hover:border-primary-500"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-primary-600">{item.title}</h2>
-                <time className="text-xs text-slate-500">{new Date(item.created_at).toLocaleString()}</time>
-                <div className="mt-1">
-                  <Badge color={item.visibility === 'PUBLIC' ? 'success' : 'default'}>
-                    {item.visibility === 'PUBLIC' ? '공개' : '비공개'}
-                  </Badge>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredContents.map((item) => (
+            <Link
+              key={item.id}
+              to={`/contents/${item.id}`}
+              className="block rounded-lg border border-slate-200 bg-white p-4 transition hover:border-primary-500"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-semibold text-primary-600 truncate">{item.title}</h2>
+                  <time className="text-xs text-slate-500">{new Date(item.created_at).toLocaleString()}</time>
+                  <div className="mt-1">
+                    <Badge color={item.visibility === 'PUBLIC' ? 'success' : 'default'}>
+                      {item.visibility === 'PUBLIC' ? '공개' : '비공개'}
+                    </Badge>
+                  </div>
                 </div>
+                {user && item.owner_id === user.id ? (
+                  <button
+                    type="button"
+                    onClick={(event) => handleDelete(event, item.id)}
+                    className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10 flex-shrink-0"
+                  >
+                    삭제
+                  </button>
+                ) : null}
               </div>
-              {user && item.owner_id === user.id ? (
-                <button
-                  type="button"
-                  onClick={(event) => handleDelete(event, item.id)}
-                  className="rounded border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
-                >
-                  삭제
-                </button>
+              <p className="mt-2 text-sm text-slate-700 line-clamp-3">
+                {item.content.length > 120 ? `${item.content.slice(0, 120)}…` : item.content}
+              </p>
+              {item.categories?.length ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {item.categories.map((category) => (
+                    <Badge key={`${item.id}-category-${category}`}>{category}</Badge>
+                  ))}
+                </div>
               ) : null}
-            </div>
-            <p className="mt-2 text-sm text-slate-700">
-              {item.content.length > 120 ? `${item.content.slice(0, 120)}…` : item.content}
-            </p>
-            {item.categories?.length ? (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {item.categories.map((category) => (
-                  <Badge key={`${item.id}-category-${category}`}>{category}</Badge>
-                ))}
-              </div>
-            ) : null}
-            {item.eras?.length ? (
-              <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
-                {item.eras.map((entry, index) => (
-                  <span key={`${item.id}-era-${index}`} className="inline-flex items-center gap-1">
-                    <span className="font-semibold text-primary-600">{entry.period}</span>
-                    {entry.detail ? <span className="text-slate-500">{entry.detail}</span> : null}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            {item.keywords?.length ? (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {item.keywords.map((keyword) => (
-                  <Badge key={`${item.id}-keyword-${keyword}`}>{keyword}</Badge>
-                ))}
-              </div>
-            ) : null}
-          </Link>
-        ))
+              {item.eras?.length ? (
+                <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
+                  {item.eras.map((entry, index) => (
+                    <span key={`${item.id}-era-${index}`} className="inline-flex items-center gap-1">
+                      <span className="font-semibold text-primary-600">{entry.period}</span>
+                      {entry.detail ? <span className="text-slate-500">{entry.detail}</span> : null}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {item.keywords?.length ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {item.keywords.map((keyword) => (
+                    <Badge key={`${item.id}-keyword-${keyword}`}>{keyword}</Badge>
+                  ))}
+                </div>
+              ) : null}
+            </Link>
+          ))}
+        </div>
       ) : (
-        <p className="text-sm text-slate-600">선택한 키워드에 해당하는 콘텐츠가 없습니다.</p>
+        <p className="text-sm text-slate-600">
+          {activePeriod !== '전체' 
+            ? `${activePeriod} 시대에 해당하는 콘텐츠가 없습니다.`
+            : '선택한 키워드에 해당하는 콘텐츠가 없습니다.'
+          }
+        </p>
       )}
     </div>
   );
