@@ -249,3 +249,75 @@ class QuizTag(Base):
     tag: Mapped[str] = mapped_column(String(255), primary_key=True)
 
     quiz: Mapped[Quiz] = relationship("Quiz", back_populates="tag_links")
+
+
+class CardStyle(Base):
+    __tablename__ = "card_styles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    card_type: Mapped[str] = mapped_column(String(20), nullable=False, default="ALL", server_default="'ALL'")  # MCQ, SHORT, OX, CLOZE, ORDER, MATCH, ALL
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    
+    # 앞면 레이아웃 설정
+    front_layout: Mapped[str] = mapped_column(String(20), nullable=False, default="top", server_default="'top'")  # top, center, bottom, split
+    
+    # 앞면 문제 영역 스타일
+    front_title_size: Mapped[str] = mapped_column(String(50), nullable=False, default="text-lg", server_default="'text-lg'")
+    front_title_color: Mapped[str] = mapped_column(String(50), nullable=False, default="text-primary-600", server_default="'text-primary-600'")
+    front_title_align: Mapped[str] = mapped_column(String(50), nullable=False, default="text-center", server_default="'text-center'")
+    front_title_margin_top: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    front_title_margin_bottom: Mapped[str] = mapped_column(String(20), nullable=False, default="16", server_default="'16'")
+    front_title_margin_left: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    front_title_margin_right: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    
+    # 앞면 답변 영역 스타일
+    front_content_size: Mapped[str] = mapped_column(String(50), nullable=False, default="text-sm", server_default="'text-sm'")
+    front_content_color: Mapped[str] = mapped_column(String(50), nullable=False, default="text-slate-900", server_default="'text-slate-900'")
+    front_content_align: Mapped[str] = mapped_column(String(50), nullable=False, default="text-left", server_default="'text-left'")
+    front_content_margin_top: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    front_content_margin_bottom: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    front_content_margin_left: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    front_content_margin_right: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    
+    # 앞면 버튼 스타일 (기존 유지)
+    front_button_size: Mapped[str] = mapped_column(String(50), nullable=False, default="px-4 py-2", server_default="'px-4 py-2'")
+    front_button_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-primary-600 text-white", server_default="'bg-primary-600 text-white'")
+    front_button_position: Mapped[str] = mapped_column(String(100), nullable=False, default="mt-auto", server_default="'mt-auto'")
+    front_button_align: Mapped[str] = mapped_column(String(50), nullable=False, default="text-center", server_default="'text-center'")
+    
+    # 뒷면 스타일 설정
+    back_layout: Mapped[str] = mapped_column(String(20), nullable=False, default="center", server_default="'center'")  # top, center, bottom, split
+    
+    back_title_size: Mapped[str] = mapped_column(String(50), nullable=False, default="text-lg", server_default="'text-lg'")
+    back_title_color: Mapped[str] = mapped_column(String(50), nullable=False, default="text-primary-600", server_default="'text-primary-600'")
+    back_title_align: Mapped[str] = mapped_column(String(50), nullable=False, default="text-center", server_default="'text-center'")
+    back_title_position: Mapped[str] = mapped_column(String(100), nullable=False, default="mb-4", server_default="'mb-4'")
+    back_title_margin_top: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    back_title_margin_bottom: Mapped[str] = mapped_column(String(20), nullable=False, default="16", server_default="'16'")
+    back_title_margin_left: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    back_title_margin_right: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    
+    back_content_size: Mapped[str] = mapped_column(String(50), nullable=False, default="text-sm", server_default="'text-sm'")
+    back_content_color: Mapped[str] = mapped_column(String(50), nullable=False, default="text-slate-700", server_default="'text-slate-700'")
+    back_content_align: Mapped[str] = mapped_column(String(50), nullable=False, default="text-left", server_default="'text-left'")
+    back_content_position: Mapped[str] = mapped_column(String(100), nullable=False, default="mb-4", server_default="'mb-4'")
+    back_content_margin_top: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    back_content_margin_bottom: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    back_content_margin_left: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    back_content_margin_right: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    
+    back_button_size: Mapped[str] = mapped_column(String(50), nullable=False, default="px-4 py-2", server_default="'px-4 py-2'")
+    back_button_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-primary-600 text-white", server_default="'bg-primary-600 text-white'")
+    back_button_position: Mapped[str] = mapped_column(String(100), nullable=False, default="mt-auto", server_default="'mt-auto'")
+    back_button_align: Mapped[str] = mapped_column(String(50), nullable=False, default="text-center", server_default="'text-center'")
+    back_button_margin_top: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    back_button_margin_bottom: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    back_button_margin_left: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    back_button_margin_right: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

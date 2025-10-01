@@ -11,6 +11,7 @@ json_loads = json.loads
 
 from .models import (
     CardDeck,
+    CardStyle,
     Content,
     Highlight,
     LearningHelper,
@@ -23,6 +24,9 @@ from .models import (
     VisibilityEnum,
 )
 from .schemas import (
+    CardStyleCreate,
+    CardStyleOut,
+    CardStyleUpdate,
     CardUnion,
     ContentOut,
     ContentUpdate,
@@ -1695,5 +1699,121 @@ def delete_card_deck(session: Session, card_deck_id: int) -> bool:
         return False
     
     session.delete(card_deck)
+    session.commit()
+    return True
+
+
+# Card Style CRUD Functions
+def create_card_style(session: Session, card_style_data: CardStyleCreate) -> CardStyle:
+    """새로운 카드 스타일을 생성합니다."""
+    # 기본 스타일로 설정하는 경우 다른 기본 스타일들을 해제
+    if card_style_data.is_default:
+        session.query(CardStyle).filter(CardStyle.is_default == True).update({"is_default": False})
+    
+    card_style = CardStyle(**card_style_data.model_dump())
+    session.add(card_style)
+    session.commit()
+    session.refresh(card_style)
+    return card_style
+
+
+def get_card_style(session: Session, card_style_id: int) -> Optional[CardStyle]:
+    """ID로 카드 스타일을 조회합니다."""
+    return session.get(CardStyle, card_style_id)
+
+
+def list_card_styles(session: Session, offset: int = 0, limit: int = 100) -> Tuple[list[CardStyle], int]:
+    """카드 스타일 목록을 조회합니다."""
+    query = select(CardStyle).order_by(CardStyle.is_default.desc(), CardStyle.created_at.desc())
+    
+    # 총 개수 조회
+    count_query = select(func.count()).select_from(CardStyle)
+    total = session.execute(count_query).scalar()
+    
+    # 페이징 적용
+    items = session.execute(query.offset(offset).limit(limit)).scalars().all()
+    
+    return items, total
+
+
+def get_default_card_style(session: Session) -> CardStyle | None:
+    """기본 카드 스타일을 조회합니다."""
+    return session.execute(
+        select(CardStyle).where(CardStyle.is_default == True)
+    ).scalar_one_or_none()
+
+
+def get_card_style_by_type(session: Session, card_type: str) -> CardStyle | None:
+    """특정 카드 유형의 스타일을 조회합니다. 없으면 ALL 타입을 반환합니다."""
+    # 먼저 특정 카드 유형의 기본 스타일을 찾습니다
+    style = session.execute(
+        select(CardStyle).where(
+            CardStyle.card_type == card_type,
+            CardStyle.is_default == True
+        )
+    ).scalar_one_or_none()
+    
+    # 특정 유형이 없으면 ALL 타입의 기본 스타일을 반환
+    if not style:
+        style = session.execute(
+            select(CardStyle).where(
+                CardStyle.card_type == "ALL",
+                CardStyle.is_default == True
+            )
+        ).scalar_one_or_none()
+    
+    return style
+
+
+def list_card_styles_by_type(session: Session, card_type: str | None = None, offset: int = 0, limit: int = 20) -> tuple[list[CardStyle], int]:
+    """카드 유형별로 스타일 목록을 조회합니다."""
+    query = select(CardStyle)
+    
+    if card_type:
+        query = query.where(CardStyle.card_type == card_type)
+    
+    # 총 개수 조회
+    total_query = select(func.count()).select_from(query.subquery())
+    total = session.execute(total_query).scalar() or 0
+    
+    # 페이징된 결과 조회
+    query = query.order_by(CardStyle.is_default.desc(), CardStyle.created_at.desc())
+    query = query.offset(offset).limit(limit)
+    
+    styles = session.execute(query).scalars().all()
+    return list(styles), total
+
+
+def update_card_style(session: Session, card_style_id: int, update_data: CardStyleUpdate) -> Optional[CardStyle]:
+    """카드 스타일을 업데이트합니다."""
+    card_style = session.get(CardStyle, card_style_id)
+    if not card_style:
+        return None
+    update_dict = update_data.model_dump(exclude_unset=True)
+    
+    # 기본 스타일로 설정하는 경우 다른 기본 스타일들을 해제
+    if update_dict.get("is_default"):
+        session.query(CardStyle).filter(CardStyle.id != card_style_id, CardStyle.is_default == True).update({"is_default": False})
+    
+    for key, value in update_dict.items():
+        if value is not None:
+            setattr(card_style, key, value)
+    
+    session.commit()
+    session.refresh(card_style)
+    return card_style
+
+
+def delete_card_style(session: Session, card_style_id: int) -> bool:
+    """카드 스타일을 삭제합니다."""
+    card_style = session.get(CardStyle, card_style_id)
+    if not card_style:
+        return False
+    
+    # 기본 카드 스타일은 삭제할 수 없습니다
+    if card_style.is_default:
+        return False
+    
+    session.delete(card_style)
     session.commit()
     return True

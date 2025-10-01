@@ -12,12 +12,15 @@ import {
   updateCardDeckRequest,
   deleteCardDeckRequest,
   uploadCardDeckImageRequest,
+  fetchCardStyles,
+  deleteCardStyle,
   exportContents,
   type UserProfile,
   type LearningHelperOut,
   type CardDeck,
   type CardDeckCreate,
   type CardDeckUpdate,
+  type CardStyle,
 } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
@@ -41,7 +44,7 @@ export default function AdminPage() {
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   
   // 탭 상태
-  const [activeTab, setActiveTab] = useState<'jsonManagement' | 'helpers' | 'cardDecks'>('jsonManagement');
+  const [activeTab, setActiveTab] = useState<'jsonManagement' | 'helpers' | 'cardDecks' | 'cardStyles'>('jsonManagement');
   const {
     helpers: helperList,
     loading: helperLoading,
@@ -84,6 +87,11 @@ export default function AdminPage() {
   const [newCardDeckPreviews, setNewCardDeckPreviews] = useState<{ front?: string; back?: string }>({});
   
   // 기존 카드덱 편집을 위한 파일 미리보기 상태
+  
+  // 카드 스타일 관련 상태
+  const [cardStyles, setCardStyles] = useState<CardStyle[]>([]);
+  const [cardStyleLoading, setCardStyleLoading] = useState(false);
+  const [cardStyleError, setCardStyleError] = useState<string | null>(null);
   const [editCardDeckFiles, setEditCardDeckFiles] = useState<Record<number, { front?: File; back?: File }>>({});
   const [editCardDeckPreviews, setEditCardDeckPreviews] = useState<Record<number, { front?: string; back?: string }>>({});
   
@@ -340,9 +348,37 @@ export default function AdminPage() {
     }
   }, []);
 
+  // Card Style functions
+  const loadCardStyles = useCallback(async () => {
+    try {
+      setCardStyleLoading(true);
+      setCardStyleError(null);
+      const response = await fetchCardStyles(0, 100);
+      setCardStyles(response.items);
+    } catch (err: any) {
+      const message = err?.response?.data?.detail ?? err?.message ?? '카드 스타일을 불러오지 못했습니다.';
+      setCardStyleError(message);
+    } finally {
+      setCardStyleLoading(false);
+    }
+  }, []);
+
+  const handleDeleteCardStyle = async (styleId: number) => {
+    if (!confirm('이 카드 스타일을 삭제하시겠습니까?')) return;
+    
+    try {
+      await deleteCardStyle(styleId);
+      await loadCardStyles();
+    } catch (err: any) {
+      const message = err?.response?.data?.detail ?? err?.message ?? '카드 스타일을 삭제하지 못했습니다.';
+      setCardStyleError(message);
+    }
+  };
+
   useEffect(() => {
     loadCardDecks();
-  }, [loadCardDecks]);
+    loadCardStyles();
+  }, [loadCardDecks, loadCardStyles]);
 
   useEffect(() => {
     setCardDeckEdits(() => {
@@ -860,6 +896,16 @@ export default function AdminPage() {
               }`}
             >
               카드덱 관리
+            </button>
+            <button
+              onClick={() => setActiveTab('cardStyles')}
+              className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium ${
+                activeTab === 'cardStyles'
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+              }`}
+            >
+              카드 스타일 관리
             </button>
           </nav>
         </div>
@@ -1454,6 +1500,79 @@ export default function AdminPage() {
         ) : (
           <p className="text-sm text-slate-600">등록된 카드덱이 없습니다.</p>
         )}
+          </div>
+        )}
+
+        {/* 카드 스타일 관리 탭 */}
+        {activeTab === 'cardStyles' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-medium text-slate-900">카드 스타일 관리</h3>
+                <p className="text-xs text-slate-500">퀴즈 카드의 앞뒤면 스타일을 관리합니다.</p>
+              </div>
+              <button
+                onClick={() => navigate('/card-style-editor/new')}
+                className="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700"
+              >
+                새 스타일 생성
+              </button>
+            </div>
+
+            {cardStyleError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{cardStyleError}</p>
+              </div>
+            )}
+
+            {cardStyleLoading ? (
+              <div className="text-center py-8">
+                <p className="text-slate-600">카드 스타일을 불러오는 중...</p>
+              </div>
+            ) : cardStyles.length > 0 ? (
+              <div className="grid gap-4">
+                {cardStyles.map((style) => (
+                  <div key={style.id} className="bg-white border border-slate-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium text-slate-900">{style.name}</h4>
+                          {style.is_default && (
+                            <span className="px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded-full">
+                              기본
+                            </span>
+                          )}
+                        </div>
+                        {style.description && (
+                          <p className="text-sm text-slate-600 mt-1">{style.description}</p>
+                        )}
+                        <p className="text-xs text-slate-500 mt-2">
+                          생성일: {new Date(style.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => navigate(`/card-style-editor/${style.id}`)}
+                          className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded"
+                        >
+                          편집
+                        </button>
+                        {!style.is_default && (
+                          <button
+                            onClick={() => handleDeleteCardStyle(style.id)}
+                            className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                          >
+                            삭제
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-600">등록된 카드 스타일이 없습니다.</p>
+            )}
           </div>
         )}
       </section>

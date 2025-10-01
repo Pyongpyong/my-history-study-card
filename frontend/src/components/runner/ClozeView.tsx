@@ -6,11 +6,17 @@ interface ClozeViewProps {
   card: any;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
+  cardStyle?: any;
 }
 
-export default function ClozeView({ card, disabled, onSubmit }: ClozeViewProps) {
+export default function ClozeView({ card, disabled, onSubmit, cardStyle }: ClozeViewProps) {
   const clozes: Record<string, string> = card.clozes ?? {};
   const placeholders = useMemo(() => Object.keys(clozes).sort(), [clozes]);
+
+  // 카드 스타일 적용
+  const titleClass = cardStyle 
+    ? `w-full bg-white px-4 py-3 ${cardStyle.front_title_size} ${cardStyle.front_title_color} ${cardStyle.front_title_align} font-semibold shadow-sm`
+    : questionClass;
   const [values, setValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -55,7 +61,7 @@ export default function ClozeView({ card, disabled, onSubmit }: ClozeViewProps) 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-sm text-slate-900">
-      <p className={questionClass}>빈칸을 채워보세요</p>
+      <p className={titleClass}>빈칸을 채워보세요</p>
       <div className="flex flex-wrap items-center justify-center gap-2 text-base leading-relaxed">{renderWithInputs()}</div>
       <button
         type="submit"

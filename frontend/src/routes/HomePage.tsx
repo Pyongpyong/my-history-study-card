@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
 import CardRunner from '../components/CardRunner';
-import { fetchLearningHelpers, type LearningHelperPublic } from '../api';
+import { fetchLearningHelpers, fetchDefaultCardStyle, type LearningHelperPublic, type CardStyle } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 interface SampleCardConfig {
@@ -76,20 +76,24 @@ const sampleCards: SampleCardConfig[] = [
 
 type TeacherMood = 'idle' | 'correct' | 'incorrect';
 
-const renderSampleAnswer = ({ correct, explanation }: SampleCardConfig) => (
+const renderSampleAnswer = ({ correct, explanation }: SampleCardConfig, cardStyle?: CardStyle | null) => (
   <div className="space-y-4 text-slate-800">
-    <div
-      className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${
-        correct ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-      }`}
-    >
-      {correct ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
+    <div className={`${cardStyle?.back_title_size || 'text-sm'} ${cardStyle?.back_title_color || ''} ${cardStyle?.back_title_align || 'text-center'} ${cardStyle?.back_title_position || 'mb-4'}`}>
+      <div
+        className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${
+          correct ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+        }`}
+      >
+        {correct ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
+      </div>
     </div>
-    {explanation ? (
-      <p className="text-sm leading-relaxed text-slate-700">{explanation}</p>
-    ) : (
-      <p className="text-sm text-slate-500">다음 문제로 이동하세요.</p>
-    )}
+    <div className={`${cardStyle?.back_content_size || 'text-sm'} ${cardStyle?.back_content_color || 'text-slate-700'} ${cardStyle?.back_content_align || 'text-center'} ${cardStyle?.back_content_position || 'mb-4'}`}>
+      {explanation ? (
+        <p className="leading-relaxed">{explanation}</p>
+      ) : (
+        <p>다음 문제로 이동하세요.</p>
+      )}
+    </div>
   </div>
 );
 
@@ -101,6 +105,7 @@ export default function HomePage() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [teacherMood, setTeacherMood] = useState<TeacherMood>('idle');
   const [fallbackHelper, setFallbackHelper] = useState<LearningHelperPublic | null>(null);
+  const [cardStyle, setCardStyle] = useState<CardStyle | null>(null);
 
   const baseVariants = useMemo(
     () => ({
@@ -130,6 +135,15 @@ export default function HomePage() {
   }, [activeHelper, baseVariants]);
 
   const currentTeacherImage = helperVariants[teacherMood] ?? baseVariants.idle;
+
+  // 기본 카드 스타일 로드
+  useEffect(() => {
+    fetchDefaultCardStyle()
+      .then(setCardStyle)
+      .catch((error) => {
+        console.error('기본 카드 스타일 로드 실패:', error);
+      });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,6 +248,7 @@ export default function HomePage() {
                               card={sampleCards[frontIndex].card}
                               disabled={false}
                               onSubmit={() => {}}
+                              cardStyle={cardStyle}
                             />
                           </div>
                         </div>
@@ -256,14 +271,16 @@ export default function HomePage() {
                       <div className="absolute inset-0 bg-white/55" />
                       <div className="absolute inset-[18px] flex h-full flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center">
                         <div className="w-full overflow-y-auto px-1 text-center text-slate-900">
-                          {renderSampleAnswer(sampleCards[answerIndex])}
+                          {renderSampleAnswer(sampleCards[answerIndex], cardStyle)}
                         </div>
-                        <button
-                          type="button"
-                          className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2"
-                        >
-                          ➡️ 다음 문제
-                        </button>
+                        <div className={`${cardStyle?.back_button_align || 'text-center'} ${cardStyle?.back_button_position || 'mt-auto'} w-full`}>
+                          <button
+                            type="button"
+                            className={`w-full rounded-xl ${cardStyle?.back_button_size || 'px-4 py-2'} ${cardStyle?.back_button_color || 'bg-primary-600 text-white'} text-sm font-semibold shadow-lg transition hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2`}
+                          >
+                            ➡️ 다음 문제
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -9,22 +9,23 @@ interface CardRunnerProps {
   card: any;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
+  cardStyle?: any;
 }
 
-export default function CardRunner({ card, disabled, onSubmit }: CardRunnerProps) {
+export default function CardRunner({ card, disabled, onSubmit, cardStyle }: CardRunnerProps) {
   switch (card?.type) {
     case 'MCQ':
-      return <MCQView card={card} disabled={disabled} onSubmit={onSubmit} />;
+      return <MCQView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     case 'SHORT':
-      return <ShortView card={card} disabled={disabled} onSubmit={onSubmit} />;
+      return <ShortView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     case 'OX':
-      return <OXView card={card} disabled={disabled} onSubmit={onSubmit} />;
+      return <OXView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     case 'CLOZE':
-      return <ClozeView card={card} disabled={disabled} onSubmit={onSubmit} />;
+      return <ClozeView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     case 'ORDER':
-      return <OrderView card={card} disabled={disabled} onSubmit={onSubmit} />;
+      return <OrderView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     case 'MATCH':
-      return <MatchView card={card} disabled={disabled} onSubmit={onSubmit} />;
+      return <MatchView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     default:
       return <p className="text-sm text-slate-600">지원하지 않는 카드 유형입니다: {card?.type}</p>;
   }

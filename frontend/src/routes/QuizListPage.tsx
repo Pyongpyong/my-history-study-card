@@ -452,6 +452,26 @@ export default function QuizListPage() {
   const canGoPrev = page > 1;
   const canGoNext = page < totalPages;
 
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      const start = Math.max(1, page - 2);
+      const end = Math.min(totalPages, start + maxVisiblePages - 1);
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  };
+
   const handleNavigateToContent = async (contentId: number) => {
     try {
       const content = await fetchContent(contentId);
@@ -1206,25 +1226,40 @@ export default function QuizListPage() {
           }
         </p>
       )}
-      <div className="flex items-center justify-center gap-3 pt-2">
-        <button
-          type="button"
-          onClick={() => canGoPrev && setPage((prev) => Math.max(1, prev - 1))}
-          disabled={!canGoPrev}
-          className="rounded border border-slate-300 px-3 py-1 text-sm text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          이전
-        </button>
-        <span className="text-xs text-slate-500">{page} / {totalPages}</span>
-        <button
-          type="button"
-          onClick={() => canGoNext && setPage((prev) => prev + 1)}
-          disabled={!canGoNext}
-          className="rounded border border-slate-300 px-3 py-1 text-sm text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          다음
-        </button>
-      </div>
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center space-x-2 mt-8">
+          <button
+            onClick={() => canGoPrev && setPage((prev) => Math.max(1, prev - 1))}
+            disabled={!canGoPrev}
+            className="px-3 py-2 text-sm font-medium text-slate-500 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            이전
+          </button>
+          
+          {getPageNumbers().map((pageNum) => (
+            <button
+              key={pageNum}
+              onClick={() => setPage(pageNum)}
+              className={`px-3 py-2 text-sm font-medium rounded-md ${
+                pageNum === page
+                  ? 'text-white bg-primary-600 border border-primary-600'
+                  : 'text-slate-700 bg-white border border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {pageNum}
+            </button>
+          ))}
+          
+          <button
+            onClick={() => canGoNext && setPage((prev) => prev + 1)}
+            disabled={!canGoNext}
+            className="px-3 py-2 text-sm font-medium text-slate-500 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            다음
+          </button>
+        </div>
+      )}
       </section>
       {showModal && renderModal()}
       {showCreateModal ? (

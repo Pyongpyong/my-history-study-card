@@ -6,9 +6,10 @@ interface MatchViewProps {
   card: any;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
+  cardStyle?: any;
 }
 
-export default function MatchView({ card, disabled, onSubmit }: MatchViewProps) {
+export default function MatchView({ card, disabled, onSubmit, cardStyle }: MatchViewProps) {
   const left: string[] = Array.isArray(card.left) ? card.left : [];
   const right: string[] = Array.isArray(card.right) ? card.right : [];
   const pairs: Array<[number, number]> = Array.isArray(card.pairs) ? card.pairs : [];
@@ -17,6 +18,11 @@ export default function MatchView({ card, disabled, onSubmit }: MatchViewProps) 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
+
+  // 카드 스타일 적용
+  const titleClass = cardStyle 
+    ? `w-full bg-white px-4 py-3 ${cardStyle.front_title_size} ${cardStyle.front_title_color} ${cardStyle.front_title_align} font-semibold shadow-sm`
+    : questionClass;
 
   const expectedOrder = useMemo(() => {
     const mapping = new Map<number, number>();
@@ -93,7 +99,7 @@ export default function MatchView({ card, disabled, onSubmit }: MatchViewProps) 
 
   return (
     <div className="space-y-4 text-sm text-slate-900">
-      <p className={questionClass}>대응되는 항목을 맞춰보세요</p>
+      <p className={titleClass}>대응되는 항목을 맞춰보세요</p>
       <p className="text-xs text-slate-500">오른쪽 항목을 드래그하여 순서를 조정하세요.</p>
       <div className="space-y-2">
         {left.map((leftValue, index) => {

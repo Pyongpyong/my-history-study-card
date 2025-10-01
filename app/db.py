@@ -108,6 +108,7 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _ensure_content_extensions()
     _ensure_card_deck_extensions()
+    _ensure_card_style_extensions()
 
 
 def _ensure_content_extensions() -> None:
@@ -265,3 +266,108 @@ def _ensure_card_deck_extensions() -> None:
                     print(f"Quiz content_id 마이그레이션 실패 (MySQL): {e}")
             # SQLite의 경우 기존 데이터는 그대로 두고 새로운 퀴즈만 NULL 허용
             # (SQLite는 컬럼 수정이 제한적이므로 애플리케이션 레벨에서 처리)
+
+
+def _ensure_card_style_extensions() -> None:
+    """카드 스타일 테이블 확장 및 기본 데이터 생성"""
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        
+        # 카드 스타일 테이블이 존재하는지 확인
+        if "card_styles" not in inspector.get_table_names():
+            return
+            
+        # 새로운 컬럼들 확인 및 추가
+        card_styles_columns = {column["name"] for column in inspector.get_columns("card_styles")}
+        is_mysql = connection.dialect.name == 'mysql'
+        
+        # card_type 컬럼 추가
+        if "card_type" not in card_styles_columns:
+            if is_mysql:
+                connection.execute(text("ALTER TABLE card_styles ADD COLUMN card_type VARCHAR(20) NOT NULL DEFAULT 'ALL'"))
+            else:
+                connection.execute(text("ALTER TABLE card_styles ADD COLUMN card_type TEXT NOT NULL DEFAULT 'ALL'"))
+            connection.execute(text("UPDATE card_styles SET card_type = 'ALL' WHERE card_type IS NULL"))
+        
+        # front_layout 컬럼 추가
+        if "front_layout" not in card_styles_columns:
+            if is_mysql:
+                connection.execute(text("ALTER TABLE card_styles ADD COLUMN front_layout VARCHAR(20) NOT NULL DEFAULT 'top'"))
+            else:
+                connection.execute(text("ALTER TABLE card_styles ADD COLUMN front_layout TEXT NOT NULL DEFAULT 'top'"))
+            connection.execute(text("UPDATE card_styles SET front_layout = 'top' WHERE front_layout IS NULL"))
+        
+        # 앞면 마진 컬럼들 추가
+        front_margin_columns = [
+            'front_title_margin_top', 'front_title_margin_bottom', 'front_title_margin_left', 'front_title_margin_right',
+            'front_content_margin_top', 'front_content_margin_bottom', 'front_content_margin_left', 'front_content_margin_right'
+        ]
+        
+        for column in front_margin_columns:
+            if column not in card_styles_columns:
+                if is_mysql:
+                    default_value = '16' if 'title' in column and 'bottom' in column else '0'
+                    connection.execute(text(f"ALTER TABLE card_styles ADD COLUMN {column} VARCHAR(20) NOT NULL DEFAULT '{default_value}'"))
+                else:
+                    default_value = '16' if 'title' in column and 'bottom' in column else '0'
+                    connection.execute(text(f"ALTER TABLE card_styles ADD COLUMN {column} TEXT NOT NULL DEFAULT '{default_value}'"))
+                connection.execute(text(f"UPDATE card_styles SET {column} = '{default_value}' WHERE {column} IS NULL"))
+        
+        # 뒷면 레이아웃 컬럼 추가
+        if "back_layout" not in card_styles_columns:
+            if is_mysql:
+                connection.execute(text("ALTER TABLE card_styles ADD COLUMN back_layout VARCHAR(20) NOT NULL DEFAULT 'center'"))
+            else:
+                connection.execute(text("ALTER TABLE card_styles ADD COLUMN back_layout TEXT NOT NULL DEFAULT 'center'"))
+            connection.execute(text("UPDATE card_styles SET back_layout = 'center' WHERE back_layout IS NULL"))
+        
+        # 뒷면 마진 컬럼들 추가
+        back_margin_columns = [
+            'back_title_margin_top', 'back_title_margin_bottom', 'back_title_margin_left', 'back_title_margin_right',
+            'back_content_margin_top', 'back_content_margin_bottom', 'back_content_margin_left', 'back_content_margin_right',
+            'back_button_margin_top', 'back_button_margin_bottom', 'back_button_margin_left', 'back_button_margin_right'
+        ]
+        
+        for column in back_margin_columns:
+            if column not in card_styles_columns:
+                if is_mysql:
+                    default_value = '16' if 'title' in column and 'bottom' in column else '0'
+                    connection.execute(text(f"ALTER TABLE card_styles ADD COLUMN {column} VARCHAR(20) NOT NULL DEFAULT '{default_value}'"))
+                else:
+                    default_value = '16' if 'title' in column and 'bottom' in column else '0'
+                    connection.execute(text(f"ALTER TABLE card_styles ADD COLUMN {column} TEXT NOT NULL DEFAULT '{default_value}'"))
+                connection.execute(text(f"UPDATE card_styles SET {column} = '{default_value}' WHERE {column} IS NULL"))
+            
+        # 기본 카드 스타일이 있는지 확인
+        result = connection.execute(text("SELECT COUNT(*) as count FROM card_styles WHERE is_default = 1 AND card_type = 'ALL'")).fetchone()
+        if result and result.count == 0:
+            # 기본 카드 스타일 생성 - MySQL과 SQLite 호환
+            is_mysql = connection.dialect.name == 'mysql'
+            now_func = "NOW()" if is_mysql else "datetime('now')"
+            
+            connection.execute(text(f"""
+                INSERT INTO card_styles (
+                    name, description, card_type, is_default,
+                    front_title_size, front_title_color, front_title_align, front_title_position,
+                    front_content_size, front_content_color, front_content_align, front_content_position,
+                    front_button_size, front_button_color, front_button_position, front_button_align,
+                    back_title_size, back_title_color, back_title_align, back_title_position,
+                    back_content_size, back_content_color, back_content_align, back_content_position,
+                    back_button_size, back_button_color, back_button_position, back_button_align,
+                    created_at, updated_at
+                )
+                VALUES (
+                    '기본 스타일 (전체)',
+                    '모든 카드 유형에 적용되는 기본 스타일',
+                    'ALL',
+                    1,
+                    'text-lg', 'text-primary-600', 'text-center', 'mb-4',
+                    'text-sm', 'text-slate-900', 'text-left', 'mb-4',
+                    'px-4 py-2', 'bg-primary-600 text-white', 'mt-auto', 'text-center',
+                    'text-lg', 'text-primary-600', 'text-center', 'mb-4',
+                    'text-sm', 'text-slate-700', 'text-left', 'mb-4',
+                    'px-4 py-2', 'bg-primary-600 text-white', 'mt-auto', 'text-center',
+                    {now_func},
+                    {now_func}
+                )
+            """))

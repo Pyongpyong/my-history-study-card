@@ -6,10 +6,13 @@ import {
   fetchStudySession,
   fetchPublicStudySession,
   updateStudySessionRequest,
+  fetchDefaultCardStyle,
+  fetchCardStyleByType,
   type StudySessionCard,
   type StudySession,
   type Reward,
   type LearningHelperPublic,
+  type CardStyle,
 } from '../api';
 import CardRunner from '../components/CardRunner';
 import ProgressBar from '../components/ProgressBar';
@@ -56,6 +59,8 @@ export default function StudyPage() {
   const [helperModalOpen, setHelperModalOpen] = useState(false);
   const [pendingHelperId, setPendingHelperId] = useState<number | null>(null);
   const [helperSubmitting, setHelperSubmitting] = useState(false);
+  const [cardStyle, setCardStyle] = useState<CardStyle | null>(null);
+  const [cardStyleCache, setCardStyleCache] = useState<Record<string, CardStyle>>({});
   const resultResetTimer = useRef<number | null>(null);
   const restartTimer = useRef<number | null>(null);
   const { helpers, refresh: refreshHelpers } = useLearningHelpers();
@@ -171,6 +176,15 @@ export default function StudyPage() {
           resultResetTimer.current = null;
         }
         setTeacherMood('idle');
+        
+        // 기본 카드 스타일 로드
+        try {
+          const defaultStyle = await fetchDefaultCardStyle();
+          setCardStyle(defaultStyle);
+          setCardStyleCache({ 'ALL': defaultStyle });
+        } catch (styleErr) {
+          console.warn('카드 스타일 로드 실패:', styleErr);
+        }
       } catch (err: any) {
         console.error(err);
         const message = err?.response?.data?.detail ?? err?.message ?? '학습 데이터를 불러오지 못했습니다.';
@@ -319,6 +333,33 @@ export default function StudyPage() {
   const cardsCount = cards.length;
   const hasResult = lastCorrect !== null || lastExplanation !== null;
   const isResultFrame = finalResultFlipped || (finished && !restarting);
+
+  // 현재 카드 유형에 맞는 스타일 로드
+  const loadCardStyleForType = async (cardType: string) => {
+    if (cardStyleCache[cardType]) {
+      setCardStyle(cardStyleCache[cardType]);
+      return;
+    }
+
+    try {
+      const style = await fetchCardStyleByType(cardType);
+      setCardStyleCache(prev => ({ ...prev, [cardType]: style }));
+      setCardStyle(style);
+    } catch (err) {
+      console.warn(`카드 유형 ${cardType}의 스타일 로드 실패, 기본 스타일 사용:`, err);
+      if (cardStyleCache['ALL']) {
+        setCardStyle(cardStyleCache['ALL']);
+      }
+    }
+  };
+
+  // 현재 카드가 변경될 때마다 해당 유형의 스타일 로드
+  useEffect(() => {
+    if (currentCard?.type) {
+      loadCardStyleForType(currentCard.type);
+    }
+  }, [currentCard?.type, cardStyleCache]);
+
 
   useEffect(() => {
     if (finished) {
@@ -724,10 +765,45 @@ export default function StudyPage() {
                       }}
                     >
                       <div className="absolute inset-0 bg-white/55" />
-                      <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6">
-                        <div className="max-h-full overflow-y-auto text-slate-900">
-                          <CardRunner card={currentCard} disabled={submitted} onSubmit={handleSubmit} />
-                        </div>
+                      <div className={`absolute inset-0 flex h-full flex-col rounded-[36px] bg-white/92 p-6 ${
+                        cardStyle?.front_layout === 'top' ? 'justify-start' :
+                        cardStyle?.front_layout === 'center' ? 'justify-center' :
+                        cardStyle?.front_layout === 'bottom' ? 'justify-end' :
+                        cardStyle?.front_layout === 'split' ? 'justify-between' : 'justify-center'
+                      }`}>
+                        {cardStyle?.front_layout === 'split' ? (
+                          // 상하단 정렬: 문제는 상단, 답변은 하단
+                          <div className="flex flex-col h-full justify-between">
+                            
+                            {/* 답변 영역 - 하단 */}
+                            <div style={{
+                              marginTop: `${cardStyle?.front_content_margin_top || '0'}px`,
+                              marginBottom: `${cardStyle?.front_title_margin_bottom || '16'}px`,
+                              marginLeft: `${cardStyle?.front_content_margin_left || '0'}px`,
+                              marginRight: `${cardStyle?.front_content_margin_right || '0'}px`
+                            }}>
+                              <CardRunner card={currentCard} disabled={submitted} onSubmit={handleSubmit} cardStyle={cardStyle} />
+                            </div>
+                          </div>
+                        ) : (
+                          // 일반 레이아웃 (상단, 중앙, 하단)
+                          <div className="max-h-full overflow-y-auto text-slate-900">
+                            <div className="space-y-4">
+                              
+                              {/* 답변 영역 */}
+                              <div style={{
+                                marginTop: `${cardStyle?.front_content_margin_top || '0'}px`,
+                                marginBottom: cardStyle?.front_layout === 'bottom' 
+                                  ? `${cardStyle?.front_title_margin_bottom || '16'}px`
+                                  : `${cardStyle?.front_content_margin_bottom || '0'}px`,
+                                marginLeft: `${cardStyle?.front_content_margin_left || '0'}px`,
+                                marginRight: `${cardStyle?.front_content_margin_right || '0'}px`
+                              }}>
+                                <CardRunner card={currentCard} disabled={submitted} onSubmit={handleSubmit} cardStyle={cardStyle} />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -746,32 +822,160 @@ export default function StudyPage() {
                       }}
                     >
                       <div className="absolute inset-0 bg-white/55" />
-                      <div className="absolute inset-[18px] flex flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center">
-                        {hasResult ? (
-                          <>
-                            <div
-                              className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${lastCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}
-                            >
-                              {lastCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
+                      <div className={`absolute inset-0 flex h-full flex-col rounded-[36px] bg-white/94 p-6 ${
+                        cardStyle?.back_layout === 'top' ? 'justify-start' :
+                        cardStyle?.back_layout === 'center' ? 'justify-center' :
+                        cardStyle?.back_layout === 'bottom' ? 'justify-end' :
+                        cardStyle?.back_layout === 'split' ? 'justify-between' : 'items-center justify-center'
+                      }`}>
+                        {cardStyle?.back_layout ? (
+                          cardStyle.back_layout === 'split' ? (
+                            // 상하단 정렬: 정답은 상단, 설명은 중앙, 버튼은 하단
+                            <div className="flex flex-col h-full justify-between">
+                              {/* 정답 영역 - 상단 */}
+                              <div style={{
+                                marginTop: `${cardStyle?.back_title_margin_top || '0'}px`,
+                                marginBottom: `${cardStyle?.back_title_margin_bottom || '16'}px`,
+                                marginLeft: `${cardStyle?.back_title_margin_left || '0'}px`,
+                                marginRight: `${cardStyle?.back_title_margin_right || '0'}px`
+                              }}>
+                                <div className={`${cardStyle?.back_title_size || 'text-sm'} ${cardStyle?.back_title_color || ''} ${cardStyle?.back_title_align || 'text-center'}`}>
+                                  {hasResult ? (
+                                    <div className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${lastCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                      {lastCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
+                                    </div>
+                                  ) : (
+                                    <div className="inline-flex items-center justify-center rounded-full bg-slate-100 px-5 py-2 text-sm font-semibold text-slate-500">
+                                      정답을 제출하면 결과가 표시됩니다.
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* 설명 영역 - 중앙 */}
+                              <div style={{
+                                marginTop: `${cardStyle?.back_content_margin_top || '0'}px`,
+                                marginBottom: `${cardStyle?.back_content_margin_bottom || '0'}px`,
+                                marginLeft: `${cardStyle?.back_content_margin_left || '0'}px`,
+                                marginRight: `${cardStyle?.back_content_margin_right || '0'}px`
+                              }}>
+                                <div className={`${cardStyle?.back_content_size || 'text-sm'} ${cardStyle?.back_content_color || 'text-slate-700'} ${cardStyle?.back_content_align || 'text-center'}`}>
+                                  {hasResult && lastExplanation ? (
+                                    <p className="leading-relaxed">{lastExplanation}</p>
+                                  ) : hasResult ? (
+                                    <p>다음 문제로 이동하세요.</p>
+                                  ) : null}
+                                </div>
+                              </div>
+                              
+                              {/* 버튼 영역 - 하단 */}
+                              <div style={{
+                                marginTop: `${cardStyle?.back_button_margin_top || '0'}px`,
+                                marginBottom: `${cardStyle?.back_button_margin_bottom || '0'}px`,
+                                marginLeft: `${cardStyle?.back_button_margin_left || '0'}px`,
+                                marginRight: `${cardStyle?.back_button_margin_right || '0'}px`
+                              }}>
+                                <div className={`${cardStyle?.back_button_align || 'text-center'} w-full`}>
+                                  <button
+                                    type="button"
+                                    onClick={handleNext}
+                                    className={`w-full rounded-xl ${cardStyle?.back_button_size || 'px-4 py-2'} ${cardStyle?.back_button_color || 'bg-primary-600 text-white'} text-sm font-semibold shadow-lg transition hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2`}
+                                  >
+                                    {nextActionLabel}
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                            {lastExplanation ? (
-                              <p className="text-sm leading-relaxed text-slate-700">{lastExplanation}</p>
-                            ) : (
-                              <p className="text-sm text-slate-500">다음 문제로 이동하세요.</p>
-                            )}
-                          </>
+                          ) : (
+                            // 일반 레이아웃 (상단, 중앙, 하단)
+                            <div className="flex flex-col gap-5 text-center">
+                              {/* 정답 영역 */}
+                              <div style={{
+                                marginTop: `${cardStyle?.back_title_margin_top || '0'}px`,
+                                marginBottom: cardStyle?.back_layout === 'bottom' 
+                                  ? `${cardStyle?.back_title_margin_top || '0'}px`
+                                  : `${cardStyle?.back_title_margin_bottom || '16'}px`,
+                                marginLeft: `${cardStyle?.back_title_margin_left || '0'}px`,
+                                marginRight: `${cardStyle?.back_title_margin_right || '0'}px`
+                              }}>
+                                <div className={`${cardStyle?.back_title_size || 'text-sm'} ${cardStyle?.back_title_color || ''} ${cardStyle?.back_title_align || 'text-center'}`}>
+                                  {hasResult ? (
+                                    <div className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${lastCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                      {lastCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
+                                    </div>
+                                  ) : (
+                                    <div className="inline-flex items-center justify-center rounded-full bg-slate-100 px-5 py-2 text-sm font-semibold text-slate-500">
+                                      정답을 제출하면 결과가 표시됩니다.
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* 설명 영역 */}
+                              <div style={{
+                                marginTop: `${cardStyle?.back_content_margin_top || '0'}px`,
+                                marginBottom: cardStyle?.back_layout === 'bottom' 
+                                  ? `${cardStyle?.back_title_margin_bottom || '16'}px`
+                                  : `${cardStyle?.back_content_margin_bottom || '0'}px`,
+                                marginLeft: `${cardStyle?.back_content_margin_left || '0'}px`,
+                                marginRight: `${cardStyle?.back_content_margin_right || '0'}px`
+                              }}>
+                                <div className={`${cardStyle?.back_content_size || 'text-sm'} ${cardStyle?.back_content_color || 'text-slate-700'} ${cardStyle?.back_content_align || 'text-center'}`}>
+                                  {hasResult && lastExplanation ? (
+                                    <p className="leading-relaxed">{lastExplanation}</p>
+                                  ) : hasResult ? (
+                                    <p>다음 문제로 이동하세요.</p>
+                                  ) : null}
+                                </div>
+                              </div>
+                              
+                              {/* 버튼 영역 */}
+                              <div style={{
+                                marginTop: `${cardStyle?.back_button_margin_top || '0'}px`,
+                                marginBottom: `${cardStyle?.back_button_margin_bottom || '0'}px`,
+                                marginLeft: `${cardStyle?.back_button_margin_left || '0'}px`,
+                                marginRight: `${cardStyle?.back_button_margin_right || '0'}px`
+                              }}>
+                                <div className={`${cardStyle?.back_button_align || 'text-center'} w-full`}>
+                                  <button
+                                    type="button"
+                                    onClick={handleNext}
+                                    className={`w-full rounded-xl ${cardStyle?.back_button_size || 'px-4 py-2'} ${cardStyle?.back_button_color || 'bg-primary-600 text-white'} text-sm font-semibold shadow-lg transition hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2`}
+                                  >
+                                    {nextActionLabel}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )
                         ) : (
-                          <p className="inline-flex items-center justify-center rounded-full bg-slate-100 px-5 py-2 text-sm font-semibold text-slate-500">
-                            정답을 제출하면 결과가 표시됩니다.
-                          </p>
+                          // cardStyle이 없을 때 기존 방식
+                          <div className="flex flex-col gap-5 text-center">
+                            {hasResult ? (
+                              <>
+                                <div className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${lastCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                  {lastCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
+                                </div>
+                                {lastExplanation ? (
+                                  <p className="text-sm leading-relaxed text-slate-700">{lastExplanation}</p>
+                                ) : (
+                                  <p className="text-sm text-slate-500">다음 문제로 이동하세요.</p>
+                                )}
+                              </>
+                            ) : (
+                              <p className="inline-flex items-center justify-center rounded-full bg-slate-100 px-5 py-2 text-sm font-semibold text-slate-500">
+                                정답을 제출하면 결과가 표시됩니다.
+                              </p>
+                            )}
+                            <button
+                              type="button"
+                              onClick={handleNext}
+                              className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2"
+                            >
+                              {nextActionLabel}
+                            </button>
+                          </div>
                         )}
-                        <button
-                          type="button"
-                          onClick={handleNext}
-                          className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2"
-                        >
-                          {nextActionLabel}
-                        </button>
                       </div>
                     </div>
                   </div>

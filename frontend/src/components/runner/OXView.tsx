@@ -6,13 +6,19 @@ interface OXViewProps {
   card: any;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
+  cardStyle?: any;
 }
 
-export default function OXView({ card, disabled, onSubmit }: OXViewProps) {
+export default function OXView({ card, disabled, onSubmit, cardStyle }: OXViewProps) {
   const handleChoice = (value: boolean) => {
     if (disabled) return;
     onSubmit(Boolean(value) === Boolean(card.answer));
   };
+
+  // 카드 스타일 적용
+  const titleClass = cardStyle 
+    ? `w-full bg-white px-4 py-3 ${cardStyle.front_title_size} ${cardStyle.front_title_color} ${cardStyle.front_title_align} font-semibold shadow-sm`
+    : questionClass;
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -33,7 +39,7 @@ export default function OXView({ card, disabled, onSubmit }: OXViewProps) {
 
   return (
     <div className="space-y-4 text-center text-slate-900">
-      <p className={questionClass}>{card.statement ?? '문장 없음'}</p>
+      <p className={titleClass}>{card.statement ?? '문장 없음'}</p>
       <div className="flex justify-center gap-6">
         <button
           type="button"

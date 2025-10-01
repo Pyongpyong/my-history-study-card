@@ -761,3 +761,159 @@ class CardDeckOut(CardDeckBase):
 class CardDeckListOut(BaseModel):
     items: List[CardDeckOut]
     meta: PageMeta
+
+
+# Card Style Schemas
+class CardStyleBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    card_type: str = "ALL"  # MCQ, SHORT, OX, CLOZE, ORDER, MATCH, ALL
+    is_default: bool = False
+    
+    # 앞면 레이아웃 설정
+    front_layout: str = "top"  # top, center, bottom, split
+    
+    # 앞면 문제 영역 스타일
+    front_title_size: str = "text-lg"
+    front_title_color: str = "text-primary-600"
+    front_title_align: str = "text-center"
+    front_title_margin_top: str = "0"
+    front_title_margin_bottom: str = "16"
+    front_title_margin_left: str = "0"
+    front_title_margin_right: str = "0"
+    
+    # 앞면 답변 영역 스타일
+    front_content_size: str = "text-sm"
+    front_content_color: str = "text-slate-900"
+    front_content_align: str = "text-left"
+    front_content_margin_top: str = "0"
+    front_content_margin_bottom: str = "0"
+    front_content_margin_left: str = "0"
+    front_content_margin_right: str = "0"
+    
+    front_button_size: str = "px-4 py-2"
+    front_button_color: str = "bg-primary-600 text-white"
+    front_button_position: str = "mt-auto"
+    front_button_align: str = "text-center"
+    
+    # 뒷면 스타일 설정
+    back_layout: str = "center"  # top, center, bottom, split
+    
+    back_title_size: str = "text-lg"
+    back_title_color: str = "text-primary-600"
+    back_title_align: str = "text-center"
+    back_title_position: str = "mb-4"
+    back_title_margin_top: str = "0"
+    back_title_margin_bottom: str = "16"
+    back_title_margin_left: str = "0"
+    back_title_margin_right: str = "0"
+    
+    back_content_size: str = "text-sm"
+    back_content_color: str = "text-slate-700"
+    back_content_align: str = "text-left"
+    back_content_position: str = "mb-4"
+    back_content_margin_top: str = "0"
+    back_content_margin_bottom: str = "0"
+    back_content_margin_left: str = "0"
+    back_content_margin_right: str = "0"
+    
+    back_button_size: str = "px-4 py-2"
+    back_button_color: str = "bg-primary-600 text-white"
+    back_button_position: str = "mt-auto"
+    back_button_align: str = "text-center"
+    back_button_margin_top: str = "0"
+    back_button_margin_bottom: str = "0"
+    back_button_margin_left: str = "0"
+    back_button_margin_right: str = "0"
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("name must not be empty")
+        return value.strip()
+
+
+class CardStyleCreate(CardStyleBase):
+    pass
+
+
+class CardStyleUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    card_type: Optional[str] = None
+    is_default: Optional[bool] = None
+    
+    # 앞면 레이아웃 설정
+    front_layout: Optional[str] = None
+    
+    # 앞면 문제 영역 스타일
+    front_title_size: Optional[str] = None
+    front_title_color: Optional[str] = None
+    front_title_align: Optional[str] = None
+    front_title_margin_top: Optional[str] = None
+    front_title_margin_bottom: Optional[str] = None
+    front_title_margin_left: Optional[str] = None
+    front_title_margin_right: Optional[str] = None
+    
+    # 앞면 답변 영역 스타일
+    front_content_size: Optional[str] = None
+    front_content_color: Optional[str] = None
+    front_content_align: Optional[str] = None
+    front_content_margin_top: Optional[str] = None
+    front_content_margin_bottom: Optional[str] = None
+    front_content_margin_left: Optional[str] = None
+    front_content_margin_right: Optional[str] = None
+    
+    front_button_size: Optional[str] = None
+    front_button_color: Optional[str] = None
+    front_button_position: Optional[str] = None
+    front_button_align: Optional[str] = None
+    
+    # 뒷면 스타일 설정
+    back_layout: Optional[str] = None
+    
+    back_title_size: Optional[str] = None
+    back_title_color: Optional[str] = None
+    back_title_align: Optional[str] = None
+    back_title_position: Optional[str] = None
+    back_title_margin_top: Optional[str] = None
+    back_title_margin_bottom: Optional[str] = None
+    back_title_margin_left: Optional[str] = None
+    back_title_margin_right: Optional[str] = None
+    
+    back_content_size: Optional[str] = None
+    back_content_color: Optional[str] = None
+    back_content_align: Optional[str] = None
+    back_content_position: Optional[str] = None
+    back_content_margin_top: Optional[str] = None
+    back_content_margin_bottom: Optional[str] = None
+    back_content_margin_left: Optional[str] = None
+    back_content_margin_right: Optional[str] = None
+    
+    back_button_size: Optional[str] = None
+    back_button_color: Optional[str] = None
+    back_button_position: Optional[str] = None
+    back_button_align: Optional[str] = None
+    back_button_margin_top: Optional[str] = None
+    back_button_margin_bottom: Optional[str] = None
+    back_button_margin_left: Optional[str] = None
+    back_button_margin_right: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]) -> Optional[str]:
+        return value.strip() if value else None
+
+
+class CardStyleOut(CardStyleBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CardStyleListOut(BaseModel):
+    items: List[CardStyleOut]
+    meta: PageMeta

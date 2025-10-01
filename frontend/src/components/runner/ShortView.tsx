@@ -6,17 +6,23 @@ interface ShortViewProps {
   card: any;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
+  cardStyle?: any;
 }
 
 const normalize = (value: string) => value.trim().toLowerCase();
 
-export default function ShortView({ card, disabled, onSubmit }: ShortViewProps) {
+export default function ShortView({ card, disabled, onSubmit, cardStyle }: ShortViewProps) {
   const [value, setValue] = useState('');
 
   const acceptable = useMemo(() => {
     const aliases: string[] = Array.isArray(card?.rubric?.aliases) ? card.rubric.aliases : [];
     return [card.answer, ...aliases].map((entry) => normalize(String(entry ?? ''))).filter(Boolean);
   }, [card.answer, card?.rubric?.aliases]);
+
+  // 카드 스타일 적용
+  const titleClass = cardStyle 
+    ? `w-full bg-white px-4 py-3 ${cardStyle.front_title_size} ${cardStyle.front_title_color} ${cardStyle.front_title_align} font-semibold shadow-sm`
+    : questionClass;
 
   useEffect(() => {
     setValue('');
@@ -31,7 +37,7 @@ export default function ShortView({ card, disabled, onSubmit }: ShortViewProps) 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-sm text-slate-900">
-      <p className={questionClass}>{card.prompt ?? '질문 없음'}</p>
+      <p className={titleClass}>{card.prompt ?? '질문 없음'}</p>
       <input
         type="text"
         value={value}

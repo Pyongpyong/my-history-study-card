@@ -19,6 +19,7 @@ import AuthPage from './routes/AuthPage';
 import UserSettingsPage from './routes/UserSettingsPage';
 import ProfilePage from './routes/ProfilePage';
 import AdminPage from './routes/AdminPage';
+import CardStyleEditorPage from './routes/CardStyleEditorPage';
 import AiTestPage from './routes/AiTestPage';
 
 export default function App() {
@@ -193,6 +194,14 @@ export default function App() {
                 <AdminPage />
               </RequireAdmin>
             </main>
+          )}
+        />
+        <Route
+          path="/card-style-editor/:id"
+          element={(
+            <RequireAdmin>
+              <CardStyleEditorPage />
+            </RequireAdmin>
           )}
         />
       </Routes>

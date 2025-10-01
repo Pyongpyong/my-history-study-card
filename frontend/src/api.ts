@@ -662,3 +662,242 @@ export async function uploadCardDeckImageRequest(file: File): Promise<{ filename
   return data;
 }
 
+// Card Style API
+export interface CardStyle {
+  id: number;
+  name: string;
+  description?: string;
+  card_type: string; // MCQ, SHORT, OX, CLOZE, ORDER, MATCH, ALL
+  is_default: boolean;
+  
+  // 앞면 레이아웃 설정
+  front_layout: string; // top, center, bottom, split
+  
+  // 앞면 문제 영역 스타일
+  front_title_size: string;
+  front_title_color: string;
+  front_title_align: string;
+  front_title_margin_top: string;
+  front_title_margin_bottom: string;
+  front_title_margin_left: string;
+  front_title_margin_right: string;
+  
+  // 앞면 답변 영역 스타일
+  front_content_size: string;
+  front_content_color: string;
+  front_content_align: string;
+  front_content_margin_top: string;
+  front_content_margin_bottom: string;
+  front_content_margin_left: string;
+  front_content_margin_right: string;
+  
+  front_button_size: string;
+  front_button_color: string;
+  front_button_position: string;
+  front_button_align: string;
+  
+  // 뒷면 스타일 설정
+  back_layout: string; // top, center, bottom, split
+  
+  back_title_size: string;
+  back_title_color: string;
+  back_title_align: string;
+  back_title_position: string;
+  back_title_margin_top: string;
+  back_title_margin_bottom: string;
+  back_title_margin_left: string;
+  back_title_margin_right: string;
+  
+  back_content_size: string;
+  back_content_color: string;
+  back_content_align: string;
+  back_content_position: string;
+  back_content_margin_top: string;
+  back_content_margin_bottom: string;
+  back_content_margin_left: string;
+  back_content_margin_right: string;
+  
+  back_button_size: string;
+  back_button_color: string;
+  back_button_position: string;
+  back_button_align: string;
+  back_button_margin_top: string;
+  back_button_margin_bottom: string;
+  back_button_margin_left: string;
+  back_button_margin_right: string;
+  
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CardStyleCreate {
+  name: string;
+  description?: string;
+  card_type?: string;
+  is_default?: boolean;
+  
+  // 앞면 레이아웃 설정
+  front_layout?: string;
+  
+  // 앞면 문제 영역 스타일
+  front_title_size?: string;
+  front_title_color?: string;
+  front_title_align?: string;
+  front_title_margin_top?: string;
+  front_title_margin_bottom?: string;
+  front_title_margin_left?: string;
+  front_title_margin_right?: string;
+  
+  // 앞면 답변 영역 스타일
+  front_content_size?: string;
+  front_content_color?: string;
+  front_content_align?: string;
+  front_content_margin_top?: string;
+  front_content_margin_bottom?: string;
+  front_content_margin_left?: string;
+  front_content_margin_right?: string;
+  
+  front_button_size?: string;
+  front_button_color?: string;
+  front_button_position?: string;
+  front_button_align?: string;
+  
+  // 뒷면 스타일 설정
+  back_layout?: string;
+  
+  back_title_size?: string;
+  back_title_color?: string;
+  back_title_align?: string;
+  back_title_position?: string;
+  back_title_margin_top?: string;
+  back_title_margin_bottom?: string;
+  back_title_margin_left?: string;
+  back_title_margin_right?: string;
+  
+  back_content_size?: string;
+  back_content_color?: string;
+  back_content_align?: string;
+  back_content_position?: string;
+  back_content_margin_top?: string;
+  back_content_margin_bottom?: string;
+  back_content_margin_left?: string;
+  back_content_margin_right?: string;
+  
+  back_button_size?: string;
+  back_button_color?: string;
+  back_button_position?: string;
+  back_button_align?: string;
+  back_button_margin_top?: string;
+  back_button_margin_bottom?: string;
+  back_button_margin_left?: string;
+  back_button_margin_right?: string;
+}
+
+export interface CardStyleUpdate {
+  name?: string;
+  description?: string;
+  card_type?: string;
+  is_default?: boolean;
+  
+  // 앞면 레이아웃 설정
+  front_layout?: string;
+  
+  // 앞면 문제 영역 스타일
+  front_title_size?: string;
+  front_title_color?: string;
+  front_title_align?: string;
+  front_title_margin_top?: string;
+  front_title_margin_bottom?: string;
+  front_title_margin_left?: string;
+  front_title_margin_right?: string;
+  
+  // 앞면 답변 영역 스타일
+  front_content_size?: string;
+  front_content_color?: string;
+  front_content_align?: string;
+  front_content_margin_top?: string;
+  front_content_margin_bottom?: string;
+  front_content_margin_left?: string;
+  front_content_margin_right?: string;
+  
+  front_button_size?: string;
+  front_button_color?: string;
+  front_button_position?: string;
+  front_button_align?: string;
+  
+  // 뒷면 스타일 설정
+  back_layout?: string;
+  
+  back_title_size?: string;
+  back_title_color?: string;
+  back_title_align?: string;
+  back_title_position?: string;
+  back_title_margin_top?: string;
+  back_title_margin_bottom?: string;
+  back_title_margin_left?: string;
+  back_title_margin_right?: string;
+  
+  back_content_size?: string;
+  back_content_color?: string;
+  back_content_align?: string;
+  back_content_position?: string;
+  back_content_margin_top?: string;
+  back_content_margin_bottom?: string;
+  back_content_margin_left?: string;
+  back_content_margin_right?: string;
+  
+  back_button_size?: string;
+  back_button_color?: string;
+  back_button_position?: string;
+  back_button_align?: string;
+  back_button_margin_top?: string;
+  back_button_margin_bottom?: string;
+  back_button_margin_left?: string;
+  back_button_margin_right?: string;
+}
+
+export interface CardStyleListResponse {
+  items: CardStyle[];
+  meta: {
+    offset: number;
+    limit: number;
+    total: number;
+  };
+}
+
+export async function fetchCardStyles(offset = 0, limit = 20, cardType?: string): Promise<CardStyleListResponse> {
+  const { data } = await api.get<CardStyleListResponse>('/card-styles', {
+    params: { offset, limit, card_type: cardType },
+  });
+  return data;
+}
+
+export async function fetchCardStyle(id: number): Promise<CardStyle> {
+  const { data } = await api.get<CardStyle>(`/card-styles/${id}`);
+  return data;
+}
+
+export async function fetchDefaultCardStyle(): Promise<CardStyle> {
+  const { data } = await api.get<CardStyle>('/card-styles/default');
+  return data;
+}
+
+export async function fetchCardStyleByType(cardType: string): Promise<CardStyle> {
+  const { data } = await api.get<CardStyle>(`/card-styles/by-type/${cardType}`);
+  return data;
+}
+
+export async function createCardStyle(cardStyle: CardStyleCreate): Promise<CardStyle> {
+  const { data } = await api.post<CardStyle>('/card-styles', cardStyle);
+  return data;
+}
+
+export async function updateCardStyle(id: number, cardStyle: CardStyleUpdate): Promise<CardStyle> {
+  const { data } = await api.patch<CardStyle>(`/card-styles/${id}`, cardStyle);
+  return data;
+}
+
+export async function deleteCardStyle(id: number): Promise<void> {
+  await api.delete(`/card-styles/${id}`);
+}
+
