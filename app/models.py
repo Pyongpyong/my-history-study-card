@@ -88,23 +88,10 @@ class Content(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    highlights: Mapped[list["Highlight"]] = relationship(
-        "Highlight", back_populates="content", cascade="all, delete-orphan", passive_deletes=True
-    )
     quizzes: Mapped[list["Quiz"]] = relationship(
         "Quiz", back_populates="content", cascade="all, delete-orphan", passive_deletes=True
     )
     owner: Mapped[Optional[User]] = relationship("User", back_populates="contents")
-
-
-class Highlight(Base):
-    __tablename__ = "highlights"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    content_id: Mapped[int] = mapped_column(Integer, ForeignKey("contents.id", ondelete="CASCADE"), index=True)
-    text: Mapped[str] = mapped_column(Text, nullable=False)
-
-    content: Mapped[Content] = relationship("Content", back_populates="highlights")
 
 
 class Quiz(Base):

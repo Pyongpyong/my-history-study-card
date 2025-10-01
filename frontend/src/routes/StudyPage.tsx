@@ -194,7 +194,7 @@ export default function StudyPage() {
       }
     };
     load();
-  }, [id, sessionId, userId, user?.selected_helper_id, user?.selected_helper, location, navigate]);
+  }, [id, sessionId, userId, location.pathname]);
 
   const score = useMemo(() => results.filter((item) => item?.correct).length, [results]);
 
@@ -281,11 +281,8 @@ export default function StudyPage() {
       ...(Object.keys(answerPayload).length ? { answers: answerPayload } : {}),
     })
       .then(async () => {
-        try {
-          await refresh();
-        } catch (err) {
-          console.error('사용자 정보 갱신 실패', err);
-        }
+        // refresh()를 호출하지 않음 - 학습 중 상태 리셋 방지
+        // 포인트 업데이트는 학습 완료 시에만 필요
       })
       .catch((err) => {
         console.error('실시간 학습 결과 저장 실패', err);

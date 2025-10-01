@@ -41,6 +41,7 @@ from .crud import (
     get_default_card_deck,
     get_default_card_style,
     get_learning_helper,
+    get_public_study_session,
     get_quiz,
     get_study_session,
     get_user_by_api_key,
@@ -57,9 +58,12 @@ from .crud import (
     list_public_study_sessions,
     list_rewards,
     list_study_sessions,
+    resolve_helper_for_user,
+    set_user_helper,
     update_card_deck,
     update_card_style,
     update_content,
+    update_helper_variant,
     update_learning_helper,
     update_quiz,
     update_reward,
@@ -1211,6 +1215,7 @@ def update_card_style_endpoint(
     current_user: User = Depends(get_current_admin),
 ):
     """카드 스타일을 업데이트합니다. (관리자 전용)"""
+    print(f"Received payload: {payload.model_dump()}")
     card_style = update_card_style(db, card_style_id, payload)
     if not card_style:
         raise HTTPException(status_code=404, detail="Card style not found")

@@ -22,7 +22,6 @@ export default function ContentDetailPage() {
   const { user } = useAuth();
   const [content, setContent] = useState<ContentDetail | null>(null);
   const [cards, setCards] = useState<any[]>([]);
-  const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [studySessions, setStudySessions] = useState<StudySession[]>([]);
@@ -109,13 +108,6 @@ export default function ContentDetailPage() {
     }
   };
 
-  const displayContent = content
-    ? expanded
-      ? content.content
-      : content.content.length > 300
-      ? `${content.content.slice(0, 300)}…`
-      : content.content
-    : '';
 
   const chronologyEvents = content?.chronology?.events
     ? [...content.chronology.events].sort((a, b) => a.year - b.year)
@@ -332,24 +324,8 @@ export default function ContentDetailPage() {
           ) : null}
         </header>
         <article className="mt-4 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
-          {displayContent}
+          {content.content}
         </article>
-        {content.content.length > 300 ? (
-          <button
-            type="button"
-            onClick={() => setExpanded((prev) => !prev)}
-            className="mt-2 text-xs font-semibold text-primary-600 hover:text-primary-700"
-          >
-            {expanded ? '접기' : '더 보기'}
-          </button>
-        ) : null}
-        {content.highlights?.length ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {content.highlights.map((highlight: string) => (
-              <Badge key={highlight}>{highlight}</Badge>
-            ))}
-          </div>
-        ) : null}
         {content.keywords?.length ? (
           <div className="mt-4 space-y-2">
             <span className="text-sm font-semibold text-primary-600">키워드</span>

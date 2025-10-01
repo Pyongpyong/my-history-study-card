@@ -243,8 +243,6 @@ class EraEntry(BaseModel):
 class ImportPayload(BaseModel):
     title: str
     content: str
-    highlights: List[str] = Field(default_factory=list)
-    tags: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
     timeline: List[TimelineEntry] = Field(default_factory=list)
     categories: List[str] = Field(default_factory=list)
@@ -261,28 +259,6 @@ class ImportPayload(BaseModel):
         if not value or not value.strip():
             raise ValueError("field must not be empty")
         return value
-
-    @field_validator("highlights")
-    @classmethod
-    def validate_highlights(cls, value: List[str]) -> List[str]:
-        if not (0 <= len(value) <= 200):
-            raise ValueError("highlights must contain between 0 and 200 entries")
-        for item in value:
-            if not item or not item.strip():
-                raise ValueError("highlight entries must be non-empty strings")
-        return value
-
-    @field_validator("tags")
-    @classmethod
-    def validate_tags(cls, value: List[str]) -> List[str]:
-        normalized = []
-        for item in value:
-            if not item or not item.strip():
-                raise ValueError("tags entries must be non-empty strings")
-            candidate = item.strip()
-            if candidate not in normalized:
-                normalized.append(candidate)
-        return normalized
 
     @field_validator("keywords")
     @classmethod
@@ -343,15 +319,6 @@ class ImportPayload(BaseModel):
                 data.categories = [candidate]
         return data
 
-    @model_validator(mode="after")
-    def merge_legacy_tags(cls, data: "ImportPayload") -> "ImportPayload":
-        if data.tags:
-            for tag in data.tags:
-                if tag not in data.keywords:
-                    data.keywords.append(tag)
-            data.tags = []
-        return data
-
     @field_validator("eras", mode="before")
     @classmethod
     def parse_eras(cls, value):
@@ -390,7 +357,6 @@ class ContentOut(BaseModel):
     id: int
     title: str
     content: str
-    highlights: List[str]
     keywords: List[str]
     timeline: List[TimelineEntry]
     categories: List[str]
@@ -403,7 +369,6 @@ class ContentOut(BaseModel):
 class ContentUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
-    highlights: Optional[List[str]] = None
     keywords: Optional[List[str]] = None
     timeline: Optional[List[TimelineEntry]] = None
     category: Optional[str] = None
@@ -903,7 +868,12 @@ class CardStyleUpdate(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: Optional[str]) -> Optional[str]:
-        return value.strip() if value else None
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("name must not be empty")
+        return stripped
 
 
 class CardStyleOut(CardStyleBase):

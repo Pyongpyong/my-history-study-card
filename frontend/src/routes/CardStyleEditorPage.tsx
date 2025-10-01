@@ -88,17 +88,6 @@ const LAYOUT_OPTIONS = [
   { value: 'split', label: '상하단 정렬', description: '문제는 상단, 답변은 하단에 배치' },
 ];
 
-const MARGIN_OPTIONS = [
-  { value: '0', label: '0px' },
-  { value: '4', label: '4px' },
-  { value: '8', label: '8px' },
-  { value: '12', label: '12px' },
-  { value: '16', label: '16px' },
-  { value: '20', label: '20px' },
-  { value: '24', label: '24px' },
-  { value: '32', label: '32px' },
-];
-
 interface StyleFieldProps {
   label: string;
   value: string;
@@ -121,84 +110,6 @@ function StyleField({ label, value, onChange, options }: StyleFieldProps) {
           </option>
         ))}
       </select>
-    </div>
-  );
-}
-
-interface MarginFieldProps {
-  label: string;
-  top: string;
-  bottom: string;
-  left: string;
-  right: string;
-  onTopChange: (value: string) => void;
-  onBottomChange: (value: string) => void;
-  onLeftChange: (value: string) => void;
-  onRightChange: (value: string) => void;
-}
-
-function MarginField({ label, top, bottom, left, right, onTopChange, onBottomChange, onLeftChange, onRightChange }: MarginFieldProps) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-slate-700 mb-2">{label}</label>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="block text-xs text-slate-600 mb-1">상단</label>
-          <select
-            value={top}
-            onChange={(e) => onTopChange(e.target.value)}
-            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          >
-            {MARGIN_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-slate-600 mb-1">하단</label>
-          <select
-            value={bottom}
-            onChange={(e) => onBottomChange(e.target.value)}
-            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          >
-            {MARGIN_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-slate-600 mb-1">좌측</label>
-          <select
-            value={left}
-            onChange={(e) => onLeftChange(e.target.value)}
-            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          >
-            {MARGIN_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-slate-600 mb-1">우측</label>
-          <select
-            value={right}
-            onChange={(e) => onRightChange(e.target.value)}
-            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          >
-            {MARGIN_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
     </div>
   );
 }
@@ -442,9 +353,29 @@ export default function CardStyleEditorPage() {
 
       // 저장 성공 후 현재 페이지에 머물기 (관리자 페이지로 이동하지 않음)
       // navigate('/admin');
-    } catch (err) {
+    } catch (err: any) {
       console.error('카드 스타일 저장 실패:', err);
-      setError('카드 스타일 저장에 실패했습니다.');
+      console.error('에러 응답:', err.response);
+      console.error('에러 상세:', err.response?.data);
+      
+      // 상세 에러 메시지 구성
+      let errorMessage = '카드 스타일 저장에 실패했습니다.';
+      if (err.response?.data?.detail) {
+        if (Array.isArray(err.response.data.detail)) {
+          // Pydantic 검증 에러 (배열 형태)
+          errorMessage = err.response.data.detail.map((e: any) => 
+            `${e.loc?.join('.')} : ${e.msg}`
+          ).join(', ');
+        } else if (typeof err.response.data.detail === 'string') {
+          // 문자열 에러 메시지
+          errorMessage = err.response.data.detail;
+        } else {
+          // 객체 형태 에러
+          errorMessage = JSON.stringify(err.response.data.detail);
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -672,17 +603,53 @@ export default function CardStyleEditorPage() {
                         options={TEXT_ALIGNS}
                       />
                     </div>
-                    <MarginField
-                      label="문제 영역 마진"
-                      top={cardStyle.front_title_margin_top || '0'}
-                      bottom={cardStyle.front_title_margin_bottom || '16'}
-                      left={cardStyle.front_title_margin_left || '0'}
-                      right={cardStyle.front_title_margin_right || '0'}
-                      onTopChange={(value) => updateCardStyleField('front_title_margin_top', value)}
-                      onBottomChange={(value) => updateCardStyleField('front_title_margin_bottom', value)}
-                      onLeftChange={(value) => updateCardStyleField('front_title_margin_left', value)}
-                      onRightChange={(value) => updateCardStyleField('front_title_margin_right', value)}
-                    />
+                    <h4 className="text-sm font-medium text-slate-700 mb-2 mt-4">문제 영역 마진</h4>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <label className="block text-xs text-slate-600 mb-1">상단</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={cardStyle.front_title_margin_top || '0'}
+                          onChange={(e) => updateCardStyleField('front_title_margin_top', e.target.value || '0')}
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-600 mb-1">하단</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={cardStyle.front_title_margin_bottom || '16'}
+                          onChange={(e) => updateCardStyleField('front_title_margin_bottom', e.target.value || '0')}
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-600 mb-1">좌측</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={cardStyle.front_title_margin_left || '0'}
+                          onChange={(e) => updateCardStyleField('front_title_margin_left', e.target.value || '0')}
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-600 mb-1">우측</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={cardStyle.front_title_margin_right || '0'}
+                          onChange={(e) => updateCardStyleField('front_title_margin_right', e.target.value || '0')}
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
 
                     <h3 className="text-md font-medium text-slate-900 mb-3 mt-6">답변 영역 스타일</h3>
                     <div className="grid grid-cols-2 gap-4 mb-4">
@@ -705,17 +672,53 @@ export default function CardStyleEditorPage() {
                         options={TEXT_ALIGNS}
                       />
                     </div>
-                    <MarginField
-                      label="답변 영역 마진"
-                      top={cardStyle.front_content_margin_top || '0'}
-                      bottom={cardStyle.front_content_margin_bottom || '0'}
-                      left={cardStyle.front_content_margin_left || '0'}
-                      right={cardStyle.front_content_margin_right || '0'}
-                      onTopChange={(value) => updateCardStyleField('front_content_margin_top', value)}
-                      onBottomChange={(value) => updateCardStyleField('front_content_margin_bottom', value)}
-                      onLeftChange={(value) => updateCardStyleField('front_content_margin_left', value)}
-                      onRightChange={(value) => updateCardStyleField('front_content_margin_right', value)}
-                    />
+                    <h4 className="text-sm font-medium text-slate-700 mb-2 mt-4">답변 영역 마진</h4>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <label className="block text-xs text-slate-600 mb-1">상단</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={cardStyle.front_content_margin_top || '0'}
+                          onChange={(e) => updateCardStyleField('front_content_margin_top', e.target.value || '0')}
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-600 mb-1">하단</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={cardStyle.front_content_margin_bottom || '0'}
+                          onChange={(e) => updateCardStyleField('front_content_margin_bottom', e.target.value || '0')}
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-600 mb-1">좌측</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={cardStyle.front_content_margin_left || '0'}
+                          onChange={(e) => updateCardStyleField('front_content_margin_left', e.target.value || '0')}
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-600 mb-1">우측</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={cardStyle.front_content_margin_right || '0'}
+                          onChange={(e) => updateCardStyleField('front_content_margin_right', e.target.value || '0')}
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
 
                     <h3 className="text-md font-medium text-slate-900 mb-3 mt-6">버튼 스타일</h3>
                     <div className="grid grid-cols-2 gap-4">
@@ -788,8 +791,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_title_margin_top || 0}
-                          onChange={(e) => updateCardStyleField('back_title_margin_top', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_title_margin_top || '0'}
+                          onChange={(e) => updateCardStyleField('back_title_margin_top', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>
@@ -799,8 +802,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_title_margin_bottom || 16}
-                          onChange={(e) => updateCardStyleField('back_title_margin_bottom', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_title_margin_bottom || '16'}
+                          onChange={(e) => updateCardStyleField('back_title_margin_bottom', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>
@@ -810,8 +813,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_title_margin_left || 0}
-                          onChange={(e) => updateCardStyleField('back_title_margin_left', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_title_margin_left || '0'}
+                          onChange={(e) => updateCardStyleField('back_title_margin_left', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>
@@ -821,8 +824,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_title_margin_right || 0}
-                          onChange={(e) => updateCardStyleField('back_title_margin_right', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_title_margin_right || '0'}
+                          onChange={(e) => updateCardStyleField('back_title_margin_right', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>
@@ -858,8 +861,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_content_margin_top || 0}
-                          onChange={(e) => updateCardStyleField('back_content_margin_top', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_content_margin_top || '0'}
+                          onChange={(e) => updateCardStyleField('back_content_margin_top', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>
@@ -869,8 +872,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_content_margin_bottom || 0}
-                          onChange={(e) => updateCardStyleField('back_content_margin_bottom', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_content_margin_bottom || '0'}
+                          onChange={(e) => updateCardStyleField('back_content_margin_bottom', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>
@@ -880,8 +883,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_content_margin_left || 0}
-                          onChange={(e) => updateCardStyleField('back_content_margin_left', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_content_margin_left || '0'}
+                          onChange={(e) => updateCardStyleField('back_content_margin_left', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>
@@ -891,8 +894,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_content_margin_right || 0}
-                          onChange={(e) => updateCardStyleField('back_content_margin_right', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_content_margin_right || '0'}
+                          onChange={(e) => updateCardStyleField('back_content_margin_right', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>
@@ -928,8 +931,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_button_margin_top || 0}
-                          onChange={(e) => updateCardStyleField('back_button_margin_top', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_button_margin_top || '0'}
+                          onChange={(e) => updateCardStyleField('back_button_margin_top', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>
@@ -939,8 +942,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_button_margin_bottom || 0}
-                          onChange={(e) => updateCardStyleField('back_button_margin_bottom', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_button_margin_bottom || '0'}
+                          onChange={(e) => updateCardStyleField('back_button_margin_bottom', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>
@@ -950,8 +953,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_button_margin_left || 0}
-                          onChange={(e) => updateCardStyleField('back_button_margin_left', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_button_margin_left || '0'}
+                          onChange={(e) => updateCardStyleField('back_button_margin_left', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>
@@ -961,8 +964,8 @@ export default function CardStyleEditorPage() {
                           type="number"
                           min="0"
                           max="100"
-                          value={cardStyle.back_button_margin_right || 0}
-                          onChange={(e) => updateCardStyleField('back_button_margin_right', parseInt(e.target.value) || 0)}
+                          value={cardStyle.back_button_margin_right || '0'}
+                          onChange={(e) => updateCardStyleField('back_button_margin_right', e.target.value || '0')}
                           className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:border-primary-500 focus:outline-none"
                         />
                       </div>

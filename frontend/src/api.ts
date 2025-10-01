@@ -83,7 +83,7 @@ export interface EraEntry {
 }
 
 export interface ContentDetail extends ContentItem {
-  highlights: string[];
+  // highlights field removed
 }
 
 export type QuizType = 'MCQ' | 'SHORT' | 'OX' | 'CLOZE' | 'ORDER' | 'MATCH';
@@ -99,11 +99,10 @@ export interface AiMeta {
 
 export interface AiGenerateRequest {
   content: string;
-  highlights: string[];
   types: QuizType[];
   difficulty: AiDifficulty;
   no_cache?: boolean;
-  focus_mode?: 'highlight' | 'timeline';
+  focus_mode?: 'timeline';
   timeline?: AiChronologyEvent[];
 }
 
@@ -473,7 +472,6 @@ export async function updateContentRequest(
   updates: Partial<{
     title: string;
     content: string;
-    highlights: string[];
     chronology: any;
     keywords: string[];
     timeline: TimelineEntry[] | null;

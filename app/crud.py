@@ -13,7 +13,6 @@ from .models import (
     CardDeck,
     CardStyle,
     Content,
-    Highlight,
     LearningHelper,
     Quiz,
     QuizAttempt,
@@ -536,14 +535,14 @@ def create_content_with_related(
     session.add(content)
     session.flush()
 
-    highlight_models = [Highlight(content_id=content.id, text=text.strip()) for text in payload.highlights]
-    if highlight_models:
-        session.add_all(highlight_models)
-
     quiz_models: list[tuple[Quiz, list[str]]] = []
     for card in payload.cards:
         card_dict = card.model_dump(mode="json", exclude_none=True)
         card_tags = _quiz_tags_for_card(card_dict, None)
+        # 콘텐츠 제목을 태그에 디폴트로 추가
+        content_title = content.title.strip()
+        if content_title and content_title not in card_tags:
+            card_tags.insert(0, content_title)
         card_dict["tags"] = card_tags
         quiz_visibility = _normalize_visibility(card_dict.pop("visibility", None), content_visibility)
         quiz_model = Quiz(
@@ -566,11 +565,10 @@ def create_content_with_related(
             session.add_all(tag_models)
 
     session.flush()
-    highlight_ids = [highlight.id for highlight in highlight_models]
     quiz_ids = [quiz.id for quiz, _ in quiz_models]
 
     session.commit()
-    return content.id, highlight_ids, quiz_ids
+    return content.id, [], quiz_ids
 
 
 def get_content(
@@ -578,11 +576,7 @@ def get_content(
     content_id: int,
     requester: Optional[User] = None,
 ) -> Optional[ContentOut]:
-    stmt = (
-        select(Content)
-        .options(selectinload(Content.highlights))
-        .where(Content.id == content_id)
-    )
+    stmt = select(Content).where(Content.id == content_id)
     content = session.execute(stmt).scalar_one_or_none()
     if content is None:
         return None
@@ -593,7 +587,7 @@ def get_content(
         id=content.id,
         title=content.title,
         content=content.body,
-        highlights=[highlight.text for highlight in content.highlights],
+        highlights=[],
         keywords=json_loads(content.keywords) if content.keywords else [],
         timeline=_deserialize_timeline(content.timeline),
         categories=_deserialize_categories(content.category),
@@ -611,9 +605,7 @@ def update_content(
     requester: User,
 ) -> Optional[ContentOut]:
     content = session.execute(
-        select(Content)
-        .options(selectinload(Content.highlights))
-        .where(Content.id == content_id)
+        select(Content).where(Content.id == content_id)
     ).scalar_one_or_none()
     if content is None:
         return None
@@ -674,13 +666,6 @@ def update_content(
             content.eras = _serialize_eras(entries)
     if "visibility" in data and data["visibility"] is not None:
         content.visibility = _normalize_visibility(data["visibility"], content.visibility)
-    if "highlights" in data and data["highlights"] is not None:
-        existing = session.execute(select(Highlight).where(Highlight.content_id == content_id)).scalars().all()
-        for highlight in existing:
-            session.delete(highlight)
-        new_highlights = [text.strip() for text in data["highlights"] if text and text.strip()]
-        if new_highlights:
-            session.add_all([Highlight(content_id=content_id, text=text) for text in new_highlights])
     session.commit()
     session.refresh(content)
     return get_content(session, content_id, requester)
@@ -720,7 +705,7 @@ def list_contents(
         count_stmt = count_stmt.where(*stmt_conditions)
     total = session.scalar(count_stmt) or 0
 
-    stmt: Select = select(Content).options(selectinload(Content.highlights))
+    stmt: Select = select(Content)
     if stmt_conditions:
         stmt = stmt.where(*stmt_conditions)
     stmt = stmt.order_by(ordering).offset((page - 1) * size).limit(size)
@@ -733,7 +718,7 @@ def list_contents(
                 id=item.id,
                 title=item.title,
                 content=item.body,
-                highlights=[highlight.text for highlight in item.highlights],
+                highlights=[],
                 keywords=json_loads(item.keywords) if item.keywords else [],
                 timeline=_deserialize_timeline(item.timeline),
                 categories=_deserialize_categories(item.category),
@@ -747,7 +732,7 @@ def list_contents(
 
 
 def export_contents(session: Session, requester: Optional[User]) -> list[dict]:
-    stmt = select(Content).options(selectinload(Content.highlights), selectinload(Content.quizzes))
+    stmt = select(Content).options(selectinload(Content.quizzes))
     if requester is None:
         stmt = stmt.where(Content.visibility == VisibilityEnum.PUBLIC)
     else:
@@ -776,8 +761,6 @@ def export_contents(session: Session, requester: Optional[User]) -> list[dict]:
             {
                 "title": item.title,
                 "content": item.body,
-                "highlights": [highlight.text for highlight in item.highlights],
-                "tags": sorted(tag_set),
                 "keywords": json_loads(item.keywords) if item.keywords else [],
                 "timeline": [entry.model_dump(exclude_none=True) for entry in _deserialize_timeline(item.timeline)],
                 "categories": _deserialize_categories(item.category),
