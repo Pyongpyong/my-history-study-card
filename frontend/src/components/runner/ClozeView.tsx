@@ -32,6 +32,40 @@ export default function ClozeView({ card, disabled, onSubmit, cardStyle }: Cloze
     : questionClass;
   const [values, setValues] = useState<Record<string, string>>({});
 
+  const inputClasses = cardStyle
+    ? [
+        'mx-1',
+        'w-24',
+        'rounded',
+        cardStyle.cloze_input_background_color || 'bg-transparent',
+        cardStyle.cloze_input_border_width || 'border-b',
+        cardStyle.cloze_input_border_color || 'border-primary-500',
+        cardStyle.cloze_input_font_size || 'text-base',
+        'text-center',
+        'text-primary-600',
+        'focus:outline-none',
+        cardStyle.cloze_input_underline_color || 'focus:border-primary-500',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : 'mx-1 w-24 rounded border-b border-primary-500 bg-transparent text-center text-sm text-primary-600 focus:outline-none';
+
+  const submitButtonClass = [
+    'mx-auto',
+    'block',
+    'rounded',
+    cardStyle?.cloze_button_size || 'px-4 py-2',
+    cardStyle?.cloze_button_color || 'bg-primary-600 text-white',
+    cardStyle?.cloze_button_font_size || 'text-sm',
+    'font-semibold',
+    'transition',
+    'hover:opacity-90',
+    'disabled:cursor-not-allowed',
+    'disabled:opacity-60',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   useEffect(() => {
     setValues({});
   }, [card.text]);
@@ -66,7 +100,7 @@ export default function ClozeView({ card, disabled, onSubmit, cardStyle }: Cloze
             value={values[key] ?? ''}
             onChange={(event) => setValues((prev) => ({ ...prev, [key]: event.target.value }))}
             disabled={disabled}
-            className="mx-1 w-24 rounded border-b border-primary-500 bg-transparent text-center text-sm text-primary-600 focus:outline-none"
+            className={inputClasses}
           />
         );
       });
@@ -79,7 +113,7 @@ export default function ClozeView({ card, disabled, onSubmit, cardStyle }: Cloze
       <button
         type="submit"
         disabled={disabled}
-        className="mx-auto block rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className={submitButtonClass}
       >
         제출
       </button>

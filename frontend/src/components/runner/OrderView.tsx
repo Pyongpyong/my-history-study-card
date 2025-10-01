@@ -37,6 +37,44 @@ export default function OrderView({ card, disabled, onSubmit, cardStyle }: Order
         .join(' ')
     : questionClass;
 
+  const itemBackground = cardStyle?.order_item_background_color || 'bg-white';
+  const itemBorderColor = cardStyle?.order_item_border_color || 'border-slate-300';
+  const itemBorderWidth = cardStyle?.order_item_border_width || 'border';
+  const itemGap = Number.parseInt(cardStyle?.order_item_gap ?? '8', 10) || 0;
+
+  const buttonClass = [
+    'mx-auto',
+    'block',
+    'rounded',
+    cardStyle?.order_button_size || 'px-4 py-2',
+    cardStyle?.order_button_color || 'bg-primary-600 text-white',
+    cardStyle?.order_button_font_size || 'text-sm',
+    'font-semibold',
+    'transition',
+    'hover:opacity-90',
+    'disabled:cursor-not-allowed',
+    'disabled:opacity-60',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const guideClasses = [
+    'inline-block',
+    'px-3',
+    'py-2',
+    'rounded',
+    'text-slate-600',
+    cardStyle?.order_guide_font_size || 'text-xs',
+    cardStyle?.order_guide_background_color || 'bg-transparent',
+    cardStyle?.order_guide_border_color && cardStyle.order_guide_border_color !== 'none'
+      ? `${cardStyle.order_guide_border_width || 'border'} ${cardStyle.order_guide_border_color}`
+      : cardStyle?.order_guide_border_color === 'none'
+      ? ''
+      : cardStyle?.order_guide_border_width || '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   useEffect(() => {
     setOrder(items.map((_, idx) => idx));
   }, [items]);
@@ -54,7 +92,24 @@ export default function OrderView({ card, disabled, onSubmit, cardStyle }: Order
     cleanupPreview();
     const preview = document.createElement('div');
     preview.textContent = text;
-    preview.className = 'rounded bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-lg border border-primary-400';
+    const previewClasses = [
+      'rounded',
+      'px-3',
+      'py-2',
+      'text-sm',
+      'font-semibold',
+      'text-slate-700',
+      'shadow-lg',
+      itemBackground,
+      itemBorderColor && itemBorderColor !== 'none'
+        ? `${itemBorderWidth || 'border'} ${itemBorderColor}`
+        : itemBorderColor === 'none'
+        ? ''
+        : itemBorderWidth || '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    preview.className = previewClasses;
     preview.style.position = 'absolute';
     preview.style.top = '-9999px';
     preview.style.left = '-9999px';
@@ -95,18 +150,33 @@ export default function OrderView({ card, disabled, onSubmit, cardStyle }: Order
   return (
     <div className="space-y-4 text-sm text-slate-900">
       <p className={titleClass}>올바른 순서를 맞춰보세요</p>
-      <p className="text-xs text-slate-500">항목을 드래그하여 순서를 변경한 뒤, 순서 확인 버튼을 눌러주세요.</p>
-      <ul className="space-y-2">
+      <div className={`w-full ${cardStyle?.order_guide_align || 'text-left'}`}>
+        <span className={guideClasses}>항목을 드래그하여 순서를 변경한 뒤, 순서 확인 버튼을 눌러주세요.</span>
+      </div>
+      <ul
+        className="flex flex-col"
+        style={{ gap: `${itemGap}px` }}
+      >
         {order.map((originalIndex, position) => (
           <li
             key={`${items[originalIndex]}-${originalIndex}`}
-            className={`flex items-center justify-center rounded border px-3 py-2 transition ${
+            className={[
+              'flex items-center justify-center rounded px-3 py-2 transition',
+              disabled ? 'cursor-default' : 'cursor-grab hover:border-primary-500',
+              itemBackground,
+              itemBorderColor && itemBorderColor !== 'none'
+                ? `${itemBorderWidth || 'border'} ${itemBorderColor}`
+                : itemBorderColor === 'none'
+                ? ''
+                : itemBorderWidth || '',
               dragIndex === position
-                ? 'cursor-grabbing border-primary-500 bg-primary-100'
+                ? 'border-primary-500 bg-primary-100'
                 : hoverIndex === position
                 ? 'border-primary-500 bg-primary-50'
-                : 'border-slate-300 bg-white'
-            } ${disabled ? 'cursor-default' : 'cursor-grab hover:border-primary-500'}`}
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             draggable={!disabled}
             onDragStart={(event) => {
               if (disabled) return;
@@ -149,7 +219,7 @@ export default function OrderView({ card, disabled, onSubmit, cardStyle }: Order
         type="button"
         onClick={handleSubmit}
         disabled={disabled}
-        className="mx-auto block rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className={buttonClass}
       >
         순서 확인
       </button>

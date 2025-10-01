@@ -37,6 +37,29 @@ export default function ShortView({ card, disabled, onSubmit, cardStyle }: Short
         .join(' ')
     : questionClass;
 
+  const inputClasses = cardStyle
+    ? [
+        'w-full',
+        'rounded',
+        cardStyle.short_input_border_color && cardStyle.short_input_border_color !== 'none'
+          ? `${cardStyle.short_input_border_width || 'border'} ${cardStyle.short_input_border_color}`
+          : cardStyle.short_input_border_color === 'none'
+          ? ''
+          : (cardStyle.short_input_border_width || 'border border-slate-300'),
+        cardStyle.short_input_background_color || 'bg-white',
+        cardStyle.short_input_height || 'h-12',
+        'px-4',
+        'py-2',
+        'text-sm',
+        'focus:border-primary-500',
+        'focus:outline-none',
+        'focus:ring-1',
+        'focus:ring-primary-500',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : 'w-full rounded border border-slate-300 bg-white px-4 py-2';
+
   useEffect(() => {
     setValue('');
   }, [card.prompt]);
@@ -56,7 +79,7 @@ export default function ShortView({ card, disabled, onSubmit, cardStyle }: Short
         value={value}
         disabled={disabled}
         onChange={(event) => setValue(event.target.value)}
-        className="w-full rounded border border-slate-300 bg-white px-4 py-2"
+        className={inputClasses}
         placeholder="정답을 입력하고 Enter 키를 누르세요"
       />
       <button

@@ -111,7 +111,18 @@ def _insert_default_card_style() -> None:
                     front_title_background_color, front_title_border_color, front_title_border_width,
                     front_content_size, front_content_color, front_content_align,
                     front_content_margin_top, front_content_margin_bottom, front_content_margin_left, front_content_margin_right,
-                    front_button_size, front_button_color, front_button_position, front_button_align,
+                    mcq_option_background_color, mcq_option_border_color, mcq_option_border_width, mcq_option_gap,
+                    short_input_height, short_input_background_color, short_input_border_color, short_input_border_width,
+                    ox_button_o_size, ox_button_o_background_color, ox_button_o_radius, ox_button_o_border_color, ox_button_o_border_width,
+                    ox_button_x_size, ox_button_x_background_color, ox_button_x_radius, ox_button_x_border_color, ox_button_x_border_width, ox_button_gap,
+                    cloze_input_font_size, cloze_input_background_color, cloze_input_border_color, cloze_input_border_width, cloze_input_underline_color,
+                    cloze_button_size, cloze_button_color, cloze_button_font_size,
+                    order_item_background_color, order_item_border_color, order_item_border_width, order_item_gap,
+                    order_button_size, order_button_color, order_button_font_size,
+                    order_guide_align, order_guide_font_size, order_guide_background_color, order_guide_border_color, order_guide_border_width,
+                    match_item_background_color, match_item_border_color, match_item_border_width, match_item_gap, match_line_color,
+                    match_button_size, match_button_color, match_button_font_size,
+                    match_guide_align, match_guide_font_size, match_guide_background_color, match_guide_border_color, match_guide_border_width,
                     back_title_size, back_title_color, back_title_align, back_title_position,
                     back_title_margin_top, back_title_margin_bottom, back_title_margin_left, back_title_margin_right,
                     back_content_size, back_content_color, back_content_align, back_content_position,
@@ -131,7 +142,18 @@ def _insert_default_card_style() -> None:
                     'bg-white', 'none', 'border',
                     'text-sm', 'text-slate-900', 'text-left',
                     '0', '0', '0', '0',
-                    'px-4 py-2', 'bg-primary-600 text-white', 'mt-auto', 'text-center',
+                    'bg-white', 'none', 'border', '8',
+                    'h-12', 'bg-white', 'border-slate-300', 'border',
+                    'h-20 w-20 text-xl', 'bg-emerald-700 text-white', 'rounded-full', 'none', 'border',
+                    'h-20 w-20 text-xl', 'bg-rose-700 text-white', 'rounded-full', 'none', 'border', '24',
+                    'text-base', 'bg-transparent', 'border-primary-500', 'border-b', 'focus:border-primary-500',
+                    'px-4 py-2', 'bg-primary-600 text-white', 'text-sm',
+                    'bg-white', 'border-slate-300', 'border', '8',
+                    'px-4 py-2', 'bg-primary-600 text-white', 'text-sm',
+                    'text-left', 'text-xs', 'bg-transparent', 'none', 'border',
+                    'bg-white', 'border-slate-200', 'border', '8', 'default',
+                    'px-4 py-2', 'bg-primary-600 text-white', 'text-sm',
+                    'text-left', 'text-xs', 'bg-transparent', 'none', 'border',
                     'text-lg', 'text-primary-600', 'text-center', 'mb-4',
                     '0', '16', '0', '0',
                     'text-sm', 'text-slate-700', 'text-left', 'mb-4',
@@ -165,39 +187,72 @@ def _insert_default_learning_helper() -> None:
 
 def _ensure_card_style_columns() -> None:
     """Ensure newly introduced card style columns exist for backward compatibility."""
+    required_columns = [
+        ("front_title_background_color", "VARCHAR(50) NOT NULL DEFAULT 'bg-white' AFTER front_title_margin_right"),
+        ("front_title_border_color", "VARCHAR(50) NOT NULL DEFAULT 'none' AFTER front_title_background_color"),
+        ("front_title_border_width", "VARCHAR(30) NOT NULL DEFAULT 'border' AFTER front_title_border_color"),
+        ("mcq_option_background_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-white' AFTER front_content_margin_right"),
+        ("mcq_option_border_color", "VARCHAR(50) NOT NULL DEFAULT 'none' AFTER mcq_option_background_color"),
+        ("mcq_option_border_width", "VARCHAR(30) NOT NULL DEFAULT 'border' AFTER mcq_option_border_color"),
+        ("mcq_option_gap", "VARCHAR(20) NOT NULL DEFAULT '8' AFTER mcq_option_border_width"),
+        ("short_input_height", "VARCHAR(30) NOT NULL DEFAULT 'h-12' AFTER mcq_option_gap"),
+        ("short_input_background_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-white' AFTER short_input_height"),
+        ("short_input_border_color", "VARCHAR(50) NOT NULL DEFAULT 'border-slate-300' AFTER short_input_background_color"),
+        ("short_input_border_width", "VARCHAR(30) NOT NULL DEFAULT 'border' AFTER short_input_border_color"),
+        ("ox_button_o_size", "VARCHAR(100) NOT NULL DEFAULT 'h-20 w-20 text-xl' AFTER short_input_border_width"),
+        ("ox_button_o_background_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-emerald-700 text-white' AFTER ox_button_o_size"),
+        ("ox_button_o_radius", "VARCHAR(50) NOT NULL DEFAULT 'rounded-full' AFTER ox_button_o_background_color"),
+        ("ox_button_o_border_color", "VARCHAR(50) NOT NULL DEFAULT 'none' AFTER ox_button_o_radius"),
+        ("ox_button_o_border_width", "VARCHAR(30) NOT NULL DEFAULT 'border' AFTER ox_button_o_border_color"),
+        ("ox_button_x_size", "VARCHAR(100) NOT NULL DEFAULT 'h-20 w-20 text-xl' AFTER ox_button_o_border_width"),
+        ("ox_button_x_background_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-rose-700 text-white' AFTER ox_button_x_size"),
+        ("ox_button_x_radius", "VARCHAR(50) NOT NULL DEFAULT 'rounded-full' AFTER ox_button_x_background_color"),
+        ("ox_button_x_border_color", "VARCHAR(50) NOT NULL DEFAULT 'none' AFTER ox_button_x_radius"),
+        ("ox_button_x_border_width", "VARCHAR(30) NOT NULL DEFAULT 'border' AFTER ox_button_x_border_color"),
+        ("ox_button_gap", "VARCHAR(20) NOT NULL DEFAULT '24' AFTER ox_button_x_border_width"),
+        ("cloze_input_font_size", "VARCHAR(30) NOT NULL DEFAULT 'text-base' AFTER ox_button_gap"),
+        ("cloze_input_background_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-transparent' AFTER cloze_input_font_size"),
+        ("cloze_input_border_color", "VARCHAR(50) NOT NULL DEFAULT 'border-primary-500' AFTER cloze_input_background_color"),
+        ("cloze_input_border_width", "VARCHAR(30) NOT NULL DEFAULT 'border-b' AFTER cloze_input_border_color"),
+        ("cloze_input_underline_color", "VARCHAR(50) NOT NULL DEFAULT 'focus:border-primary-500' AFTER cloze_input_border_width"),
+        ("cloze_button_size", "VARCHAR(50) NOT NULL DEFAULT 'px-4 py-2' AFTER cloze_input_underline_color"),
+        ("cloze_button_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-primary-600 text-white' AFTER cloze_button_size"),
+        ("cloze_button_font_size", "VARCHAR(30) NOT NULL DEFAULT 'text-sm' AFTER cloze_button_color"),
+        ("order_item_background_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-white' AFTER cloze_button_font_size"),
+        ("order_item_border_color", "VARCHAR(50) NOT NULL DEFAULT 'border-slate-300' AFTER order_item_background_color"),
+        ("order_item_border_width", "VARCHAR(30) NOT NULL DEFAULT 'border' AFTER order_item_border_color"),
+        ("order_item_gap", "VARCHAR(20) NOT NULL DEFAULT '8' AFTER order_item_border_width"),
+        ("order_button_size", "VARCHAR(50) NOT NULL DEFAULT 'px-4 py-2' AFTER order_item_gap"),
+        ("order_button_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-primary-600 text-white' AFTER order_button_size"),
+        ("order_button_font_size", "VARCHAR(30) NOT NULL DEFAULT 'text-sm' AFTER order_button_color"),
+        ("order_guide_align", "VARCHAR(30) NOT NULL DEFAULT 'text-left' AFTER order_button_font_size"),
+        ("order_guide_font_size", "VARCHAR(30) NOT NULL DEFAULT 'text-xs' AFTER order_guide_align"),
+        ("order_guide_background_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-transparent' AFTER order_guide_font_size"),
+        ("order_guide_border_color", "VARCHAR(50) NOT NULL DEFAULT 'none' AFTER order_guide_background_color"),
+        ("order_guide_border_width", "VARCHAR(30) NOT NULL DEFAULT 'border' AFTER order_guide_border_color"),
+        ("match_item_background_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-white' AFTER order_guide_border_width"),
+        ("match_item_border_color", "VARCHAR(50) NOT NULL DEFAULT 'border-slate-200' AFTER match_item_background_color"),
+        ("match_item_border_width", "VARCHAR(30) NOT NULL DEFAULT 'border' AFTER match_item_border_color"),
+        ("match_item_gap", "VARCHAR(20) NOT NULL DEFAULT '8' AFTER match_item_border_width"),
+        ("match_line_color", "VARCHAR(50) NOT NULL DEFAULT 'default' AFTER match_item_gap"),
+        ("match_button_size", "VARCHAR(50) NOT NULL DEFAULT 'px-4 py-2' AFTER match_line_color"),
+        ("match_button_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-primary-600 text-white' AFTER match_button_size"),
+        ("match_button_font_size", "VARCHAR(30) NOT NULL DEFAULT 'text-sm' AFTER match_button_color"),
+        ("match_guide_align", "VARCHAR(30) NOT NULL DEFAULT 'text-left' AFTER match_button_font_size"),
+        ("match_guide_font_size", "VARCHAR(30) NOT NULL DEFAULT 'text-xs' AFTER match_guide_align"),
+        ("match_guide_background_color", "VARCHAR(100) NOT NULL DEFAULT 'bg-transparent' AFTER match_guide_font_size"),
+        ("match_guide_border_color", "VARCHAR(50) NOT NULL DEFAULT 'none' AFTER match_guide_background_color"),
+        ("match_guide_border_width", "VARCHAR(30) NOT NULL DEFAULT 'border' AFTER match_guide_border_color"),
+    ]
+
     with engine.begin() as connection:
-        background_column = connection.execute(
-            text("SHOW COLUMNS FROM card_styles LIKE 'front_title_background_color'")
-        ).fetchone()
-        if background_column is None:
-            connection.execute(
-                text(
-                    "ALTER TABLE card_styles "
-                    "ADD COLUMN front_title_background_color VARCHAR(50) NOT NULL DEFAULT 'bg-white' "
-                    "AFTER front_title_margin_right"
+        for column_name, definition in required_columns:
+            exists = connection.execute(
+                text(f"SHOW COLUMNS FROM card_styles LIKE '{column_name}'")
+            ).fetchone()
+            if exists is None:
+                connection.execute(
+                    text(
+                        f"ALTER TABLE card_styles ADD COLUMN {column_name} {definition}"
+                    )
                 )
-            )
-
-        border_column = connection.execute(
-            text("SHOW COLUMNS FROM card_styles LIKE 'front_title_border_color'")
-        ).fetchone()
-        if border_column is None:
-            connection.execute(
-                text(
-                    "ALTER TABLE card_styles "
-                    "ADD COLUMN front_title_border_color VARCHAR(50) NOT NULL DEFAULT 'none' "
-                    "AFTER front_title_background_color"
-                )
-            )
-
-        width_column = connection.execute(
-            text("SHOW COLUMNS FROM card_styles LIKE 'front_title_border_width'")
-        ).fetchone()
-        if width_column is None:
-            connection.execute(
-                text(
-                    "ALTER TABLE card_styles "
-                    "ADD COLUMN front_title_border_width VARCHAR(30) NOT NULL DEFAULT 'border' "
-                    "AFTER front_title_border_color"
-                )
-            )

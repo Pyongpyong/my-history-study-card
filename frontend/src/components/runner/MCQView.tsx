@@ -58,15 +58,30 @@ export default function MCQView({ card, disabled, onSubmit, cardStyle }: MCQView
     ? `${cardStyle.front_content_size} ${cardStyle.front_content_color}`
     : 'text-sm text-slate-900';
 
+  const optionBackground = cardStyle?.mcq_option_background_color || 'bg-white';
+  const optionBorderColor = cardStyle?.mcq_option_border_color || 'none';
+  const optionBorderWidth = cardStyle?.mcq_option_border_width || 'border';
+  const optionGap = Number.parseInt(cardStyle?.mcq_option_gap ?? '8', 10) || 0;
+
   return (
     <div className="space-y-4">
       <p className={titleClass}>{card.question ?? '질문 없음'}</p>
-      <div className={`grid gap-2 ${contentClass}`}>
+      <div
+        className={`grid ${contentClass}`}
+        style={{ gap: `${optionGap}px` }}
+      >
         {options.map((option, index) => {
           const isCorrect = index === Number(card.answer_index);
           const isSelected = index === selected;
 
-          let className = `flex items-center justify-center gap-3 px-3 py-2 ${cardStyle?.front_content_align || 'text-center'} transition-colors bg-white ${contentClass}`;
+          const borderClasses = optionBorderColor && optionBorderColor !== 'none'
+            ? `${optionBorderWidth || 'border'} ${optionBorderColor}`
+            : optionBorderColor === 'none'
+              ? ''
+              : optionBorderWidth || 'border';
+
+          let className = `flex items-center justify-center gap-3 px-3 py-2 ${cardStyle?.front_content_align || 'text-center'} transition-colors ${optionBackground} ${borderClasses} ${contentClass}`.trim();
+          className += ' disabled:cursor-not-allowed';
 
           if (disabled) {
             if (isCorrect) {

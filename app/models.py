@@ -270,13 +270,71 @@ class CardStyle(Base):
     front_content_margin_bottom: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
     front_content_margin_left: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
     front_content_margin_right: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
-    
-    # 앞면 버튼 스타일 (기존 유지)
-    front_button_size: Mapped[str] = mapped_column(String(50), nullable=False, default="px-4 py-2", server_default="'px-4 py-2'")
-    front_button_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-primary-600 text-white", server_default="'bg-primary-600 text-white'")
-    front_button_position: Mapped[str] = mapped_column(String(100), nullable=False, default="mt-auto", server_default="'mt-auto'")
-    front_button_align: Mapped[str] = mapped_column(String(50), nullable=False, default="text-center", server_default="'text-center'")
-    
+
+    # MCQ 카드 전용
+    mcq_option_background_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-white", server_default="'bg-white'")
+    mcq_option_border_color: Mapped[str] = mapped_column(String(50), nullable=False, default="none", server_default="'none'")
+    mcq_option_border_width: Mapped[str] = mapped_column(String(30), nullable=False, default="border", server_default="'border'")
+    mcq_option_gap: Mapped[str] = mapped_column(String(20), nullable=False, default="8", server_default="'8'")
+
+    # SHORT 카드 전용
+    short_input_height: Mapped[str] = mapped_column(String(30), nullable=False, default="h-12", server_default="'h-12'")
+    short_input_background_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-white", server_default="'bg-white'")
+    short_input_border_color: Mapped[str] = mapped_column(String(50), nullable=False, default="border-slate-300", server_default="'border-slate-300'")
+    short_input_border_width: Mapped[str] = mapped_column(String(30), nullable=False, default="border", server_default="'border'")
+
+    # OX 카드 전용
+    ox_button_o_size: Mapped[str] = mapped_column(String(100), nullable=False, default="h-20 w-20 text-xl", server_default="'h-20 w-20 text-xl'")
+    ox_button_o_background_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-emerald-700 text-white", server_default="'bg-emerald-700 text-white'")
+    ox_button_o_radius: Mapped[str] = mapped_column(String(50), nullable=False, default="rounded-full", server_default="'rounded-full'")
+    ox_button_o_border_color: Mapped[str] = mapped_column(String(50), nullable=False, default="none", server_default="'none'")
+    ox_button_o_border_width: Mapped[str] = mapped_column(String(30), nullable=False, default="border", server_default="'border'")
+    ox_button_x_size: Mapped[str] = mapped_column(String(100), nullable=False, default="h-20 w-20 text-xl", server_default="'h-20 w-20 text-xl'")
+    ox_button_x_background_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-rose-700 text-white", server_default="'bg-rose-700 text-white'")
+    ox_button_x_radius: Mapped[str] = mapped_column(String(50), nullable=False, default="rounded-full", server_default="'rounded-full'")
+    ox_button_x_border_color: Mapped[str] = mapped_column(String(50), nullable=False, default="none", server_default="'none'")
+    ox_button_x_border_width: Mapped[str] = mapped_column(String(30), nullable=False, default="border", server_default="'border'")
+    ox_button_gap: Mapped[str] = mapped_column(String(20), nullable=False, default="24", server_default="'24'")
+
+    # CLOZE 카드 전용
+    cloze_input_font_size: Mapped[str] = mapped_column(String(30), nullable=False, default="text-base", server_default="'text-base'")
+    cloze_input_background_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-transparent", server_default="'bg-transparent'")
+    cloze_input_border_color: Mapped[str] = mapped_column(String(50), nullable=False, default="border-primary-500", server_default="'border-primary-500'")
+    cloze_input_border_width: Mapped[str] = mapped_column(String(30), nullable=False, default="border-b", server_default="'border-b'")
+    cloze_input_underline_color: Mapped[str] = mapped_column(String(50), nullable=False, default="focus:border-primary-500", server_default="'focus:border-primary-500'")
+    cloze_button_size: Mapped[str] = mapped_column(String(50), nullable=False, default="px-4 py-2", server_default="'px-4 py-2'")
+    cloze_button_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-primary-600 text-white", server_default="'bg-primary-600 text-white'")
+    cloze_button_font_size: Mapped[str] = mapped_column(String(30), nullable=False, default="text-sm", server_default="'text-sm'")
+
+    # ORDER 카드 전용
+    order_item_background_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-white", server_default="'bg-white'")
+    order_item_border_color: Mapped[str] = mapped_column(String(50), nullable=False, default="border-slate-300", server_default="'border-slate-300'")
+    order_item_border_width: Mapped[str] = mapped_column(String(30), nullable=False, default="border", server_default="'border'")
+    order_item_gap: Mapped[str] = mapped_column(String(20), nullable=False, default="8", server_default="'8'")
+    order_button_size: Mapped[str] = mapped_column(String(50), nullable=False, default="px-4 py-2", server_default="'px-4 py-2'")
+    order_button_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-primary-600 text-white", server_default="'bg-primary-600 text-white'")
+    order_button_font_size: Mapped[str] = mapped_column(String(30), nullable=False, default="text-sm", server_default="'text-sm'")
+    order_guide_align: Mapped[str] = mapped_column(String(30), nullable=False, default="text-left", server_default="'text-left'")
+    order_guide_font_size: Mapped[str] = mapped_column(String(30), nullable=False, default="text-xs", server_default="'text-xs'")
+    order_guide_background_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-transparent", server_default="'bg-transparent'")
+    order_guide_border_color: Mapped[str] = mapped_column(String(50), nullable=False, default="none", server_default="'none'")
+    order_guide_border_width: Mapped[str] = mapped_column(String(30), nullable=False, default="border", server_default="'border'")
+
+    # MATCH 카드 전용
+    match_item_background_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-white", server_default="'bg-white'")
+    match_item_border_color: Mapped[str] = mapped_column(String(50), nullable=False, default="border-slate-200", server_default="'border-slate-200'")
+    match_item_border_width: Mapped[str] = mapped_column(String(30), nullable=False, default="border", server_default="'border'")
+    match_item_gap: Mapped[str] = mapped_column(String(20), nullable=False, default="8", server_default="'8'")
+    match_line_color: Mapped[str] = mapped_column(String(50), nullable=False, default="default", server_default="'default'")
+    match_button_size: Mapped[str] = mapped_column(String(50), nullable=False, default="px-4 py-2", server_default="'px-4 py-2'")
+    match_button_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-primary-600 text-white", server_default="'bg-primary-600 text-white'")
+    match_button_font_size: Mapped[str] = mapped_column(String(30), nullable=False, default="text-sm", server_default="'text-sm'")
+    match_guide_align: Mapped[str] = mapped_column(String(30), nullable=False, default="text-left", server_default="'text-left'")
+    match_guide_font_size: Mapped[str] = mapped_column(String(30), nullable=False, default="text-xs", server_default="'text-xs'")
+    match_guide_background_color: Mapped[str] = mapped_column(String(100), nullable=False, default="bg-transparent", server_default="'bg-transparent'")
+    match_guide_border_color: Mapped[str] = mapped_column(String(50), nullable=False, default="none", server_default="'none'")
+    match_guide_border_width: Mapped[str] = mapped_column(String(30), nullable=False, default="border", server_default="'border'")
+
     # 뒷면 스타일 설정
     back_layout: Mapped[str] = mapped_column(String(20), nullable=False, default="center", server_default="'center'")  # top, center, bottom, split
     

@@ -41,6 +41,7 @@ const TEXT_COLORS = [
 
 const BACKGROUND_COLORS = [
   { value: 'bg-white', label: '흰색 (기본)' },
+  { value: 'bg-transparent', label: '투명' },
   { value: 'bg-slate-50', label: '아주 연한 회색' },
   { value: 'bg-slate-100', label: '연한 회색' },
   { value: 'bg-slate-200', label: '밝은 회색' },
@@ -60,9 +61,13 @@ const BORDER_COLORS = [
   { value: 'border-slate-400', label: '진한 회색' },
   { value: 'border-primary-300', label: '연한 올리브' },
   { value: 'border-primary-500', label: '올리브' },
+  { value: 'border-primary-600', label: '진한 올리브' },
   { value: 'border-emerald-400', label: '초록' },
+  { value: 'border-emerald-500', label: '진한 초록' },
   { value: 'border-blue-400', label: '파랑' },
+  { value: 'border-blue-500', label: '진한 파랑' },
   { value: 'border-rose-400', label: '붉은색' },
+  { value: 'border-rose-500', label: '진한 붉은색' },
   { value: 'border-purple-400', label: '보라색' },
   { value: 'border-black', label: '검정' },
 ];
@@ -75,6 +80,78 @@ const BORDER_WIDTHS = [
   { value: 'border-[1px]', label: '1px' },
   { value: 'border-[3px]', label: '3px' },
   { value: 'border-[6px]', label: '6px' },
+];
+
+const INPUT_HEIGHTS = [
+  { value: 'h-10', label: '40px (h-10)' },
+  { value: 'h-12', label: '48px (h-12)' },
+  { value: 'h-14', label: '56px (h-14)' },
+  { value: 'h-16', label: '64px (h-16)' },
+  { value: 'h-auto', label: '자동 높이' },
+];
+
+const BUTTON_FONT_SIZES = [
+  { value: 'text-xs', label: '매우 작게 (12px)' },
+  { value: 'text-sm', label: '작게 (14px)' },
+  { value: 'text-base', label: '기본 (16px)' },
+  { value: 'text-lg', label: '크게 (18px)' },
+  { value: 'text-xl', label: '더 크게 (20px)' },
+];
+
+const OX_BUTTON_SIZES = [
+  { value: 'h-16 w-16 text-lg', label: '작게 (64px)' },
+  { value: 'h-20 w-20 text-xl', label: '기본 (80px)' },
+  { value: 'h-24 w-24 text-2xl', label: '크게 (96px)' },
+  { value: 'h-28 w-28 text-3xl', label: '매우 크게 (112px)' },
+];
+
+const BUTTON_RADIUS_OPTIONS = [
+  { value: 'rounded', label: '작은 라운드' },
+  { value: 'rounded-md', label: '중간 라운드' },
+  { value: 'rounded-lg', label: '큰 라운드' },
+  { value: 'rounded-xl', label: '아주 큰 라운드' },
+  { value: 'rounded-full', label: '완전 원형' },
+];
+
+const OX_O_COLOR_OPTIONS = [
+  { value: 'bg-emerald-700 text-white', label: '진한 초록' },
+  { value: 'bg-emerald-600 text-white', label: '초록' },
+  { value: 'bg-emerald-500 text-white', label: '밝은 초록' },
+  { value: 'bg-emerald-100 text-emerald-700', label: '연한 초록' },
+  { value: 'bg-white text-emerald-700', label: '흰색 배경' },
+];
+
+const OX_X_COLOR_OPTIONS = [
+  { value: 'bg-rose-700 text-white', label: '진한 붉은색' },
+  { value: 'bg-rose-600 text-white', label: '붉은색' },
+  { value: 'bg-rose-500 text-white', label: '밝은 붉은색' },
+  { value: 'bg-rose-100 text-rose-700', label: '연한 붉은색' },
+  { value: 'bg-white text-rose-700', label: '흰색 배경' },
+];
+
+const UNDERLINE_WIDTHS = [
+  { value: 'border-b', label: '얇게 (1px)' },
+  { value: 'border-b-2', label: '두껍게 (2px)' },
+  { value: 'border-b-4', label: '더 두껍게 (4px)' },
+  { value: 'border-b-0', label: '없음' },
+];
+
+const UNDERLINE_FOCUS_COLORS = [
+  { value: 'focus:border-primary-500', label: '올리브' },
+  { value: 'focus:border-emerald-500', label: '초록' },
+  { value: 'focus:border-blue-500', label: '파랑' },
+  { value: 'focus:border-rose-500', label: '붉은색' },
+  { value: 'focus:border-slate-500', label: '회색' },
+];
+
+const BUTTON_COLOR_OPTIONS = [
+  { value: 'bg-primary-600 text-white', label: '올리브 (기본)' },
+  { value: 'bg-primary-500 text-white', label: '밝은 올리브' },
+  { value: 'bg-emerald-600 text-white', label: '초록' },
+  { value: 'bg-blue-600 text-white', label: '파랑' },
+  { value: 'bg-rose-600 text-white', label: '붉은색' },
+  { value: 'bg-slate-800 text-white', label: '짙은 회색' },
+  { value: 'bg-white text-slate-900 border border-slate-300', label: '흰색 테두리' },
 ];
 
 const TEXT_ALIGNS = [
@@ -217,12 +294,478 @@ export default function CardStyleEditorPage() {
   const [cardDecks, setCardDecks] = useState<CardDeck[]>([]);
   const [selectedDeck, setSelectedDeck] = useState<CardDeck | null>(null);
 
-  const ensureFrontTitleDefaults = (style: CardStyle): CardStyle => ({
+  const applyDefaultCardStyleValues = (style: CardStyle): CardStyle => ({
     ...style,
     front_title_background_color: style.front_title_background_color || 'bg-white',
     front_title_border_color: style.front_title_border_color || 'none',
     front_title_border_width: style.front_title_border_width || 'border',
+    front_content_size: style.front_content_size || 'text-sm',
+    front_content_color: style.front_content_color || 'text-slate-900',
+    front_content_align: style.front_content_align || 'text-left',
+    front_content_margin_top: style.front_content_margin_top || '0',
+    front_content_margin_bottom: style.front_content_margin_bottom || '0',
+    front_content_margin_left: style.front_content_margin_left || '0',
+    front_content_margin_right: style.front_content_margin_right || '0',
+    mcq_option_background_color: style.mcq_option_background_color || 'bg-white',
+    mcq_option_border_color: style.mcq_option_border_color || 'none',
+    mcq_option_border_width: style.mcq_option_border_width || 'border',
+    mcq_option_gap: style.mcq_option_gap || '8',
+    short_input_height: style.short_input_height || 'h-12',
+    short_input_background_color: style.short_input_background_color || 'bg-white',
+    short_input_border_color: style.short_input_border_color || 'border-slate-300',
+    short_input_border_width: style.short_input_border_width || 'border',
+    ox_button_o_size: style.ox_button_o_size || 'h-20 w-20 text-xl',
+    ox_button_o_background_color: style.ox_button_o_background_color || 'bg-emerald-700 text-white',
+    ox_button_o_radius: style.ox_button_o_radius || 'rounded-full',
+    ox_button_o_border_color: style.ox_button_o_border_color || 'none',
+    ox_button_o_border_width: style.ox_button_o_border_width || 'border',
+    ox_button_x_size: style.ox_button_x_size || 'h-20 w-20 text-xl',
+    ox_button_x_background_color: style.ox_button_x_background_color || 'bg-rose-700 text-white',
+    ox_button_x_radius: style.ox_button_x_radius || 'rounded-full',
+    ox_button_x_border_color: style.ox_button_x_border_color || 'none',
+    ox_button_x_border_width: style.ox_button_x_border_width || 'border',
+    ox_button_gap: style.ox_button_gap || '24',
+    cloze_input_font_size: style.cloze_input_font_size || 'text-base',
+    cloze_input_background_color: style.cloze_input_background_color || 'bg-transparent',
+    cloze_input_border_color: style.cloze_input_border_color || 'border-primary-500',
+    cloze_input_border_width: style.cloze_input_border_width || 'border-b',
+    cloze_input_underline_color: style.cloze_input_underline_color || 'focus:border-primary-500',
+    cloze_button_size: style.cloze_button_size || 'px-4 py-2',
+    cloze_button_color: style.cloze_button_color || 'bg-primary-600 text-white',
+    cloze_button_font_size: style.cloze_button_font_size || 'text-sm',
+    order_item_background_color: style.order_item_background_color || 'bg-white',
+    order_item_border_color: style.order_item_border_color || 'border-slate-300',
+    order_item_border_width: style.order_item_border_width || 'border',
+    order_item_gap: style.order_item_gap || '8',
+    order_button_size: style.order_button_size || 'px-4 py-2',
+    order_button_color: style.order_button_color || 'bg-primary-600 text-white',
+    order_button_font_size: style.order_button_font_size || 'text-sm',
+    order_guide_align: style.order_guide_align || 'text-left',
+    order_guide_font_size: style.order_guide_font_size || 'text-xs',
+    order_guide_background_color: style.order_guide_background_color || 'bg-transparent',
+    order_guide_border_color: style.order_guide_border_color || 'none',
+    order_guide_border_width: style.order_guide_border_width || 'border',
+    match_item_background_color: style.match_item_background_color || 'bg-white',
+    match_item_border_color: style.match_item_border_color || 'border-slate-200',
+    match_item_border_width: style.match_item_border_width || 'border',
+    match_item_gap: style.match_item_gap || '8',
+    match_line_color: style.match_line_color || 'default',
+    match_button_size: style.match_button_size || 'px-4 py-2',
+    match_button_color: style.match_button_color || 'bg-primary-600 text-white',
+    match_button_font_size: style.match_button_font_size || 'text-sm',
+    match_guide_align: style.match_guide_align || 'text-left',
+    match_guide_font_size: style.match_guide_font_size || 'text-xs',
+    match_guide_background_color: style.match_guide_background_color || 'bg-transparent',
+    match_guide_border_color: style.match_guide_border_color || 'none',
+    match_guide_border_width: style.match_guide_border_width || 'border',
   });
+
+  const renderCardTypeSpecificControls = () => {
+    if (!cardStyle) return null;
+
+    // const typeOrder: Array<CardStyle['card_type']> = ['MCQ', 'SHORT', 'OX', 'CLOZE', 'ORDER', 'MATCH'];
+    const targetTypes = cardStyle.card_type === 'ALL' ? [] : [cardStyle.card_type as CardStyle['card_type']];
+    console.log('Target Types:', targetTypes);
+    console.log('Current Card Type:', cardStyle.card_type);
+    const typeLabels: Record<string, string> = {
+      MCQ: '객관식 (MCQ)',
+      SHORT: '주관식 (SHORT)',
+      OX: 'OX',
+      CLOZE: '빈칸 (CLOZE)',
+      ORDER: '순서 (ORDER)',
+      MATCH: '짝맞추기 (MATCH)',
+    };
+
+    return (
+      <div className="space-y-8 mt-6">
+        {targetTypes.map((type) => {
+          switch (type) {
+            case 'MCQ':
+              return (
+                <div key={type} className="space-y-4">
+                  <h3 className="text-md font-medium text-primary-700">{typeLabels[type]} 전용 스타일</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <StyleField
+                      label="답변 배경 색상"
+                      value={cardStyle.mcq_option_background_color || 'bg-white'}
+                      onChange={(value) => updateCardStyleField('mcq_option_background_color', value)}
+                      options={BACKGROUND_COLORS}
+                    />
+                    <StyleField
+                      label="답변 외곽선 색상"
+                      value={cardStyle.mcq_option_border_color || 'none'}
+                      onChange={(value) => updateCardStyleField('mcq_option_border_color', value)}
+                      options={BORDER_COLORS}
+                    />
+                    <StyleField
+                      label="답변 외곽선 두께"
+                      value={cardStyle.mcq_option_border_width || 'border'}
+                      onChange={(value) => updateCardStyleField('mcq_option_border_width', value)}
+                      options={BORDER_WIDTHS}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">답변 항목 간 간격 (px)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={cardStyle.mcq_option_gap || '8'}
+                      onChange={(e) => updateCardStyleField('mcq_option_gap', e.target.value || '0')}
+                      className="w-32 rounded border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+                </div>
+              );
+            case 'SHORT':
+              return (
+                <div key={type} className="space-y-4">
+                  <h3 className="text-md font-medium text-primary-700">{typeLabels[type]} 전용 스타일</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <StyleField
+                      label="답변 입력 높이"
+                      value={cardStyle.short_input_height || 'h-12'}
+                      onChange={(value) => updateCardStyleField('short_input_height', value)}
+                      options={INPUT_HEIGHTS}
+                    />
+                    <StyleField
+                      label="배경 색상"
+                      value={cardStyle.short_input_background_color || 'bg-white'}
+                      onChange={(value) => updateCardStyleField('short_input_background_color', value)}
+                      options={BACKGROUND_COLORS}
+                    />
+                    <StyleField
+                      label="외곽선 색상"
+                      value={cardStyle.short_input_border_color || 'border-slate-300'}
+                      onChange={(value) => updateCardStyleField('short_input_border_color', value)}
+                      options={BORDER_COLORS}
+                    />
+                    <StyleField
+                      label="외곽선 두께"
+                      value={cardStyle.short_input_border_width || 'border'}
+                      onChange={(value) => updateCardStyleField('short_input_border_width', value)}
+                      options={BORDER_WIDTHS}
+                    />
+                  </div>
+                </div>
+              );
+            case 'OX':
+              return (
+                <div key={type} className="space-y-4">
+                  <h3 className="text-md font-medium text-primary-700">{typeLabels[type]} 전용 스타일</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <StyleField
+                      label="O 버튼 크기"
+                      value={cardStyle.ox_button_o_size || 'h-20 w-20 text-xl'}
+                      onChange={(value) => updateCardStyleField('ox_button_o_size', value)}
+                      options={OX_BUTTON_SIZES}
+                    />
+                    <StyleField
+                      label="O 버튼 배경"
+                      value={cardStyle.ox_button_o_background_color || 'bg-emerald-700 text-white'}
+                      onChange={(value) => updateCardStyleField('ox_button_o_background_color', value)}
+                      options={OX_O_COLOR_OPTIONS}
+                    />
+                    <StyleField
+                      label="O 버튼 라운드"
+                      value={cardStyle.ox_button_o_radius || 'rounded-full'}
+                      onChange={(value) => updateCardStyleField('ox_button_o_radius', value)}
+                      options={BUTTON_RADIUS_OPTIONS}
+                    />
+                    <StyleField
+                      label="O 버튼 외곽선 색상"
+                      value={cardStyle.ox_button_o_border_color || 'none'}
+                      onChange={(value) => updateCardStyleField('ox_button_o_border_color', value)}
+                      options={BORDER_COLORS}
+                    />
+                    <StyleField
+                      label="O 버튼 외곽선 두께"
+                      value={cardStyle.ox_button_o_border_width || 'border'}
+                      onChange={(value) => updateCardStyleField('ox_button_o_border_width', value)}
+                      options={BORDER_WIDTHS}
+                    />
+                    <StyleField
+                      label="X 버튼 크기"
+                      value={cardStyle.ox_button_x_size || 'h-20 w-20 text-xl'}
+                      onChange={(value) => updateCardStyleField('ox_button_x_size', value)}
+                      options={OX_BUTTON_SIZES}
+                    />
+                    <StyleField
+                      label="X 버튼 배경"
+                      value={cardStyle.ox_button_x_background_color || 'bg-rose-700 text-white'}
+                      onChange={(value) => updateCardStyleField('ox_button_x_background_color', value)}
+                      options={OX_X_COLOR_OPTIONS}
+                    />
+                    <StyleField
+                      label="X 버튼 라운드"
+                      value={cardStyle.ox_button_x_radius || 'rounded-full'}
+                      onChange={(value) => updateCardStyleField('ox_button_x_radius', value)}
+                      options={BUTTON_RADIUS_OPTIONS}
+                    />
+                    <StyleField
+                      label="X 버튼 외곽선 색상"
+                      value={cardStyle.ox_button_x_border_color || 'none'}
+                      onChange={(value) => updateCardStyleField('ox_button_x_border_color', value)}
+                      options={BORDER_COLORS}
+                    />
+                    <StyleField
+                      label="X 버튼 외곽선 두께"
+                      value={cardStyle.ox_button_x_border_width || 'border'}
+                      onChange={(value) => updateCardStyleField('ox_button_x_border_width', value)}
+                      options={BORDER_WIDTHS}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">OX 버튼 간 간격 (px)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={cardStyle.ox_button_gap || '24'}
+                      onChange={(e) => updateCardStyleField('ox_button_gap', e.target.value || '0')}
+                      className="w-32 rounded border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+                </div>
+              );
+            case 'CLOZE':
+              return (
+                <div key={type} className="space-y-4">
+                  <h3 className="text-md font-medium text-primary-700">{typeLabels[type]} 전용 스타일</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <StyleField
+                      label="빈칸 입력 글자 크기"
+                      value={cardStyle.cloze_input_font_size || 'text-base'}
+                      onChange={(value) => updateCardStyleField('cloze_input_font_size', value)}
+                      options={FONT_SIZES}
+                    />
+                    <StyleField
+                      label="빈칸 배경 색상"
+                      value={cardStyle.cloze_input_background_color || 'bg-transparent'}
+                      onChange={(value) => updateCardStyleField('cloze_input_background_color', value)}
+                      options={BACKGROUND_COLORS}
+                    />
+                    <StyleField
+                      label="밑줄 색상"
+                      value={cardStyle.cloze_input_border_color || 'border-primary-500'}
+                      onChange={(value) => updateCardStyleField('cloze_input_border_color', value)}
+                      options={BORDER_COLORS}
+                    />
+                    <StyleField
+                      label="밑줄 두께"
+                      value={cardStyle.cloze_input_border_width || 'border-b'}
+                      onChange={(value) => updateCardStyleField('cloze_input_border_width', value)}
+                      options={UNDERLINE_WIDTHS}
+                    />
+                    <StyleField
+                      label="포커스 밑줄 색상"
+                      value={cardStyle.cloze_input_underline_color || 'border-primary-500'}
+                      onChange={(value) => updateCardStyleField('cloze_input_underline_color', value)}
+                      options={UNDERLINE_FOCUS_COLORS}
+                    />
+                    <StyleField
+                      label="제출 버튼 크기"
+                      value={cardStyle.cloze_button_size || 'px-4 py-2'}
+                      onChange={(value) => updateCardStyleField('cloze_button_size', value)}
+                      options={BUTTON_SIZES}
+                    />
+                    <StyleField
+                      label="제출 버튼 색상"
+                      value={cardStyle.cloze_button_color || 'bg-primary-600 text-white'}
+                      onChange={(value) => updateCardStyleField('cloze_button_color', value)}
+                      options={BUTTON_COLOR_OPTIONS}
+                    />
+                    <StyleField
+                      label="제출 버튼 글자 크기"
+                      value={cardStyle.cloze_button_font_size || 'text-sm'}
+                      onChange={(value) => updateCardStyleField('cloze_button_font_size', value)}
+                      options={BUTTON_FONT_SIZES}
+                    />
+                  </div>
+                </div>
+              );
+            case 'ORDER':
+              return (
+                <div key={type} className="space-y-4">
+                  <h3 className="text-md font-medium text-primary-700">{typeLabels[type]} 전용 스타일</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <StyleField
+                      label="항목 배경 색상"
+                      value={cardStyle.order_item_background_color || 'bg-white'}
+                      onChange={(value) => updateCardStyleField('order_item_background_color', value)}
+                      options={BACKGROUND_COLORS}
+                    />
+                    <StyleField
+                      label="항목 외곽선 색상"
+                      value={cardStyle.order_item_border_color || 'border-slate-300'}
+                      onChange={(value) => updateCardStyleField('order_item_border_color', value)}
+                      options={BORDER_COLORS}
+                    />
+                    <StyleField
+                      label="항목 외곽선 두께"
+                      value={cardStyle.order_item_border_width || 'border'}
+                      onChange={(value) => updateCardStyleField('order_item_border_width', value)}
+                      options={BORDER_WIDTHS}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">항목 간 간격 (px)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={cardStyle.order_item_gap || '8'}
+                      onChange={(e) => updateCardStyleField('order_item_gap', e.target.value || '0')}
+                      className="w-32 rounded border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <StyleField
+                      label="확인 버튼 크기"
+                      value={cardStyle.order_button_size || 'px-4 py-2'}
+                      onChange={(value) => updateCardStyleField('order_button_size', value)}
+                      options={BUTTON_SIZES}
+                    />
+                    <StyleField
+                      label="확인 버튼 색상"
+                      value={cardStyle.order_button_color || 'bg-primary-600 text-white'}
+                      onChange={(value) => updateCardStyleField('order_button_color', value)}
+                      options={BUTTON_COLOR_OPTIONS}
+                    />
+                    <StyleField
+                      label="확인 버튼 글자 크기"
+                      value={cardStyle.order_button_font_size || 'text-sm'}
+                      onChange={(value) => updateCardStyleField('order_button_font_size', value)}
+                      options={BUTTON_FONT_SIZES}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <StyleField
+                      label="가이드 정렬"
+                      value={cardStyle.order_guide_align || 'text-left'}
+                      onChange={(value) => updateCardStyleField('order_guide_align', value)}
+                      options={TEXT_ALIGNS}
+                    />
+                    <StyleField
+                      label="가이드 글자 크기"
+                      value={cardStyle.order_guide_font_size || 'text-xs'}
+                      onChange={(value) => updateCardStyleField('order_guide_font_size', value)}
+                      options={FONT_SIZES}
+                    />
+                    <StyleField
+                      label="가이드 배경 색상"
+                      value={cardStyle.order_guide_background_color || 'bg-transparent'}
+                      onChange={(value) => updateCardStyleField('order_guide_background_color', value)}
+                      options={BACKGROUND_COLORS}
+                    />
+                    <StyleField
+                      label="가이드 외곽선 색상"
+                      value={cardStyle.order_guide_border_color || 'none'}
+                      onChange={(value) => updateCardStyleField('order_guide_border_color', value)}
+                      options={BORDER_COLORS}
+                    />
+                    <StyleField
+                      label="가이드 외곽선 두께"
+                      value={cardStyle.order_guide_border_width || 'border'}
+                      onChange={(value) => updateCardStyleField('order_guide_border_width', value)}
+                      options={BORDER_WIDTHS}
+                    />
+                  </div>
+                </div>
+              );
+            case 'MATCH':
+              return (
+                <div key={type} className="space-y-4">
+                  <h3 className="text-md font-medium text-primary-700">{typeLabels[type]} 전용 스타일</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <StyleField
+                      label="항목 배경 색상"
+                      value={cardStyle.match_item_background_color || 'bg-white'}
+                      onChange={(value) => updateCardStyleField('match_item_background_color', value)}
+                      options={BACKGROUND_COLORS}
+                    />
+                    <StyleField
+                      label="항목 외곽선 색상"
+                      value={cardStyle.match_item_border_color || 'border-slate-200'}
+                      onChange={(value) => updateCardStyleField('match_item_border_color', value)}
+                      options={BORDER_COLORS}
+                    />
+                    <StyleField
+                      label="항목 외곽선 두께"
+                      value={cardStyle.match_item_border_width || 'border'}
+                      onChange={(value) => updateCardStyleField('match_item_border_width', value)}
+                      options={BORDER_WIDTHS}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">항목 간 간격 (px)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={cardStyle.match_item_gap || '8'}
+                      onChange={(e) => updateCardStyleField('match_item_gap', e.target.value || '0')}
+                      className="w-32 rounded border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <StyleField
+                      label="확인 버튼 크기"
+                      value={cardStyle.match_button_size || 'px-4 py-2'}
+                      onChange={(value) => updateCardStyleField('match_button_size', value)}
+                      options={BUTTON_SIZES}
+                    />
+                    <StyleField
+                      label="확인 버튼 색상"
+                      value={cardStyle.match_button_color || 'bg-primary-600 text-white'}
+                      onChange={(value) => updateCardStyleField('match_button_color', value)}
+                      options={BUTTON_COLOR_OPTIONS}
+                    />
+                    <StyleField
+                      label="확인 버튼 글자 크기"
+                      value={cardStyle.match_button_font_size || 'text-sm'}
+                      onChange={(value) => updateCardStyleField('match_button_font_size', value)}
+                      options={BUTTON_FONT_SIZES}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <StyleField
+                      label="가이드 정렬"
+                      value={cardStyle.match_guide_align || 'text-left'}
+                      onChange={(value) => updateCardStyleField('match_guide_align', value)}
+                      options={TEXT_ALIGNS}
+                    />
+                    <StyleField
+                      label="가이드 글자 크기"
+                      value={cardStyle.match_guide_font_size || 'text-xs'}
+                      onChange={(value) => updateCardStyleField('match_guide_font_size', value)}
+                      options={FONT_SIZES}
+                    />
+                    <StyleField
+                      label="가이드 배경 색상"
+                      value={cardStyle.match_guide_background_color || 'bg-transparent'}
+                      onChange={(value) => updateCardStyleField('match_guide_background_color', value)}
+                      options={BACKGROUND_COLORS}
+                    />
+                    <StyleField
+                      label="가이드 외곽선 색상"
+                      value={cardStyle.match_guide_border_color || 'none'}
+                      onChange={(value) => updateCardStyleField('match_guide_border_color', value)}
+                      options={BORDER_COLORS}
+                    />
+                    <StyleField
+                      label="가이드 외곽선 두께"
+                      value={cardStyle.match_guide_border_width || 'border'}
+                      onChange={(value) => updateCardStyleField('match_guide_border_width', value)}
+                      options={BORDER_WIDTHS}
+                    />
+                  </div>
+                </div>
+              );
+            default:
+              return null;
+          }
+        })}
+      </div>
+    );
+  };
+
 
   const previewCard = useMemo(() => {
     const typeKey = (cardStyle?.card_type ?? 'ALL') as keyof typeof SAMPLE_CARDS;
@@ -266,7 +809,7 @@ export default function CardStyleEditorPage() {
         // 카드 스타일 로드
         if (isNew) {
           // 새 스타일 생성 시 기본값 사용
-          const defaultStyle = ensureFrontTitleDefaults(await fetchDefaultCardStyle());
+          const defaultStyle = applyDefaultCardStyleValues(await fetchDefaultCardStyle());
           setCardStyle({
             ...defaultStyle,
             id: 0,
@@ -276,7 +819,7 @@ export default function CardStyleEditorPage() {
           });
         } else {
           const style = await fetchCardStyle(Number(id));
-          setCardStyle(ensureFrontTitleDefaults(style));
+          setCardStyle(applyDefaultCardStyleValues(style));
         }
       } catch (err) {
         console.error('데이터 로드 실패:', err);
@@ -323,10 +866,58 @@ export default function CardStyleEditorPage() {
           front_content_margin_bottom: cardStyle.front_content_margin_bottom,
           front_content_margin_left: cardStyle.front_content_margin_left,
           front_content_margin_right: cardStyle.front_content_margin_right,
-          front_button_size: cardStyle.front_button_size,
-          front_button_color: cardStyle.front_button_color,
-          front_button_position: cardStyle.front_button_position,
-          front_button_align: cardStyle.front_button_align,
+          mcq_option_background_color: cardStyle.mcq_option_background_color,
+          mcq_option_border_color: cardStyle.mcq_option_border_color,
+          mcq_option_border_width: cardStyle.mcq_option_border_width,
+          mcq_option_gap: cardStyle.mcq_option_gap,
+          short_input_height: cardStyle.short_input_height,
+          short_input_background_color: cardStyle.short_input_background_color,
+          short_input_border_color: cardStyle.short_input_border_color,
+          short_input_border_width: cardStyle.short_input_border_width,
+          ox_button_o_size: cardStyle.ox_button_o_size,
+          ox_button_o_background_color: cardStyle.ox_button_o_background_color,
+          ox_button_o_radius: cardStyle.ox_button_o_radius,
+          ox_button_o_border_color: cardStyle.ox_button_o_border_color,
+          ox_button_o_border_width: cardStyle.ox_button_o_border_width,
+          ox_button_x_size: cardStyle.ox_button_x_size,
+          ox_button_x_background_color: cardStyle.ox_button_x_background_color,
+          ox_button_x_radius: cardStyle.ox_button_x_radius,
+          ox_button_x_border_color: cardStyle.ox_button_x_border_color,
+          ox_button_x_border_width: cardStyle.ox_button_x_border_width,
+          ox_button_gap: cardStyle.ox_button_gap,
+          cloze_input_font_size: cardStyle.cloze_input_font_size,
+          cloze_input_background_color: cardStyle.cloze_input_background_color,
+          cloze_input_border_color: cardStyle.cloze_input_border_color,
+          cloze_input_border_width: cardStyle.cloze_input_border_width,
+          cloze_input_underline_color: cardStyle.cloze_input_underline_color,
+          cloze_button_size: cardStyle.cloze_button_size,
+          cloze_button_color: cardStyle.cloze_button_color,
+          cloze_button_font_size: cardStyle.cloze_button_font_size,
+          order_item_background_color: cardStyle.order_item_background_color,
+          order_item_border_color: cardStyle.order_item_border_color,
+          order_item_border_width: cardStyle.order_item_border_width,
+          order_item_gap: cardStyle.order_item_gap,
+          order_button_size: cardStyle.order_button_size,
+          order_button_color: cardStyle.order_button_color,
+          order_button_font_size: cardStyle.order_button_font_size,
+          order_guide_align: cardStyle.order_guide_align,
+          order_guide_font_size: cardStyle.order_guide_font_size,
+          order_guide_background_color: cardStyle.order_guide_background_color,
+          order_guide_border_color: cardStyle.order_guide_border_color,
+          order_guide_border_width: cardStyle.order_guide_border_width,
+          match_item_background_color: cardStyle.match_item_background_color,
+          match_item_border_color: cardStyle.match_item_border_color,
+          match_item_border_width: cardStyle.match_item_border_width,
+          match_item_gap: cardStyle.match_item_gap,
+          match_line_color: cardStyle.match_line_color,
+          match_button_size: cardStyle.match_button_size,
+          match_button_color: cardStyle.match_button_color,
+          match_button_font_size: cardStyle.match_button_font_size,
+          match_guide_align: cardStyle.match_guide_align,
+          match_guide_font_size: cardStyle.match_guide_font_size,
+          match_guide_background_color: cardStyle.match_guide_background_color,
+          match_guide_border_color: cardStyle.match_guide_border_color,
+          match_guide_border_width: cardStyle.match_guide_border_width,
           back_layout: cardStyle.back_layout,
           back_title_size: cardStyle.back_title_size,
           back_title_color: cardStyle.back_title_color,
@@ -378,10 +969,58 @@ export default function CardStyleEditorPage() {
           front_content_margin_bottom: cardStyle.front_content_margin_bottom,
           front_content_margin_left: cardStyle.front_content_margin_left,
           front_content_margin_right: cardStyle.front_content_margin_right,
-          front_button_size: cardStyle.front_button_size,
-          front_button_color: cardStyle.front_button_color,
-          front_button_position: cardStyle.front_button_position,
-          front_button_align: cardStyle.front_button_align,
+          mcq_option_background_color: cardStyle.mcq_option_background_color,
+          mcq_option_border_color: cardStyle.mcq_option_border_color,
+          mcq_option_border_width: cardStyle.mcq_option_border_width,
+          mcq_option_gap: cardStyle.mcq_option_gap,
+          short_input_height: cardStyle.short_input_height,
+          short_input_background_color: cardStyle.short_input_background_color,
+          short_input_border_color: cardStyle.short_input_border_color,
+          short_input_border_width: cardStyle.short_input_border_width,
+          ox_button_o_size: cardStyle.ox_button_o_size,
+          ox_button_o_background_color: cardStyle.ox_button_o_background_color,
+          ox_button_o_radius: cardStyle.ox_button_o_radius,
+          ox_button_o_border_color: cardStyle.ox_button_o_border_color,
+          ox_button_o_border_width: cardStyle.ox_button_o_border_width,
+          ox_button_x_size: cardStyle.ox_button_x_size,
+          ox_button_x_background_color: cardStyle.ox_button_x_background_color,
+          ox_button_x_radius: cardStyle.ox_button_x_radius,
+          ox_button_x_border_color: cardStyle.ox_button_x_border_color,
+          ox_button_x_border_width: cardStyle.ox_button_x_border_width,
+          ox_button_gap: cardStyle.ox_button_gap,
+          cloze_input_font_size: cardStyle.cloze_input_font_size,
+          cloze_input_background_color: cardStyle.cloze_input_background_color,
+          cloze_input_border_color: cardStyle.cloze_input_border_color,
+          cloze_input_border_width: cardStyle.cloze_input_border_width,
+          cloze_input_underline_color: cardStyle.cloze_input_underline_color,
+          cloze_button_size: cardStyle.cloze_button_size,
+          cloze_button_color: cardStyle.cloze_button_color,
+          cloze_button_font_size: cardStyle.cloze_button_font_size,
+          order_item_background_color: cardStyle.order_item_background_color,
+          order_item_border_color: cardStyle.order_item_border_color,
+          order_item_border_width: cardStyle.order_item_border_width,
+          order_item_gap: cardStyle.order_item_gap,
+          order_button_size: cardStyle.order_button_size,
+          order_button_color: cardStyle.order_button_color,
+          order_button_font_size: cardStyle.order_button_font_size,
+          order_guide_align: cardStyle.order_guide_align,
+          order_guide_font_size: cardStyle.order_guide_font_size,
+          order_guide_background_color: cardStyle.order_guide_background_color,
+          order_guide_border_color: cardStyle.order_guide_border_color,
+          order_guide_border_width: cardStyle.order_guide_border_width,
+          match_item_background_color: cardStyle.match_item_background_color,
+          match_item_border_color: cardStyle.match_item_border_color,
+          match_item_border_width: cardStyle.match_item_border_width,
+          match_item_gap: cardStyle.match_item_gap,
+          match_line_color: cardStyle.match_line_color,
+          match_button_size: cardStyle.match_button_size,
+          match_button_color: cardStyle.match_button_color,
+          match_button_font_size: cardStyle.match_button_font_size,
+          match_guide_align: cardStyle.match_guide_align,
+          match_guide_font_size: cardStyle.match_guide_font_size,
+          match_guide_background_color: cardStyle.match_guide_background_color,
+          match_guide_border_color: cardStyle.match_guide_border_color,
+          match_guide_border_width: cardStyle.match_guide_border_width,
           back_layout: cardStyle.back_layout,
           back_title_size: cardStyle.back_title_size,
           back_title_color: cardStyle.back_title_color,
@@ -443,7 +1082,15 @@ export default function CardStyleEditorPage() {
 
   const updateCardStyleField = (field: keyof CardStyle, value: any) => {
     if (!cardStyle) return;
-    setCardStyle({ ...cardStyle, [field]: value });
+    setCardStyle((prev) => {
+      const updated = { ...prev, [field]: value } as CardStyle;
+
+      if (field === 'match_item_background_color') {
+        updated.match_line_color = value && value !== 'bg-white' ? value : 'default';
+      }
+
+      return applyDefaultCardStyleValues(updated);
+    });
   };
 
   if (!isAdmin) {
@@ -798,6 +1445,7 @@ export default function CardStyleEditorPage() {
                       </div>
                     </div>
 
+                    {renderCardTypeSpecificControls()}
                   </>
                 ) : (
                   // 뒷면 스타일 설정

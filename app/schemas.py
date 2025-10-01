@@ -758,11 +758,64 @@ class CardStyleBase(BaseModel):
     front_content_margin_bottom: str = "0"
     front_content_margin_left: str = "0"
     front_content_margin_right: str = "0"
-    
-    front_button_size: str = "px-4 py-2"
-    front_button_color: str = "bg-primary-600 text-white"
-    front_button_position: str = "mt-auto"
-    front_button_align: str = "text-center"
+
+    mcq_option_background_color: str = "bg-white"
+    mcq_option_border_color: str = "none"
+    mcq_option_border_width: str = "border"
+    mcq_option_gap: str = "8"
+
+    short_input_height: str = "h-12"
+    short_input_background_color: str = "bg-white"
+    short_input_border_color: str = "border-slate-300"
+    short_input_border_width: str = "border"
+
+    ox_button_o_size: str = "h-20 w-20 text-xl"
+    ox_button_o_background_color: str = "bg-emerald-700 text-white"
+    ox_button_o_radius: str = "rounded-full"
+    ox_button_o_border_color: str = "none"
+    ox_button_o_border_width: str = "border"
+    ox_button_x_size: str = "h-20 w-20 text-xl"
+    ox_button_x_background_color: str = "bg-rose-700 text-white"
+    ox_button_x_radius: str = "rounded-full"
+    ox_button_x_border_color: str = "none"
+    ox_button_x_border_width: str = "border"
+    ox_button_gap: str = "24"
+
+    cloze_input_font_size: str = "text-base"
+    cloze_input_background_color: str = "bg-transparent"
+    cloze_input_border_color: str = "border-primary-500"
+    cloze_input_border_width: str = "border-b"
+    cloze_input_underline_color: str = "focus:border-primary-500"
+    cloze_button_size: str = "px-4 py-2"
+    cloze_button_color: str = "bg-primary-600 text-white"
+    cloze_button_font_size: str = "text-sm"
+
+    order_item_background_color: str = "bg-white"
+    order_item_border_color: str = "border-slate-300"
+    order_item_border_width: str = "border"
+    order_item_gap: str = "8"
+    order_button_size: str = "px-4 py-2"
+    order_button_color: str = "bg-primary-600 text-white"
+    order_button_font_size: str = "text-sm"
+    order_guide_align: str = "text-left"
+    order_guide_font_size: str = "text-xs"
+    order_guide_background_color: str = "bg-transparent"
+    order_guide_border_color: str = "none"
+    order_guide_border_width: str = "border"
+
+    match_item_background_color: str = "bg-white"
+    match_item_border_color: str = "border-slate-200"
+    match_item_border_width: str = "border"
+    match_item_gap: str = "8"
+    match_line_color: str = "default"
+    match_button_size: str = "px-4 py-2"
+    match_button_color: str = "bg-primary-600 text-white"
+    match_button_font_size: str = "text-sm"
+    match_guide_align: str = "text-left"
+    match_guide_font_size: str = "text-xs"
+    match_guide_background_color: str = "bg-transparent"
+    match_guide_border_color: str = "none"
+    match_guide_border_width: str = "border"
     
     # 뒷면 스타일 설정
     back_layout: str = "center"  # top, center, bottom, split
@@ -835,11 +888,58 @@ class CardStyleUpdate(BaseModel):
     front_content_margin_bottom: Optional[str] = None
     front_content_margin_left: Optional[str] = None
     front_content_margin_right: Optional[str] = None
-    
-    front_button_size: Optional[str] = None
-    front_button_color: Optional[str] = None
-    front_button_position: Optional[str] = None
-    front_button_align: Optional[str] = None
+    mcq_option_background_color: Optional[str] = None
+    mcq_option_border_color: Optional[str] = None
+    mcq_option_border_width: Optional[str] = None
+    mcq_option_gap: Optional[str] = None
+    short_input_height: Optional[str] = None
+    short_input_background_color: Optional[str] = None
+    short_input_border_color: Optional[str] = None
+    short_input_border_width: Optional[str] = None
+    ox_button_o_size: Optional[str] = None
+    ox_button_o_background_color: Optional[str] = None
+    ox_button_o_radius: Optional[str] = None
+    ox_button_o_border_color: Optional[str] = None
+    ox_button_o_border_width: Optional[str] = None
+    ox_button_x_size: Optional[str] = None
+    ox_button_x_background_color: Optional[str] = None
+    ox_button_x_radius: Optional[str] = None
+    ox_button_x_border_color: Optional[str] = None
+    ox_button_x_border_width: Optional[str] = None
+    ox_button_gap: Optional[str] = None
+    cloze_input_font_size: Optional[str] = None
+    cloze_input_background_color: Optional[str] = None
+    cloze_input_border_color: Optional[str] = None
+    cloze_input_border_width: Optional[str] = None
+    cloze_input_underline_color: Optional[str] = None
+    cloze_button_size: Optional[str] = None
+    cloze_button_color: Optional[str] = None
+    cloze_button_font_size: Optional[str] = None
+    order_item_background_color: Optional[str] = None
+    order_item_border_color: Optional[str] = None
+    order_item_border_width: Optional[str] = None
+    order_item_gap: Optional[str] = None
+    order_button_size: Optional[str] = None
+    order_button_color: Optional[str] = None
+    order_button_font_size: Optional[str] = None
+    order_guide_align: Optional[str] = None
+    order_guide_font_size: Optional[str] = None
+    order_guide_background_color: Optional[str] = None
+    order_guide_border_color: Optional[str] = None
+    order_guide_border_width: Optional[str] = None
+    match_item_background_color: Optional[str] = None
+    match_item_border_color: Optional[str] = None
+    match_item_border_width: Optional[str] = None
+    match_item_gap: Optional[str] = None
+    match_line_color: Optional[str] = None
+    match_button_size: Optional[str] = None
+    match_button_color: Optional[str] = None
+    match_button_font_size: Optional[str] = None
+    match_guide_align: Optional[str] = None
+    match_guide_font_size: Optional[str] = None
+    match_guide_background_color: Optional[str] = None
+    match_guide_border_color: Optional[str] = None
+    match_guide_border_width: Optional[str] = None
     
     # 뒷면 스타일 설정
     back_layout: Optional[str] = None

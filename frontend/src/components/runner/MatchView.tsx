@@ -37,6 +37,47 @@ export default function MatchView({ card, disabled, onSubmit, cardStyle }: Match
         .join(' ')
     : questionClass;
 
+  const customMatchBackground = cardStyle?.match_item_background_color && cardStyle.match_item_background_color !== 'bg-white'
+    ? cardStyle.match_item_background_color
+    : null;
+  const itemBorderColor = cardStyle?.match_item_border_color || 'border-slate-200';
+  const itemBorderWidth = cardStyle?.match_item_border_width || 'border';
+  const itemGap = Number.parseInt(cardStyle?.match_item_gap ?? '8', 10) || 0;
+  const lineOverride = cardStyle?.match_line_color && cardStyle.match_line_color !== 'default' ? cardStyle.match_line_color : null;
+
+  const buttonClass = [
+    'mx-auto',
+    'block',
+    'rounded',
+    cardStyle?.match_button_size || 'px-4 py-2',
+    cardStyle?.match_button_color || 'bg-primary-600 text-white',
+    cardStyle?.match_button_font_size || 'text-sm',
+    'font-semibold',
+    'transition',
+    'hover:opacity-90',
+    'disabled:cursor-not-allowed',
+    'disabled:opacity-60',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const guideClasses = [
+    'inline-block',
+    'px-3',
+    'py-2',
+    'rounded',
+    'text-slate-600',
+    cardStyle?.match_guide_font_size || 'text-xs',
+    cardStyle?.match_guide_background_color || 'bg-transparent',
+    cardStyle?.match_guide_border_color && cardStyle.match_guide_border_color !== 'none'
+      ? `${cardStyle.match_guide_border_width || 'border'} ${cardStyle.match_guide_border_color}`
+      : cardStyle?.match_guide_border_color === 'none'
+      ? ''
+      : cardStyle?.match_guide_border_width || '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   const expectedOrder = useMemo(() => {
     const mapping = new Map<number, number>();
     pairs.forEach(([l, r]) => {
@@ -56,7 +97,24 @@ export default function MatchView({ card, disabled, onSubmit, cardStyle }: Match
     cleanupPreview();
     const preview = document.createElement('div');
     preview.textContent = text;
-    preview.className = 'rounded bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-lg border border-primary-400';
+    const previewClasses = [
+      'rounded',
+      'px-3',
+      'py-2',
+      'text-sm',
+      'font-semibold',
+      'text-slate-700',
+      'shadow-lg',
+      customMatchBackground || 'bg-white',
+      itemBorderColor && itemBorderColor !== 'none'
+        ? `${itemBorderWidth || 'border'} ${itemBorderColor}`
+        : itemBorderColor === 'none'
+        ? ''
+        : itemBorderWidth || '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    preview.className = previewClasses;
     preview.style.position = 'absolute';
     preview.style.top = '-9999px';
     preview.style.left = '-9999px';
@@ -110,34 +168,61 @@ export default function MatchView({ card, disabled, onSubmit, cardStyle }: Match
 
   const getRowStyle = (index: number) => rowStyles[index % rowStyles.length];
 
-  return (
+    return (
     <div className="space-y-4 text-sm text-slate-900">
       <p className={titleClass}>대응되는 항목을 맞춰보세요</p>
-      <p className="text-xs text-slate-500">오른쪽 항목을 드래그하여 순서를 조정하세요.</p>
-      <div className="space-y-2">
+      <div className={`w-full ${cardStyle?.match_guide_align || 'text-left'}`}>
+        <span className={guideClasses}>오른쪽 항목을 드래그하여 순서를 조정하세요.</span>
+      </div>
+      <div
+        className="flex flex-col"
+        style={{ gap: `${itemGap}px` }}
+      >
         {left.map((leftValue, index) => {
           const { background, line } = getRowStyle(index);
           const rightIndex = order[index];
           const rightValue = right[rightIndex];
+          const leftBackground = customMatchBackground || background;
+          const rightBackground = customMatchBackground || background;
+          const connectorColor = lineOverride || line;
           return (
             <div
               key={`row-${index}`}
               className="flex items-stretch text-sm"
             >
               <div
-                className={`flex-1 rounded-l border border-slate-200 px-3 py-2 text-primary-100 ${background}`}
+                className={[
+                  'flex-1 rounded-l px-3 py-2 text-primary-100',
+                  itemBorderColor && itemBorderColor !== 'none'
+                    ? `${itemBorderWidth || 'border'} ${itemBorderColor}`
+                    : itemBorderColor === 'none'
+                    ? ''
+                    : itemBorderWidth || '',
+                  leftBackground,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
               >
                 <p className="font-semibold">{leftValue}</p>
               </div>
               <div className="flex items-center justify-center px-3">
-                <span className={`block h-0.5 w-12 rounded-full ${line}`} />
+                <span className={`block h-0.5 w-12 rounded-full ${connectorColor}`} />
               </div>
               <div
-                className={`flex-1 rounded-r border border-slate-200 px-3 py-2 text-slate-900 transition ${background} ${
-                  disabled ? 'cursor-default' : 'cursor-grab hover:border-primary-500'
-                } ${dragIndex === index ? 'ring-2 ring-primary-500' : ''} ${
-                  hoverIndex === index && dragIndex !== null && dragIndex !== index ? 'border-primary-500 bg-primary-50' : ''
-                }`}
+                className={[
+                  'flex-1 rounded-r px-3 py-2 text-slate-900 transition',
+                  disabled ? 'cursor-default' : 'cursor-grab hover:border-primary-500',
+                  itemBorderColor && itemBorderColor !== 'none'
+                    ? `${itemBorderWidth || 'border'} ${itemBorderColor}`
+                    : itemBorderColor === 'none'
+                    ? ''
+                    : itemBorderWidth || '',
+                  rightBackground,
+                  dragIndex === index ? 'ring-2 ring-primary-500' : '',
+                  hoverIndex === index && dragIndex !== null && dragIndex !== index ? 'border-primary-500 bg-primary-50' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 draggable={!disabled}
                 onDragStart={(event) => {
                   if (disabled) return;
@@ -184,7 +269,7 @@ export default function MatchView({ card, disabled, onSubmit, cardStyle }: Match
         type="button"
         onClick={handleSubmit}
         disabled={disabled}
-        className="mx-auto block rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className={buttonClass}
       >
         매칭 확인
       </button>
