@@ -11,8 +11,8 @@ json_loads = json.loads
 
 from .models import (
     CardDeck,
+    CardStyle,
     Content,
-    Highlight,
     LearningHelper,
     Quiz,
     QuizAttempt,
@@ -23,6 +23,9 @@ from .models import (
     VisibilityEnum,
 )
 from .schemas import (
+    CardStyleCreate,
+    CardStyleOut,
+    CardStyleUpdate,
     CardUnion,
     ContentOut,
     ContentUpdate,
@@ -532,14 +535,14 @@ def create_content_with_related(
     session.add(content)
     session.flush()
 
-    highlight_models = [Highlight(content_id=content.id, text=text.strip()) for text in payload.highlights]
-    if highlight_models:
-        session.add_all(highlight_models)
-
     quiz_models: list[tuple[Quiz, list[str]]] = []
     for card in payload.cards:
         card_dict = card.model_dump(mode="json", exclude_none=True)
         card_tags = _quiz_tags_for_card(card_dict, None)
+        # 콘텐츠 제목을 태그에 디폴트로 추가
+        content_title = content.title.strip()
+        if content_title and content_title not in card_tags:
+            card_tags.insert(0, content_title)
         card_dict["tags"] = card_tags
         quiz_visibility = _normalize_visibility(card_dict.pop("visibility", None), content_visibility)
         quiz_model = Quiz(
@@ -562,11 +565,10 @@ def create_content_with_related(
             session.add_all(tag_models)
 
     session.flush()
-    highlight_ids = [highlight.id for highlight in highlight_models]
     quiz_ids = [quiz.id for quiz, _ in quiz_models]
 
     session.commit()
-    return content.id, highlight_ids, quiz_ids
+    return content.id, [], quiz_ids
 
 
 def get_content(
@@ -574,11 +576,7 @@ def get_content(
     content_id: int,
     requester: Optional[User] = None,
 ) -> Optional[ContentOut]:
-    stmt = (
-        select(Content)
-        .options(selectinload(Content.highlights))
-        .where(Content.id == content_id)
-    )
+    stmt = select(Content).where(Content.id == content_id)
     content = session.execute(stmt).scalar_one_or_none()
     if content is None:
         return None
@@ -589,7 +587,7 @@ def get_content(
         id=content.id,
         title=content.title,
         content=content.body,
-        highlights=[highlight.text for highlight in content.highlights],
+        highlights=[],
         keywords=json_loads(content.keywords) if content.keywords else [],
         timeline=_deserialize_timeline(content.timeline),
         categories=_deserialize_categories(content.category),
@@ -607,9 +605,7 @@ def update_content(
     requester: User,
 ) -> Optional[ContentOut]:
     content = session.execute(
-        select(Content)
-        .options(selectinload(Content.highlights))
-        .where(Content.id == content_id)
+        select(Content).where(Content.id == content_id)
     ).scalar_one_or_none()
     if content is None:
         return None
@@ -670,13 +666,6 @@ def update_content(
             content.eras = _serialize_eras(entries)
     if "visibility" in data and data["visibility"] is not None:
         content.visibility = _normalize_visibility(data["visibility"], content.visibility)
-    if "highlights" in data and data["highlights"] is not None:
-        existing = session.execute(select(Highlight).where(Highlight.content_id == content_id)).scalars().all()
-        for highlight in existing:
-            session.delete(highlight)
-        new_highlights = [text.strip() for text in data["highlights"] if text and text.strip()]
-        if new_highlights:
-            session.add_all([Highlight(content_id=content_id, text=text) for text in new_highlights])
     session.commit()
     session.refresh(content)
     return get_content(session, content_id, requester)
@@ -716,7 +705,7 @@ def list_contents(
         count_stmt = count_stmt.where(*stmt_conditions)
     total = session.scalar(count_stmt) or 0
 
-    stmt: Select = select(Content).options(selectinload(Content.highlights))
+    stmt: Select = select(Content)
     if stmt_conditions:
         stmt = stmt.where(*stmt_conditions)
     stmt = stmt.order_by(ordering).offset((page - 1) * size).limit(size)
@@ -729,7 +718,7 @@ def list_contents(
                 id=item.id,
                 title=item.title,
                 content=item.body,
-                highlights=[highlight.text for highlight in item.highlights],
+                highlights=[],
                 keywords=json_loads(item.keywords) if item.keywords else [],
                 timeline=_deserialize_timeline(item.timeline),
                 categories=_deserialize_categories(item.category),
@@ -743,7 +732,7 @@ def list_contents(
 
 
 def export_contents(session: Session, requester: Optional[User]) -> list[dict]:
-    stmt = select(Content).options(selectinload(Content.highlights), selectinload(Content.quizzes))
+    stmt = select(Content).options(selectinload(Content.quizzes))
     if requester is None:
         stmt = stmt.where(Content.visibility == VisibilityEnum.PUBLIC)
     else:
@@ -772,8 +761,6 @@ def export_contents(session: Session, requester: Optional[User]) -> list[dict]:
             {
                 "title": item.title,
                 "content": item.body,
-                "highlights": [highlight.text for highlight in item.highlights],
-                "tags": sorted(tag_set),
                 "keywords": json_loads(item.keywords) if item.keywords else [],
                 "timeline": [entry.model_dump(exclude_none=True) for entry in _deserialize_timeline(item.timeline)],
                 "categories": _deserialize_categories(item.category),
@@ -1695,5 +1682,121 @@ def delete_card_deck(session: Session, card_deck_id: int) -> bool:
         return False
     
     session.delete(card_deck)
+    session.commit()
+    return True
+
+
+# Card Style CRUD Functions
+def create_card_style(session: Session, card_style_data: CardStyleCreate) -> CardStyle:
+    """새로운 카드 스타일을 생성합니다."""
+    # 기본 스타일로 설정하는 경우 다른 기본 스타일들을 해제
+    if card_style_data.is_default:
+        session.query(CardStyle).filter(CardStyle.is_default == True).update({"is_default": False})
+    
+    card_style = CardStyle(**card_style_data.model_dump())
+    session.add(card_style)
+    session.commit()
+    session.refresh(card_style)
+    return card_style
+
+
+def get_card_style(session: Session, card_style_id: int) -> Optional[CardStyle]:
+    """ID로 카드 스타일을 조회합니다."""
+    return session.get(CardStyle, card_style_id)
+
+
+def list_card_styles(session: Session, offset: int = 0, limit: int = 100) -> Tuple[list[CardStyle], int]:
+    """카드 스타일 목록을 조회합니다."""
+    query = select(CardStyle).order_by(CardStyle.is_default.desc(), CardStyle.created_at.desc())
+    
+    # 총 개수 조회
+    count_query = select(func.count()).select_from(CardStyle)
+    total = session.execute(count_query).scalar()
+    
+    # 페이징 적용
+    items = session.execute(query.offset(offset).limit(limit)).scalars().all()
+    
+    return items, total
+
+
+def get_default_card_style(session: Session) -> CardStyle | None:
+    """기본 카드 스타일을 조회합니다."""
+    return session.execute(
+        select(CardStyle).where(CardStyle.is_default == True)
+    ).scalar_one_or_none()
+
+
+def get_card_style_by_type(session: Session, card_type: str) -> CardStyle | None:
+    """특정 카드 유형의 스타일을 조회합니다. 없으면 ALL 타입을 반환합니다."""
+    # 먼저 특정 카드 유형의 기본 스타일을 찾습니다
+    style = session.execute(
+        select(CardStyle).where(
+            CardStyle.card_type == card_type,
+            CardStyle.is_default == True
+        )
+    ).scalar_one_or_none()
+    
+    # 특정 유형이 없으면 ALL 타입의 기본 스타일을 반환
+    if not style:
+        style = session.execute(
+            select(CardStyle).where(
+                CardStyle.card_type == "ALL",
+                CardStyle.is_default == True
+            )
+        ).scalar_one_or_none()
+    
+    return style
+
+
+def list_card_styles_by_type(session: Session, card_type: str | None = None, offset: int = 0, limit: int = 20) -> tuple[list[CardStyle], int]:
+    """카드 유형별로 스타일 목록을 조회합니다."""
+    query = select(CardStyle)
+    
+    if card_type:
+        query = query.where(CardStyle.card_type == card_type)
+    
+    # 총 개수 조회
+    total_query = select(func.count()).select_from(query.subquery())
+    total = session.execute(total_query).scalar() or 0
+    
+    # 페이징된 결과 조회
+    query = query.order_by(CardStyle.is_default.desc(), CardStyle.created_at.desc())
+    query = query.offset(offset).limit(limit)
+    
+    styles = session.execute(query).scalars().all()
+    return list(styles), total
+
+
+def update_card_style(session: Session, card_style_id: int, update_data: CardStyleUpdate) -> Optional[CardStyle]:
+    """카드 스타일을 업데이트합니다."""
+    card_style = session.get(CardStyle, card_style_id)
+    if not card_style:
+        return None
+    update_dict = update_data.model_dump(exclude_unset=True)
+    
+    # 기본 스타일로 설정하는 경우 다른 기본 스타일들을 해제
+    if update_dict.get("is_default"):
+        session.query(CardStyle).filter(CardStyle.id != card_style_id, CardStyle.is_default == True).update({"is_default": False})
+    
+    for key, value in update_dict.items():
+        if value is not None:
+            setattr(card_style, key, value)
+    
+    session.commit()
+    session.refresh(card_style)
+    return card_style
+
+
+def delete_card_style(session: Session, card_style_id: int) -> bool:
+    """카드 스타일을 삭제합니다."""
+    card_style = session.get(CardStyle, card_style_id)
+    if not card_style:
+        return False
+    
+    # 기본 카드 스타일은 삭제할 수 없습니다
+    if card_style.is_default:
+        return False
+    
+    session.delete(card_style)
     session.commit()
     return True

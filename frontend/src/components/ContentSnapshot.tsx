@@ -26,14 +26,6 @@ export default function ContentSnapshot({ content }: ContentSnapshotProps) {
 
       <p className="whitespace-pre-wrap">{content.content}</p>
 
-      {content.highlights?.length ? (
-        <div className="flex flex-wrap gap-2">
-          {content.highlights.map((highlight) => (
-            <Badge key={highlight}>{highlight}</Badge>
-          ))}
-        </div>
-      ) : null}
-
       {content.keywords?.length ? (
         <div className="flex flex-wrap gap-2">
           {content.keywords.map((keyword) => (

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
 import CardRunner from '../components/CardRunner';
-import { fetchLearningHelpers, type LearningHelperPublic } from '../api';
+import { fetchLearningHelpers, fetchDefaultCardStyle, type LearningHelperPublic, type CardStyle } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 interface SampleCardConfig {
@@ -76,22 +76,104 @@ const sampleCards: SampleCardConfig[] = [
 
 type TeacherMood = 'idle' | 'correct' | 'incorrect';
 
-const renderSampleAnswer = ({ correct, explanation }: SampleCardConfig) => (
-  <div className="space-y-4 text-slate-800">
-    <div
-      className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${
-        correct ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-      }`}
-    >
-      {correct ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
+const renderSampleBack = (sample: SampleCardConfig, cardStyle?: CardStyle | null) => {
+  const { correct, explanation } = sample;
+  const resultLabel = correct ? '🎉 정답입니다!' : '❌ 틀렸습니다.';
+  const explanationText = explanation ?? '다음 문제로 이동하세요.';
+
+  const resultClass = `${cardStyle?.back_title_size || 'text-sm'} ${cardStyle?.back_title_color || ''} ${cardStyle?.back_title_align || 'text-center'} ${cardStyle?.back_title_position || ''}`;
+  const badgeClass = `inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${
+    correct ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+  }`;
+  const explanationClass = `${cardStyle?.back_content_size || 'text-sm'} ${cardStyle?.back_content_color || 'text-slate-700'} ${cardStyle?.back_content_align || 'text-center'} ${cardStyle?.back_content_position || ''}`;
+  const explanationMarginSplit = {
+    marginTop: `${cardStyle?.back_content_margin_top || '0'}px`,
+    marginBottom: `${cardStyle?.back_content_margin_bottom || '0'}px`,
+    marginLeft: `${cardStyle?.back_content_margin_left || '0'}px`,
+    marginRight: `${cardStyle?.back_content_margin_right || '0'}px`,
+  };
+  const explanationMarginGeneral = {
+    marginTop: `${cardStyle?.back_content_margin_top || '0'}px`,
+    marginBottom:
+      cardStyle?.back_layout === 'bottom'
+        ? `${cardStyle?.back_title_margin_bottom || '16'}px`
+        : `${cardStyle?.back_content_margin_bottom || '0'}px`,
+    marginLeft: `${cardStyle?.back_content_margin_left || '0'}px`,
+    marginRight: `${cardStyle?.back_content_margin_right || '0'}px`,
+  };
+  const titleMarginSplit = {
+    marginTop: `${cardStyle?.back_title_margin_top || '0'}px`,
+    marginBottom: `${cardStyle?.back_title_margin_bottom || '16'}px`,
+    marginLeft: `${cardStyle?.back_title_margin_left || '0'}px`,
+    marginRight: `${cardStyle?.back_title_margin_right || '0'}px`,
+  };
+  const titleMarginGeneral = {
+    marginTop: `${cardStyle?.back_title_margin_top || '0'}px`,
+    marginBottom:
+      cardStyle?.back_layout === 'bottom'
+        ? `${cardStyle?.back_title_margin_top || '0'}px`
+        : `${cardStyle?.back_title_margin_bottom || '16'}px`,
+    marginLeft: `${cardStyle?.back_title_margin_left || '0'}px`,
+    marginRight: `${cardStyle?.back_title_margin_right || '0'}px`,
+  };
+  const buttonPositionClass = cardStyle?.back_button_position || '';
+  const hasMtAuto = buttonPositionClass.includes('mt-auto') || buttonPositionClass.includes('my-auto');
+  const hasMbAuto = buttonPositionClass.includes('mb-auto') || buttonPositionClass.includes('my-auto');
+  const buttonMargin = {
+    marginTop: hasMtAuto ? 'auto' : `${cardStyle?.back_button_margin_top || '0'}px`,
+    marginBottom: hasMbAuto ? 'auto' : `${cardStyle?.back_button_margin_bottom || '0'}px`,
+    marginLeft: `${cardStyle?.back_button_margin_left || '0'}px`,
+    marginRight: `${cardStyle?.back_button_margin_right || '0'}px`,
+  };
+  const buttonClass = `w-full rounded-xl ${cardStyle?.back_button_size || 'px-4 py-2'} ${cardStyle?.back_button_color || 'bg-primary-600 text-white'} text-sm font-semibold shadow-lg transition hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2`;
+  const buttonAlignClass = `${cardStyle?.back_button_align || 'text-center'} ${buttonPositionClass} w-full`;
+
+  if (cardStyle?.back_layout === 'split') {
+    return (
+      <div className="flex h-full flex-col justify-between">
+        <div style={titleMarginSplit}>
+          <div className={resultClass}>
+            <div className={badgeClass}>{resultLabel}</div>
+          </div>
+        </div>
+        <div style={explanationMarginSplit}>
+          <div className={explanationClass}>
+            <p className="leading-relaxed">{explanationText}</p>
+          </div>
+        </div>
+        <div style={buttonMargin}>
+          <div className={buttonAlignClass}>
+            <button type="button" className={buttonClass}>
+              ➡️ 다음 문제
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5 text-center">
+      <div style={titleMarginGeneral}>
+        <div className={resultClass}>
+          <div className={badgeClass}>{resultLabel}</div>
+        </div>
+      </div>
+      <div style={explanationMarginGeneral}>
+        <div className={explanationClass}>
+          <p className="leading-relaxed">{explanationText}</p>
+        </div>
+      </div>
+      <div style={buttonMargin}>
+        <div className={buttonAlignClass}>
+          <button type="button" className={buttonClass}>
+            ➡️ 다음 문제
+          </button>
+        </div>
+      </div>
     </div>
-    {explanation ? (
-      <p className="text-sm leading-relaxed text-slate-700">{explanation}</p>
-    ) : (
-      <p className="text-sm text-slate-500">다음 문제로 이동하세요.</p>
-    )}
-  </div>
-);
+  );
+};
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -101,6 +183,7 @@ export default function HomePage() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [teacherMood, setTeacherMood] = useState<TeacherMood>('idle');
   const [fallbackHelper, setFallbackHelper] = useState<LearningHelperPublic | null>(null);
+  const [cardStyle, setCardStyle] = useState<CardStyle | null>(null);
 
   const baseVariants = useMemo(
     () => ({
@@ -130,6 +213,15 @@ export default function HomePage() {
   }, [activeHelper, baseVariants]);
 
   const currentTeacherImage = helperVariants[teacherMood] ?? baseVariants.idle;
+
+  // 기본 카드 스타일 로드
+  useEffect(() => {
+    fetchDefaultCardStyle()
+      .then(setCardStyle)
+      .catch((error) => {
+        console.error('기본 카드 스타일 로드 실패:', error);
+      });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -226,18 +318,19 @@ export default function HomePage() {
                             }
                       }}
                     >
-                    <div className="absolute inset-0 bg-white/55" />
-                    <div className="absolute inset-[18px] flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6">
+                      <div className="absolute inset-0 bg-white/55" />
+                      <div className="absolute inset-0 flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6">
                         <div className="max-h-full overflow-y-auto text-slate-900">
                           <div className="pointer-events-none select-none">
                             <CardRunner
                               card={sampleCards[frontIndex].card}
                               disabled={false}
                               onSubmit={() => {}}
+                              cardStyle={cardStyle}
                             />
                           </div>
                         </div>
-                    </div>
+                      </div>
                     </div>
                     <div
                       className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden] [transform:rotateY(180deg)]"
@@ -254,16 +347,20 @@ export default function HomePage() {
                       }}
                     >
                       <div className="absolute inset-0 bg-white/55" />
-                      <div className="absolute inset-[18px] flex h-full flex-col items-center justify-center gap-5 rounded-[28px] bg-white/94 p-6 text-center">
-                        <div className="w-full overflow-y-auto px-1 text-center text-slate-900">
-                          {renderSampleAnswer(sampleCards[answerIndex])}
-                        </div>
-                        <button
-                          type="button"
-                          className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2"
-                        >
-                          ➡️ 다음 문제
-                        </button>
+                      <div
+                        className={`absolute inset-0 flex h-full flex-col rounded-[36px] bg-white/94 p-6 ${
+                          cardStyle?.back_layout === 'top'
+                            ? 'justify-start'
+                            : cardStyle?.back_layout === 'center'
+                            ? 'justify-center'
+                            : cardStyle?.back_layout === 'bottom'
+                            ? 'justify-end'
+                            : cardStyle?.back_layout === 'split'
+                            ? 'justify-between'
+                            : 'items-center justify-center'
+                        }`}
+                      >
+                        {renderSampleBack(sampleCards[answerIndex], cardStyle)}
                       </div>
                     </div>
                   </div>

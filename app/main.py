@@ -14,12 +14,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import APIKeyHeader
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
-
 from .routers import quiz as quiz_router
 
 from .crud import (
     add_reward_to_session,
     create_card_deck,
+    create_card_style,
     create_content_with_related,
     create_learning_helper,
     create_quiz_for_content,
@@ -27,6 +27,7 @@ from .crud import (
     create_study_session,
     create_user,
     delete_card_deck,
+    delete_card_style,
     delete_content,
     delete_quiz,
     delete_reward,
@@ -34,9 +35,13 @@ from .crud import (
     delete_user,
     export_contents,
     get_card_deck,
+    get_card_style,
+    get_card_style_by_type,
     get_content,
     get_default_card_deck,
+    get_default_card_style,
     get_learning_helper,
+    get_public_study_session,
     get_quiz,
     get_study_session,
     get_user_by_api_key,
@@ -44,17 +49,19 @@ from .crud import (
     helper_to_out,
     helper_to_public,
     list_card_decks,
+    list_card_styles,
+    list_card_styles_by_type,
     list_contents,
     list_learning_helpers,
     list_quizzes,
     list_quizzes_by_content,
+    list_public_study_sessions,
     list_rewards,
     list_study_sessions,
-    list_public_study_sessions,
-    get_public_study_session,
     resolve_helper_for_user,
     set_user_helper,
     update_card_deck,
+    update_card_style,
     update_content,
     update_helper_variant,
     update_learning_helper,
@@ -71,6 +78,10 @@ from .schemas import (
     CardDeckListOut,
     CardDeckOut,
     CardDeckUpdate,
+    CardStyleCreate,
+    CardStyleListOut,
+    CardStyleOut,
+    CardStyleUpdate,
     CardUnion,
     ContentListOut,
     ContentOut,
@@ -1130,6 +1141,98 @@ async def upload_card_deck_image(
         raise HTTPException(status_code=502, detail=f"파일 업로드 실패: {str(exc)}") from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"업로드 중 오류가 발생했습니다: {str(exc)}") from exc
+
+
+# Card Style endpoints
+@app.post("/card-styles", response_model=CardStyleOut)
+def create_card_style_endpoint(
+    payload: CardStyleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    """새로운 카드 스타일을 생성합니다. (관리자 전용)"""
+    return create_card_style(db, payload)
+
+
+@app.get("/card-styles", response_model=CardStyleListOut)
+def list_card_styles_endpoint(
+    db: Session = Depends(get_db),
+    card_type: str = Query(None, description="카드 유형 필터 (MCQ, SHORT, OX, CLOZE, ORDER, MATCH, ALL)"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """카드 스타일 목록을 조회합니다."""
+    if card_type:
+        items, total = list_card_styles_by_type(db, card_type=card_type, offset=offset, limit=limit)
+    else:
+        items, total = list_card_styles(db, offset=offset, limit=limit)
+    return CardStyleListOut(
+        items=[CardStyleOut.model_validate(item) for item in items],
+        meta={"offset": offset, "limit": limit, "total": total},
+    )
+
+
+@app.get("/card-styles/default", response_model=CardStyleOut)
+def get_default_card_style_endpoint(
+    db: Session = Depends(get_db),
+):
+    """기본 카드 스타일을 조회합니다."""
+    card_style = get_default_card_style(db)
+    if not card_style:
+        raise HTTPException(status_code=404, detail="Default card style not found")
+    return CardStyleOut.model_validate(card_style)
+
+
+@app.get("/card-styles/by-type/{card_type}", response_model=CardStyleOut)
+def get_card_style_by_type_endpoint(
+    card_type: str,
+    db: Session = Depends(get_db),
+):
+    """특정 카드 유형의 스타일을 조회합니다."""
+    card_style = get_card_style_by_type(db, card_type)
+    if not card_style:
+        raise HTTPException(status_code=404, detail=f"Card style for type {card_type} not found")
+    return CardStyleOut.model_validate(card_style)
+
+
+@app.get("/card-styles/{card_style_id}", response_model=CardStyleOut)
+def get_card_style_endpoint(
+    card_style_id: int,
+    db: Session = Depends(get_db),
+):
+    """카드 스타일을 조회합니다."""
+    card_style = get_card_style(db, card_style_id)
+    if not card_style:
+        raise HTTPException(status_code=404, detail="Card style not found")
+    return CardStyleOut.model_validate(card_style)
+
+
+@app.patch("/card-styles/{card_style_id}", response_model=CardStyleOut)
+def update_card_style_endpoint(
+    card_style_id: int,
+    payload: CardStyleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    """카드 스타일을 업데이트합니다. (관리자 전용)"""
+    print(f"Received payload: {payload.model_dump()}")
+    card_style = update_card_style(db, card_style_id, payload)
+    if not card_style:
+        raise HTTPException(status_code=404, detail="Card style not found")
+    return CardStyleOut.model_validate(card_style)
+
+
+@app.delete("/card-styles/{card_style_id}")
+def delete_card_style_endpoint(
+    card_style_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    """카드 스타일을 삭제합니다. (관리자 전용)"""
+    success = delete_card_style(db, card_style_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Card style not found or cannot be deleted")
+    return {"message": "Card style deleted successfully"}
 
 
 # Include routers

@@ -1,17 +1,89 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
-const questionClass = 'w-full bg-white px-4 py-3 text-lg font-semibold text-primary-600 text-center shadow-sm';
+const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
 
 interface ClozeViewProps {
   card: any;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
+  cardStyle?: any;
 }
 
-export default function ClozeView({ card, disabled, onSubmit }: ClozeViewProps) {
+export default function ClozeView({ card, disabled, onSubmit, cardStyle }: ClozeViewProps) {
   const clozes: Record<string, string> = card.clozes ?? {};
   const placeholders = useMemo(() => Object.keys(clozes).sort(), [clozes]);
+
+  const titleClass = cardStyle
+    ? [
+        'w-full',
+        'px-4',
+        'py-3',
+        cardStyle.front_title_size || 'text-lg',
+        cardStyle.front_title_color || 'text-primary-600',
+        cardStyle.front_title_align || 'text-center',
+        cardStyle.front_title_background_color || 'bg-white',
+        cardStyle.front_title_border_color && cardStyle.front_title_border_color !== 'none'
+          ? `${cardStyle.front_title_border_width || 'border'} ${cardStyle.front_title_border_color}`
+          : '',
+        'font-semibold',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : questionClass;
   const [values, setValues] = useState<Record<string, string>>({});
+
+  const inputClasses = cardStyle
+    ? [
+        'mx-1',
+        'w-20',
+        'inline-block',
+        'rounded',
+        cardStyle.cloze_input_background_color || 'bg-transparent',
+        cardStyle.cloze_input_border_width || 'border-b',
+        cardStyle.cloze_input_border_color || 'border-primary-500',
+        cardStyle.cloze_input_font_size || 'text-base',
+        'text-center',
+        'text-primary-600',
+        'focus:outline-none',
+        cardStyle.cloze_input_underline_color || 'focus:border-primary-500',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : 'mx-1 w-24 inline-block rounded border-b border-primary-500 bg-transparent text-center text-sm text-primary-600 focus:outline-none';
+
+  const submitButtonClass = [
+    'mx-auto',
+    'block',
+    'rounded',
+    cardStyle?.cloze_button_size || 'px-4 py-2',
+    cardStyle?.cloze_button_color || 'bg-primary-600 text-white',
+    cardStyle?.cloze_button_font_size || 'text-sm',
+    'font-semibold',
+    'transition',
+    'hover:opacity-90',
+    'disabled:cursor-not-allowed',
+    'disabled:opacity-60',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const textContainerClass = cardStyle
+    ? [
+        'leading-relaxed',
+        'rounded',
+        'px-3',
+        'py-2',
+        cardStyle.cloze_text_align === 'justify-start' ? 'text-left' : 
+        cardStyle.cloze_text_align === 'justify-end' ? 'text-right' : 'text-center',
+        cardStyle.cloze_text_font_size || 'text-base',
+        cardStyle.cloze_text_background_color || 'bg-transparent',
+        cardStyle.cloze_text_border_color && cardStyle.cloze_text_border_color !== 'none'
+          ? `${cardStyle.cloze_text_border_width || 'border'} ${cardStyle.cloze_text_border_color}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : 'text-center text-base leading-relaxed';
 
   useEffect(() => {
     setValues({});
@@ -47,7 +119,7 @@ export default function ClozeView({ card, disabled, onSubmit }: ClozeViewProps) 
             value={values[key] ?? ''}
             onChange={(event) => setValues((prev) => ({ ...prev, [key]: event.target.value }))}
             disabled={disabled}
-            className="mx-1 w-24 rounded border-b border-primary-500 bg-transparent text-center text-sm text-primary-600 focus:outline-none"
+            className={inputClasses}
           />
         );
       });
@@ -55,12 +127,12 @@ export default function ClozeView({ card, disabled, onSubmit }: ClozeViewProps) 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-sm text-slate-900">
-      <p className={questionClass}>빈칸을 채워보세요</p>
-      <div className="flex flex-wrap items-center justify-center gap-2 text-base leading-relaxed">{renderWithInputs()}</div>
+      <p className={titleClass}>빈칸을 채워보세요</p>
+      <div className={textContainerClass}>{renderWithInputs()}</div>
       <button
         type="submit"
         disabled={disabled}
-        className="mx-auto block rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className={submitButtonClass}
       >
         제출
       </button>

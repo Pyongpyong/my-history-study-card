@@ -8,19 +8,27 @@ export default function ContentListPage() {
   const [contents, setContents] = useState<Awaited<ReturnType<typeof fetchContents>>['items']>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeKeywords, setActiveKeywords] = useState<string[]>([]);
+  const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [activePeriod, setActivePeriod] = useState<string>('전체');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const pageSize = 20;
+
   const periods = ['전체', '고대', '고려', '조선', '근대', '현대'];
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (page: number = currentPage) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchContents();
+      const data = await fetchContents(page, pageSize);
       setContents(data.items);
+      setTotalItems(data.meta.total);
+      setTotalPages(Math.ceil(data.meta.total / pageSize));
+      setCurrentPage(page);
     } catch (err: any) {
       console.error(err);
       const message = err?.response?.data?.detail ?? '콘텐츠 목록을 불러오지 못했습니다.';
@@ -28,7 +36,7 @@ export default function ContentListPage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [currentPage, pageSize]);
 
   useEffect(() => {
     load();
@@ -40,7 +48,7 @@ export default function ContentListPage() {
     if (!confirm('해당 콘텐츠와 관련 퀴즈를 삭제할까요?')) return;
     try {
       await deleteContent(id);
-      await load();
+      await load(currentPage);
     } catch (err: any) {
       console.error(err);
       const message = err?.response?.data?.detail ?? '삭제에 실패했습니다.';
@@ -48,21 +56,47 @@ export default function ContentListPage() {
     }
   };
 
-  const availableKeywords = useMemo(() => {
-    const keywordsSet = new Set<string>();
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages && page !== currentPage) {
+      load(page);
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      const start = Math.max(1, currentPage - 2);
+      const end = Math.min(totalPages, start + maxVisiblePages - 1);
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  };
+
+  const availableCategories = useMemo(() => {
+    const categoriesSet = new Set<string>();
     contents.forEach((item) => {
-      (item.keywords ?? []).forEach((keyword) => {
-        if (keyword && keyword.trim()) {
-          keywordsSet.add(keyword);
+      (item.categories ?? []).forEach((category) => {
+        if (category && category.trim()) {
+          categoriesSet.add(category);
         }
       });
     });
-    return Array.from(keywordsSet).sort((a, b) => a.localeCompare(b));
+    return Array.from(categoriesSet).sort((a, b) => a.localeCompare(b));
   }, [contents]);
 
-  const toggleKeyword = (keyword: string) => {
-    setActiveKeywords((prev) =>
-      prev.includes(keyword) ? prev.filter((item) => item !== keyword) : [...prev, keyword],
+  const toggleCategory = (category: string) => {
+    setActiveCategories((prev) =>
+      prev.includes(category) ? prev.filter((item) => item !== category) : [...prev, category],
     );
   };
 
@@ -77,16 +111,16 @@ export default function ContentListPage() {
       });
     }
     
-    // 키워드 필터링
-    if (activeKeywords.length) {
+    // 카테고리 필터링
+    if (activeCategories.length) {
       filtered = filtered.filter((item) => {
-        const itemKeywords = item.keywords ?? [];
-        return activeKeywords.every((keyword) => itemKeywords.includes(keyword));
+        const itemCategories = item.categories ?? [];
+        return activeCategories.every((category) => itemCategories.includes(category));
       });
     }
     
     return filtered;
-  }, [contents, activeKeywords, activePeriod]);
+  }, [contents, activeCategories, activePeriod]);
 
 
   if (loading) {
@@ -132,8 +166,8 @@ export default function ContentListPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-500">
-          총 {contents.length}개의 콘텐츠 
-          {activePeriod !== '전체' && ` (${activePeriod}: ${filteredContents.length}개)`}
+          총 {totalItems}개의 콘텐츠 (페이지 {currentPage}/{totalPages})
+          {activePeriod !== '전체' && ` - ${activePeriod}: ${filteredContents.length}개 표시`}
         </p>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         </div>
@@ -143,32 +177,32 @@ export default function ContentListPage() {
         <p className="text-sm text-slate-600">아직 등록된 콘텐츠가 없습니다.</p>
       ) : null}
 
-      {availableKeywords.length ? (
+      {availableCategories.length ? (
         <div className="flex flex-wrap gap-2">
-          {availableKeywords.map((keyword) => {
-            const active = activeKeywords.includes(keyword);
+          {availableCategories.map((category) => {
+            const active = activeCategories.includes(category);
             return (
               <button
-                key={keyword}
+                key={category}
                 type="button"
-                onClick={() => toggleKeyword(keyword)}
+                onClick={() => toggleCategory(category)}
                 className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                   active
                     ? 'border border-primary-500 bg-primary-100 text-primary-600'
                     : 'border border-slate-300 text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                #{keyword}
+                {category}
               </button>
             );
           })}
-          {activeKeywords.length ? (
+          {activeCategories.length ? (
             <button
               type="button"
-              onClick={() => setActiveKeywords([])}
+              onClick={() => setActiveCategories([])}
               className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 transition hover:bg-slate-100"
             >
-              키워드 초기화
+              카테고리 초기화
             </button>
           ) : null}
         </div>
@@ -236,9 +270,44 @@ export default function ContentListPage() {
         <p className="text-sm text-slate-600">
           {activePeriod !== '전체' 
             ? `${activePeriod} 시대에 해당하는 콘텐츠가 없습니다.`
-            : '선택한 키워드에 해당하는 콘텐츠가 없습니다.'
+            : '선택한 카테고리에 해당하는 콘텐츠가 없습니다.'
           }
         </p>
+      )}
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center space-x-2 mt-8">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-2 text-sm font-medium text-slate-500 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            이전
+          </button>
+          
+          {getPageNumbers().map((page) => (
+            <button
+              key={page}
+              onClick={() => handlePageChange(page)}
+              className={`px-3 py-2 text-sm font-medium rounded-md ${
+                page === currentPage
+                  ? 'text-white bg-primary-600 border border-primary-600'
+                  : 'text-slate-700 bg-white border border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+          
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-2 text-sm font-medium text-slate-500 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            다음
+          </button>
+        </div>
       )}
     </div>
   );

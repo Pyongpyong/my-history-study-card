@@ -6,13 +6,5 @@ from .schemas import ImportPayload
 
 
 def validate_payload(payload: ImportPayload) -> ImportPayload:
-    missing = [highlight for highlight in payload.highlights if highlight not in payload.content]
-    if missing:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "highlight_not_found",
-                "missing": missing,
-            },
-        )
+    # highlights 필드가 제거되었으므로 검증 로직 제거
     return payload

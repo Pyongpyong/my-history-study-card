@@ -243,8 +243,6 @@ class EraEntry(BaseModel):
 class ImportPayload(BaseModel):
     title: str
     content: str
-    highlights: List[str] = Field(default_factory=list)
-    tags: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
     timeline: List[TimelineEntry] = Field(default_factory=list)
     categories: List[str] = Field(default_factory=list)
@@ -261,28 +259,6 @@ class ImportPayload(BaseModel):
         if not value or not value.strip():
             raise ValueError("field must not be empty")
         return value
-
-    @field_validator("highlights")
-    @classmethod
-    def validate_highlights(cls, value: List[str]) -> List[str]:
-        if not (0 <= len(value) <= 200):
-            raise ValueError("highlights must contain between 0 and 200 entries")
-        for item in value:
-            if not item or not item.strip():
-                raise ValueError("highlight entries must be non-empty strings")
-        return value
-
-    @field_validator("tags")
-    @classmethod
-    def validate_tags(cls, value: List[str]) -> List[str]:
-        normalized = []
-        for item in value:
-            if not item or not item.strip():
-                raise ValueError("tags entries must be non-empty strings")
-            candidate = item.strip()
-            if candidate not in normalized:
-                normalized.append(candidate)
-        return normalized
 
     @field_validator("keywords")
     @classmethod
@@ -343,15 +319,6 @@ class ImportPayload(BaseModel):
                 data.categories = [candidate]
         return data
 
-    @model_validator(mode="after")
-    def merge_legacy_tags(cls, data: "ImportPayload") -> "ImportPayload":
-        if data.tags:
-            for tag in data.tags:
-                if tag not in data.keywords:
-                    data.keywords.append(tag)
-            data.tags = []
-        return data
-
     @field_validator("eras", mode="before")
     @classmethod
     def parse_eras(cls, value):
@@ -390,7 +357,6 @@ class ContentOut(BaseModel):
     id: int
     title: str
     content: str
-    highlights: List[str]
     keywords: List[str]
     timeline: List[TimelineEntry]
     categories: List[str]
@@ -403,7 +369,6 @@ class ContentOut(BaseModel):
 class ContentUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
-    highlights: Optional[List[str]] = None
     keywords: Optional[List[str]] = None
     timeline: Optional[List[TimelineEntry]] = None
     category: Optional[str] = None
@@ -760,4 +725,327 @@ class CardDeckOut(CardDeckBase):
 
 class CardDeckListOut(BaseModel):
     items: List[CardDeckOut]
+    meta: PageMeta
+
+
+# Card Style Schemas
+class CardStyleBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    card_type: str = "ALL"  # MCQ, SHORT, OX, CLOZE, ORDER, MATCH, ALL
+    is_default: bool = False
+    
+    # 앞면 레이아웃 설정
+    front_layout: str = "top"  # top, center, bottom, split
+    
+    # 앞면 문제 영역 스타일
+    front_title_size: str = "text-lg"
+    front_title_color: str = "text-primary-600"
+    front_title_align: str = "text-center"
+    front_title_margin_top: str = "0"
+    front_title_margin_bottom: str = "16"
+    front_title_margin_left: str = "0"
+    front_title_margin_right: str = "0"
+    front_title_background_color: str = "bg-white"
+    front_title_border_color: str = "none"
+    front_title_border_width: str = "border"
+    
+    # 앞면 답변 영역 스타일
+    front_content_size: str = "text-sm"
+    front_content_color: str = "text-slate-900"
+    front_content_align: str = "text-left"
+    front_content_margin_top: str = "0"
+    front_content_margin_bottom: str = "0"
+    front_content_margin_left: str = "0"
+    front_content_margin_right: str = "0"
+
+    mcq_option_background_color: str = "bg-white"
+    mcq_option_border_color: str = "none"
+    mcq_option_border_width: str = "border"
+    mcq_option_gap: str = "8"
+
+    short_input_height: str = "h-12"
+    short_input_background_color: str = "bg-white"
+    short_input_border_color: str = "border-slate-300"
+    short_input_border_width: str = "border"
+    short_button_size: str = "px-4 py-2"
+    short_button_color: str = "bg-primary-600 text-white"
+    short_button_font_size: str = "text-sm"
+
+    ox_button_o_size: str = "h-20 w-20 text-xl"
+    ox_button_o_background_color: str = "bg-emerald-700 text-white"
+    ox_button_o_radius: str = "rounded-full"
+    ox_button_o_border_color: str = "none"
+    ox_button_o_border_width: str = "border"
+    ox_button_x_size: str = "h-20 w-20 text-xl"
+    ox_button_x_background_color: str = "bg-rose-700 text-white"
+    ox_button_x_radius: str = "rounded-full"
+    ox_button_x_border_color: str = "none"
+    ox_button_x_border_width: str = "border"
+    ox_button_gap: str = "24"
+
+    cloze_text_font_size: str = "text-base"
+    cloze_text_align: str = "justify-center"
+    cloze_text_background_color: str = "bg-transparent"
+    cloze_text_border_color: str = "none"
+    cloze_text_border_width: str = "border"
+    cloze_input_font_size: str = "text-base"
+    cloze_input_background_color: str = "bg-transparent"
+    cloze_input_border_color: str = "border-primary-500"
+    cloze_input_border_width: str = "border-b"
+    cloze_input_underline_color: str = "focus:border-primary-500"
+    cloze_button_size: str = "px-4 py-2"
+    cloze_button_color: str = "bg-primary-600 text-white"
+    cloze_button_font_size: str = "text-sm"
+
+    order_item_background_color: str = "bg-white"
+    order_item_border_color: str = "border-slate-300"
+    order_item_border_width: str = "border"
+    order_item_gap: str = "8"
+    order_button_size: str = "px-4 py-2"
+    order_button_color: str = "bg-primary-600 text-white"
+    order_button_font_size: str = "text-sm"
+    order_guide_align: str = "text-left"
+    order_guide_font_size: str = "text-xs"
+    order_guide_background_color: str = "bg-transparent"
+    order_guide_border_color: str = "none"
+    order_guide_border_width: str = "border"
+
+    match_item_background_color: str = "bg-white"
+    match_item_border_color: str = "border-slate-200"
+    match_item_border_width: str = "border"
+    match_item_1_background_color: str = "bg-white"
+    match_item_1_border_color: str = "border-slate-200"
+    match_item_1_border_width: str = "border"
+    match_item_1_font_size: str = "text-sm"
+    match_item_1_text_align: str = "text-left"
+    match_item_2_background_color: str = "bg-white"
+    match_item_2_border_color: str = "border-slate-200"
+    match_item_2_border_width: str = "border"
+    match_item_2_font_size: str = "text-sm"
+    match_item_2_text_align: str = "text-left"
+    match_item_3_background_color: str = "bg-white"
+    match_item_3_border_color: str = "border-slate-200"
+    match_item_3_border_width: str = "border"
+    match_item_3_font_size: str = "text-sm"
+    match_item_3_text_align: str = "text-left"
+    match_item_4_background_color: str = "bg-white"
+    match_item_4_border_color: str = "border-slate-200"
+    match_item_4_border_width: str = "border"
+    match_item_4_font_size: str = "text-sm"
+    match_item_4_text_align: str = "text-left"
+    match_item_gap: str = "8"
+    match_line_color: str = "default"
+    match_button_size: str = "px-4 py-2"
+    match_button_color: str = "bg-primary-600 text-white"
+    match_button_font_size: str = "text-sm"
+    match_guide_align: str = "text-left"
+    match_guide_font_size: str = "text-xs"
+    match_guide_background_color: str = "bg-transparent"
+    match_guide_border_color: str = "none"
+    match_guide_border_width: str = "border"
+    
+    # 뒷면 스타일 설정
+    back_layout: str = "center"  # top, center, bottom, split
+    
+    back_title_size: str = "text-lg"
+    back_title_color: str = "text-primary-600"
+    back_title_align: str = "text-center"
+    back_title_position: str = "mb-4"
+    back_title_margin_top: str = "0"
+    back_title_margin_bottom: str = "16"
+    back_title_margin_left: str = "0"
+    back_title_margin_right: str = "0"
+    
+    back_content_size: str = "text-sm"
+    back_content_color: str = "text-slate-700"
+    back_content_align: str = "text-left"
+    back_content_position: str = "mb-4"
+    back_content_margin_top: str = "0"
+    back_content_margin_bottom: str = "0"
+    back_content_margin_left: str = "0"
+    back_content_margin_right: str = "0"
+    
+    back_button_size: str = "px-4 py-2"
+    back_button_color: str = "bg-primary-600 text-white"
+    back_button_position: str = "mt-auto"
+    back_button_align: str = "text-center"
+    back_button_margin_top: str = "0"
+    back_button_margin_bottom: str = "0"
+    back_button_margin_left: str = "0"
+    back_button_margin_right: str = "0"
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("name must not be empty")
+        return value.strip()
+
+
+class CardStyleCreate(CardStyleBase):
+    pass
+
+
+class CardStyleUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    card_type: Optional[str] = None
+    is_default: Optional[bool] = None
+    
+    # 앞면 레이아웃 설정
+    front_layout: Optional[str] = None
+    
+    # 앞면 문제 영역 스타일
+    front_title_size: Optional[str] = None
+    front_title_color: Optional[str] = None
+    front_title_align: Optional[str] = None
+    front_title_margin_top: Optional[str] = None
+    front_title_margin_bottom: Optional[str] = None
+    front_title_margin_left: Optional[str] = None
+    front_title_margin_right: Optional[str] = None
+    front_title_background_color: Optional[str] = None
+    front_title_border_color: Optional[str] = None
+    front_title_border_width: Optional[str] = None
+    
+    # 앞면 답변 영역 스타일
+    front_content_size: Optional[str] = None
+    front_content_color: Optional[str] = None
+    front_content_align: Optional[str] = None
+    front_content_margin_top: Optional[str] = None
+    front_content_margin_bottom: Optional[str] = None
+    front_content_margin_left: Optional[str] = None
+    front_content_margin_right: Optional[str] = None
+    mcq_option_background_color: Optional[str] = None
+    mcq_option_border_color: Optional[str] = None
+    mcq_option_border_width: Optional[str] = None
+    mcq_option_gap: Optional[str] = None
+    short_input_height: Optional[str] = None
+    short_input_background_color: Optional[str] = None
+    short_input_border_color: Optional[str] = None
+    short_input_border_width: Optional[str] = None
+    short_button_size: Optional[str] = None
+    short_button_color: Optional[str] = None
+    short_button_font_size: Optional[str] = None
+    ox_button_o_size: Optional[str] = None
+    ox_button_o_background_color: Optional[str] = None
+    ox_button_o_radius: Optional[str] = None
+    ox_button_o_border_color: Optional[str] = None
+    ox_button_o_border_width: Optional[str] = None
+    ox_button_x_size: Optional[str] = None
+    ox_button_x_background_color: Optional[str] = None
+    ox_button_x_radius: Optional[str] = None
+    ox_button_x_border_color: Optional[str] = None
+    ox_button_x_border_width: Optional[str] = None
+    ox_button_gap: Optional[str] = None
+    cloze_text_font_size: Optional[str] = None
+    cloze_text_align: Optional[str] = None
+    cloze_text_background_color: Optional[str] = None
+    cloze_text_border_color: Optional[str] = None
+    cloze_text_border_width: Optional[str] = None
+    cloze_input_font_size: Optional[str] = None
+    cloze_input_background_color: Optional[str] = None
+    cloze_input_border_color: Optional[str] = None
+    cloze_input_border_width: Optional[str] = None
+    cloze_input_underline_color: Optional[str] = None
+    cloze_button_size: Optional[str] = None
+    cloze_button_color: Optional[str] = None
+    cloze_button_font_size: Optional[str] = None
+    order_item_background_color: Optional[str] = None
+    order_item_border_color: Optional[str] = None
+    order_item_border_width: Optional[str] = None
+    order_item_gap: Optional[str] = None
+    order_button_size: Optional[str] = None
+    order_button_color: Optional[str] = None
+    order_button_font_size: Optional[str] = None
+    order_guide_align: Optional[str] = None
+    order_guide_font_size: Optional[str] = None
+    order_guide_background_color: Optional[str] = None
+    order_guide_border_color: Optional[str] = None
+    order_guide_border_width: Optional[str] = None
+    match_item_background_color: Optional[str] = None
+    match_item_border_color: Optional[str] = None
+    match_item_border_width: Optional[str] = None
+    match_item_1_background_color: Optional[str] = None
+    match_item_1_border_color: Optional[str] = None
+    match_item_1_border_width: Optional[str] = None
+    match_item_1_font_size: Optional[str] = None
+    match_item_1_text_align: Optional[str] = None
+    match_item_2_background_color: Optional[str] = None
+    match_item_2_border_color: Optional[str] = None
+    match_item_2_border_width: Optional[str] = None
+    match_item_2_font_size: Optional[str] = None
+    match_item_2_text_align: Optional[str] = None
+    match_item_3_background_color: Optional[str] = None
+    match_item_3_border_color: Optional[str] = None
+    match_item_3_border_width: Optional[str] = None
+    match_item_3_font_size: Optional[str] = None
+    match_item_3_text_align: Optional[str] = None
+    match_item_4_background_color: Optional[str] = None
+    match_item_4_border_color: Optional[str] = None
+    match_item_4_border_width: Optional[str] = None
+    match_item_4_font_size: Optional[str] = None
+    match_item_4_text_align: Optional[str] = None
+    match_item_gap: Optional[str] = None
+    match_line_color: Optional[str] = None
+    match_button_size: Optional[str] = None
+    match_button_color: Optional[str] = None
+    match_button_font_size: Optional[str] = None
+    match_guide_align: Optional[str] = None
+    match_guide_font_size: Optional[str] = None
+    match_guide_background_color: Optional[str] = None
+    match_guide_border_color: Optional[str] = None
+    match_guide_border_width: Optional[str] = None
+    
+    # 뒷면 스타일 설정
+    back_layout: Optional[str] = None
+    
+    back_title_size: Optional[str] = None
+    back_title_color: Optional[str] = None
+    back_title_align: Optional[str] = None
+    back_title_position: Optional[str] = None
+    back_title_margin_top: Optional[str] = None
+    back_title_margin_bottom: Optional[str] = None
+    back_title_margin_left: Optional[str] = None
+    back_title_margin_right: Optional[str] = None
+    
+    back_content_size: Optional[str] = None
+    back_content_color: Optional[str] = None
+    back_content_align: Optional[str] = None
+    back_content_position: Optional[str] = None
+    back_content_margin_top: Optional[str] = None
+    back_content_margin_bottom: Optional[str] = None
+    back_content_margin_left: Optional[str] = None
+    back_content_margin_right: Optional[str] = None
+    
+    back_button_size: Optional[str] = None
+    back_button_color: Optional[str] = None
+    back_button_position: Optional[str] = None
+    back_button_align: Optional[str] = None
+    back_button_margin_top: Optional[str] = None
+    back_button_margin_bottom: Optional[str] = None
+    back_button_margin_left: Optional[str] = None
+    back_button_margin_right: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("name must not be empty")
+        return stripped
+
+
+class CardStyleOut(CardStyleBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CardStyleListOut(BaseModel):
+    items: List[CardStyleOut]
     meta: PageMeta

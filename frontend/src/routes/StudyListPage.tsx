@@ -117,8 +117,29 @@ export default function StudyListPage() {
     const orderIndex = sessions.findIndex((item) => item.id === session.id);
     const fallbackIndex = orderIndex >= 0 ? orderIndex : index;
     const nextTitle = value.trim() || `학습 ${fallbackIndex + 1}`;
-    await updateStudySessionRequest(session.id, { title: nextTitle });
-    load();
+    
+    // 제목이 변경되지 않았으면 업데이트하지 않음
+    if (nextTitle === session.title) {
+      return;
+    }
+    
+    try {
+      await updateStudySessionRequest(session.id, { title: nextTitle });
+      // 성공 시에만 로컬 상태 업데이트
+      setSessions((prev) =>
+        prev.map((item) =>
+          item.id === session.id ? { ...item, title: nextTitle } : item,
+        ),
+      );
+    } catch (err) {
+      console.error('제목 업데이트 실패:', err);
+      // 실패 시 원래 제목으로 되돌림
+      setSessions((prev) =>
+        prev.map((item) =>
+          item.id === session.id ? { ...item, title: session.title } : item,
+        ),
+      );
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -311,22 +332,7 @@ export default function StudyListPage() {
             <div key={session.id} className="rounded-lg border border-slate-200 bg-white p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  {user ? (
-                    <input
-                      value={session.title}
-                      onChange={(event) =>
-                        setSessions((prev) =>
-                          prev.map((item) =>
-                            item.id === session.id ? { ...item, title: event.target.value } : item,
-                          ),
-                        )
-                      }
-                      onBlur={(event) => handleTitleBlur(session, event.target.value, index)}
-                      className="w-full rounded bg-transparent text-lg font-semibold text-primary-600 focus:outline-none"
-                    />
-                  ) : (
-                    <h3 className="text-lg font-semibold text-primary-600">{session.title}</h3>
-                  )}
+                  <h3 className="text-lg font-semibold text-primary-600">{session.title}</h3>
                   <div className="flex items-center gap-2 mt-1">
                     <p className="text-xs text-slate-500">
                       생성일: {new Date(session.created_at).toLocaleString()}

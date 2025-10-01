@@ -1,22 +1,64 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
-const questionClass = 'w-full bg-white px-4 py-3 text-lg font-semibold text-primary-600 text-center shadow-sm';
+const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
 
 interface ShortViewProps {
   card: any;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
+  cardStyle?: any;
 }
 
 const normalize = (value: string) => value.trim().toLowerCase();
 
-export default function ShortView({ card, disabled, onSubmit }: ShortViewProps) {
+export default function ShortView({ card, disabled, onSubmit, cardStyle }: ShortViewProps) {
   const [value, setValue] = useState('');
 
   const acceptable = useMemo(() => {
     const aliases: string[] = Array.isArray(card?.rubric?.aliases) ? card.rubric.aliases : [];
     return [card.answer, ...aliases].map((entry) => normalize(String(entry ?? ''))).filter(Boolean);
   }, [card.answer, card?.rubric?.aliases]);
+
+  const titleClass = cardStyle
+    ? [
+        'w-full',
+        'px-4',
+        'py-3',
+        cardStyle.front_title_size || 'text-lg',
+        cardStyle.front_title_color || 'text-primary-600',
+        cardStyle.front_title_align || 'text-center',
+        cardStyle.front_title_background_color || 'bg-white',
+        cardStyle.front_title_border_color && cardStyle.front_title_border_color !== 'none'
+          ? `${cardStyle.front_title_border_width || 'border'} ${cardStyle.front_title_border_color}`
+          : '',
+        'font-semibold',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : questionClass;
+
+  const inputClasses = cardStyle
+    ? [
+        'w-full',
+        'rounded',
+        cardStyle.short_input_border_color && cardStyle.short_input_border_color !== 'none'
+          ? `${cardStyle.short_input_border_width || 'border'} ${cardStyle.short_input_border_color}`
+          : cardStyle.short_input_border_color === 'none'
+          ? ''
+          : (cardStyle.short_input_border_width || 'border border-slate-300'),
+        cardStyle.short_input_background_color || 'bg-white',
+        cardStyle.short_input_height || 'h-12',
+        'px-4',
+        'py-2',
+        'text-sm',
+        'focus:border-primary-500',
+        'focus:outline-none',
+        'focus:ring-1',
+        'focus:ring-primary-500',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : 'w-full rounded border border-slate-300 bg-white px-4 py-2';
 
   useEffect(() => {
     setValue('');
@@ -31,19 +73,37 @@ export default function ShortView({ card, disabled, onSubmit }: ShortViewProps) 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-sm text-slate-900">
-      <p className={questionClass}>{card.prompt ?? '질문 없음'}</p>
+      <p className={titleClass}>{card.prompt ?? '질문 없음'}</p>
       <input
         type="text"
         value={value}
         disabled={disabled}
         onChange={(event) => setValue(event.target.value)}
-        className="w-full rounded border border-slate-300 bg-white px-4 py-2"
+        className={inputClasses}
         placeholder="정답을 입력하고 Enter 키를 누르세요"
       />
       <button
         type="submit"
         disabled={disabled}
-        className="mx-auto block rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className={
+          cardStyle
+            ? [
+                'mx-auto',
+                'block',
+                'rounded',
+                cardStyle.short_button_size || 'px-4 py-2',
+                cardStyle.short_button_color || 'bg-primary-600 text-white',
+                cardStyle.short_button_font_size || 'text-sm',
+                'font-semibold',
+                'transition',
+                'hover:opacity-90',
+                'disabled:cursor-not-allowed',
+                'disabled:bg-slate-300',
+              ]
+                .filter(Boolean)
+                .join(' ')
+            : 'mx-auto block rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300'
+        }
       >
         제출
       </button>
