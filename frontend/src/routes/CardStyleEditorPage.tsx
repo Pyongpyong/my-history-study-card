@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   fetchCardStyle,
@@ -37,6 +37,44 @@ const TEXT_COLORS = [
   { value: 'text-purple-600', label: '보라색' },
   { value: 'text-black', label: '검은색' },
   { value: 'text-white', label: '흰색' },
+];
+
+const BACKGROUND_COLORS = [
+  { value: 'bg-white', label: '흰색 (기본)' },
+  { value: 'bg-slate-50', label: '아주 연한 회색' },
+  { value: 'bg-slate-100', label: '연한 회색' },
+  { value: 'bg-slate-200', label: '밝은 회색' },
+  { value: 'bg-primary-50', label: '연한 올리브' },
+  { value: 'bg-primary-100', label: '밝은 올리브' },
+  { value: 'bg-emerald-50', label: '연한 초록' },
+  { value: 'bg-blue-50', label: '연한 파랑' },
+  { value: 'bg-amber-50', label: '연한 노랑' },
+  { value: 'bg-rose-50', label: '연한 붉은색' },
+  { value: 'bg-purple-50', label: '연한 보라색' },
+];
+
+const BORDER_COLORS = [
+  { value: 'none', label: '없음 (기본)' },
+  { value: 'border-slate-200', label: '연한 회색' },
+  { value: 'border-slate-300', label: '회색' },
+  { value: 'border-slate-400', label: '진한 회색' },
+  { value: 'border-primary-300', label: '연한 올리브' },
+  { value: 'border-primary-500', label: '올리브' },
+  { value: 'border-emerald-400', label: '초록' },
+  { value: 'border-blue-400', label: '파랑' },
+  { value: 'border-rose-400', label: '붉은색' },
+  { value: 'border-purple-400', label: '보라색' },
+  { value: 'border-black', label: '검정' },
+];
+
+const BORDER_WIDTHS = [
+  { value: 'border', label: '기본 (1px)' },
+  { value: 'border-2', label: '두껍게 (2px)' },
+  { value: 'border-4', label: '더 두껍게 (4px)' },
+  { value: 'border-8', label: '매우 두껍게 (8px)' },
+  { value: 'border-[1px]', label: '1px' },
+  { value: 'border-[3px]', label: '3px' },
+  { value: 'border-[6px]', label: '6px' },
 ];
 
 const TEXT_ALIGNS = [
@@ -142,14 +180,14 @@ const SAMPLE_CARDS = {
   },
   OX: {
     type: 'OX',
-    question: '조선 전기 과거제도에서 문과의 최종 시험은 전시이다.',
+    statement: '조선 전기 과거제도에서 문과의 최종 시험은 전시이다.',
     answer: true,
     explain: '전시는 문과의 최종 시험으로, 왕이 직접 출제하고 채점했습니다.',
   },
   CLOZE: {
     type: 'CLOZE',
-    text: '조선 전기 과거제도에서 문과의 최종 시험은 {{전시}}이다.',
-    clozes: { '전시': '전시' },
+    text: '조선 전기 과거제도에서 문과의 최종 시험은 {{c1}}이다.',
+    clozes: { c1: '전시' },
     explain: '전시는 문과의 최종 시험으로, 왕이 직접 출제하고 채점했습니다.',
   },
   ORDER: {
@@ -188,6 +226,31 @@ export default function CardStyleEditorPage() {
   const [cardDecks, setCardDecks] = useState<CardDeck[]>([]);
   const [selectedDeck, setSelectedDeck] = useState<CardDeck | null>(null);
 
+  const ensureFrontTitleDefaults = (style: CardStyle): CardStyle => ({
+    ...style,
+    front_title_background_color: style.front_title_background_color || 'bg-white',
+    front_title_border_color: style.front_title_border_color || 'none',
+    front_title_border_width: style.front_title_border_width || 'border',
+  });
+
+  const previewCard = useMemo(() => {
+    const typeKey = (cardStyle?.card_type ?? 'ALL') as keyof typeof SAMPLE_CARDS;
+    return SAMPLE_CARDS[typeKey] ?? SAMPLE_CARDS.ALL;
+  }, [cardStyle?.card_type]);
+
+  const defaultFrontDeckImage = getCardDeckImageUrl('card_frame_front.png') ?? undefined;
+  const defaultBackDeckImage = getCardDeckImageUrl('card_frame_back.png') ?? undefined;
+  const previewFrontImage = selectedDeck?.front_image
+    ? getCardDeckImageUrl(selectedDeck.front_image)
+    : defaultFrontDeckImage;
+  const previewBackImage = selectedDeck?.back_image
+    ? getCardDeckImageUrl(selectedDeck.back_image)
+    : defaultBackDeckImage;
+  const previewExplanation = previewCard?.explain ?? '정답 설명이 여기에 표시됩니다.';
+  const previewNextActionLabel = '다음 문제';
+  const previewIsCorrect = true;
+  const handlePreviewSubmit = () => {};
+
   const isNew = id === 'new';
   const isAdmin = user?.is_admin;
 
@@ -212,7 +275,7 @@ export default function CardStyleEditorPage() {
         // 카드 스타일 로드
         if (isNew) {
           // 새 스타일 생성 시 기본값 사용
-          const defaultStyle = await fetchDefaultCardStyle();
+          const defaultStyle = ensureFrontTitleDefaults(await fetchDefaultCardStyle());
           setCardStyle({
             ...defaultStyle,
             id: 0,
@@ -222,7 +285,7 @@ export default function CardStyleEditorPage() {
           });
         } else {
           const style = await fetchCardStyle(Number(id));
-          setCardStyle(style);
+          setCardStyle(ensureFrontTitleDefaults(style));
         }
       } catch (err) {
         console.error('데이터 로드 실패:', err);
@@ -259,6 +322,9 @@ export default function CardStyleEditorPage() {
           front_title_margin_bottom: cardStyle.front_title_margin_bottom,
           front_title_margin_left: cardStyle.front_title_margin_left,
           front_title_margin_right: cardStyle.front_title_margin_right,
+          front_title_background_color: cardStyle.front_title_background_color,
+          front_title_border_color: cardStyle.front_title_border_color,
+          front_title_border_width: cardStyle.front_title_border_width,
           front_content_size: cardStyle.front_content_size,
           front_content_color: cardStyle.front_content_color,
           front_content_align: cardStyle.front_content_align,
@@ -311,6 +377,9 @@ export default function CardStyleEditorPage() {
           front_title_margin_bottom: cardStyle.front_title_margin_bottom,
           front_title_margin_left: cardStyle.front_title_margin_left,
           front_title_margin_right: cardStyle.front_title_margin_right,
+          front_title_background_color: cardStyle.front_title_background_color,
+          front_title_border_color: cardStyle.front_title_border_color,
+          front_title_border_width: cardStyle.front_title_border_width,
           front_content_size: cardStyle.front_content_size,
           front_content_color: cardStyle.front_content_color,
           front_content_align: cardStyle.front_content_align,
@@ -601,6 +670,24 @@ export default function CardStyleEditorPage() {
                         value={cardStyle.front_title_align}
                         onChange={(value) => updateCardStyleField('front_title_align', value)}
                         options={TEXT_ALIGNS}
+                      />
+                      <StyleField
+                        label="배경 색상"
+                        value={cardStyle.front_title_background_color || 'bg-white'}
+                        onChange={(value) => updateCardStyleField('front_title_background_color', value)}
+                        options={BACKGROUND_COLORS}
+                      />
+                      <StyleField
+                        label="외곽선 색상"
+                        value={cardStyle.front_title_border_color || 'none'}
+                        onChange={(value) => updateCardStyleField('front_title_border_color', value)}
+                        options={BORDER_COLORS}
+                      />
+                      <StyleField
+                        label="외곽선 두께"
+                        value={cardStyle.front_title_border_width || 'border'}
+                        onChange={(value) => updateCardStyleField('front_title_border_width', value)}
+                        options={BORDER_WIDTHS}
                       />
                     </div>
                     <h4 className="text-sm font-medium text-slate-700 mb-2 mt-4">문제 영역 마진</h4>
@@ -990,358 +1077,217 @@ export default function CardStyleEditorPage() {
                     isFlipped ? '[transform:rotateY(180deg)]' : ''
                   }`}
                 >
-                  {/* 앞면 - StudyPage와 동일한 구조 */}
-                  <div 
+                  <div
                     className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [backface-visibility:hidden]"
                     style={{
-                      ...(selectedDeck?.front_image) 
+                      ...(previewFrontImage
                         ? {
-                            backgroundImage: `url(${getCardDeckImageUrl(selectedDeck.front_image)})`,
+                            backgroundImage: `url(${previewFrontImage})`,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                           }
                         : {
                             backgroundColor: '#f8fafc',
-                          }
+                          })
                     }}
                   >
                     <div className="absolute inset-0 bg-white/55" />
                     <div className={`absolute inset-0 flex h-full flex-col rounded-[36px] bg-white/92 p-6 ${
-                      cardStyle.front_layout === 'top' ? 'justify-start' :
-                      cardStyle.front_layout === 'center' ? 'justify-center' :
-                      cardStyle.front_layout === 'bottom' ? 'justify-end' :
-                      cardStyle.front_layout === 'split' ? 'justify-between' : 'justify-center'
+                      cardStyle.front_layout === 'top'
+                        ? 'justify-start'
+                        : cardStyle.front_layout === 'center'
+                        ? 'justify-center'
+                        : cardStyle.front_layout === 'bottom'
+                        ? 'justify-end'
+                        : cardStyle.front_layout === 'split'
+                        ? 'justify-between'
+                        : 'justify-center'
                     }`}>
                       {cardStyle.front_layout === 'split' ? (
-                        // 상하단 정렬: 문제는 상단, 답변은 하단
                         <div className="flex flex-col h-full justify-between">
-                          {/* 문제 영역 - 상단 */}
-                          <div style={{
-                            marginTop: `${cardStyle.front_title_margin_top || '0'}px`,
-                            marginBottom: `${cardStyle.front_title_margin_bottom || '16'}px`,
-                            marginLeft: `${cardStyle.front_title_margin_left || '0'}px`,
-                            marginRight: `${cardStyle.front_title_margin_right || '0'}px`
-                          }}>
-                            <p className={`w-full bg-white px-4 py-3 ${cardStyle.front_title_size} ${cardStyle.front_title_color} ${cardStyle.front_title_align} font-semibold shadow-sm`}>
-                              {(() => {
-                                const currentCard = SAMPLE_CARDS[cardStyle.card_type as keyof typeof SAMPLE_CARDS] || SAMPLE_CARDS.ALL;
-                                return currentCard.type === 'MCQ' ? (currentCard as any).question :
-                                       currentCard.type === 'SHORT' ? (currentCard as any).prompt :
-                                       currentCard.type === 'OX' ? (currentCard as any).statement :
-                                       currentCard.type === 'CLOZE' ? (currentCard as any).text :
-                                       currentCard.type === 'ORDER' ? '다음 항목들을 올바른 순서로 배열하세요:' :
-                                       currentCard.type === 'MATCH' ? '다음 항목들을 올바르게 연결하세요:' : '문제';
-                              })()}
-                            </p>
-                          </div>
-                          
-                          {/* 답변 영역 - 하단 */}
-                          <div style={{
-                            marginTop: `${cardStyle.front_content_margin_top || '0'}px`,
-                            marginBottom: `${cardStyle.front_title_margin_bottom || '16'}px`,
-                            marginLeft: `${cardStyle.front_content_margin_left || '0'}px`,
-                            marginRight: `${cardStyle.front_content_margin_right || '0'}px`
-                          }}>
-                            {(() => {
-                              const currentCard = SAMPLE_CARDS[cardStyle.card_type as keyof typeof SAMPLE_CARDS] || SAMPLE_CARDS.ALL;
-                              return (
-                                <div className="grid gap-2">
-                                  {currentCard.type === 'MCQ' && (currentCard as any).options?.map((option: string, index: number) => (
-                                    <button
-                                      key={`${option}-${index}`}
-                                      type="button"
-                                      className={`flex items-center justify-center gap-3 px-3 py-2 ${cardStyle.front_content_align || 'text-center'} transition-colors bg-white shadow-sm cursor-pointer hover:bg-slate-100 ${cardStyle.front_content_size} ${cardStyle.front_content_color}`}
-                                    >
-                                      <span>{option}</span>
-                                    </button>
-                                  ))}
-                                  {currentCard.type === 'SHORT' && (
-                                    <input
-                                      type="text"
-                                      placeholder="답을 입력하세요..."
-                                      className={`w-full rounded-lg border border-slate-300 px-3 py-2 ${cardStyle.front_content_size} ${cardStyle.front_content_color} ${cardStyle.front_content_align} focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500`}
-                                    />
-                                  )}
-                                  {currentCard.type === 'OX' && (
-                                    <div className="flex gap-4 justify-center">
-                                      <button className={`px-6 py-3 rounded-lg bg-emerald-100 text-emerald-700 font-semibold ${cardStyle.front_content_size}`}>
-                                        O (참)
-                                      </button>
-                                      <button className={`px-6 py-3 rounded-lg bg-rose-100 text-rose-700 font-semibold ${cardStyle.front_content_size}`}>
-                                        X (거짓)
-                                      </button>
-                                    </div>
-                                  )}
-                                  {currentCard.type === 'CLOZE' && (
-                                    <input
-                                      type="text"
-                                      placeholder="빈칸에 들어갈 내용을 입력하세요..."
-                                      className={`w-full rounded-lg border border-slate-300 px-3 py-2 ${cardStyle.front_content_size} ${cardStyle.front_content_color} ${cardStyle.front_content_align} focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500`}
-                                    />
-                                  )}
-                                  {currentCard.type === 'ORDER' && (currentCard as any).items?.map((item: string, index: number) => (
-                                    <div
-                                      key={`${item}-${index}`}
-                                      className={`flex items-center gap-3 px-3 py-2 bg-white shadow-sm rounded cursor-move ${cardStyle.front_content_size} ${cardStyle.front_content_color}`}
-                                    >
-                                      <span className="text-slate-400">⋮⋮</span>
-                                      <span>{item}</span>
-                                    </div>
-                                  ))}
-                                  {currentCard.type === 'MATCH' && (
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div className="space-y-2">
-                                        {(currentCard as any).left?.map((item: string, index: number) => (
-                                          <div key={`left-${index}`} className={`px-3 py-2 bg-blue-50 rounded ${cardStyle.front_content_size} ${cardStyle.front_content_color}`}>
-                                            {item}
-                                          </div>
-                                        ))}
-                                      </div>
-                                      <div className="space-y-2">
-                                        {(currentCard as any).right?.map((item: string, index: number) => (
-                                          <div key={`right-${index}`} className={`px-3 py-2 bg-green-50 rounded ${cardStyle.front_content_size} ${cardStyle.front_content_color}`}>
-                                            {item}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
+                          <div
+                            style={{
+                              marginTop: `${cardStyle.front_content_margin_top || '0'}px`,
+                              marginBottom: `${cardStyle.front_title_margin_bottom || '16'}px`,
+                              marginLeft: `${cardStyle.front_content_margin_left || '0'}px`,
+                              marginRight: `${cardStyle.front_content_margin_right || '0'}px`,
+                            }}
+                          >
+                            <CardRunner
+                              card={previewCard}
+                              disabled={false}
+                              onSubmit={handlePreviewSubmit}
+                              cardStyle={cardStyle}
+                            />
                           </div>
                         </div>
                       ) : (
-                        // 일반 레이아웃 (상단, 중앙, 하단)
                         <div className="max-h-full overflow-y-auto text-slate-900">
-                          <div className="space-y-4">
-                            {(() => {
-                              const currentCard = SAMPLE_CARDS[cardStyle.card_type as keyof typeof SAMPLE_CARDS] || SAMPLE_CARDS.ALL;
-                              
-                              // 하단 정렬일 때는 하단 마진을 상단 마진과 동일하게 적용
-                              const titleMarginStyle = cardStyle.front_layout === 'bottom' 
-                                ? {
-                                    marginTop: `${cardStyle.front_title_margin_top || '0'}px`,
-                                    marginBottom: `${cardStyle.front_title_margin_top || '0'}px`,
-                                    marginLeft: `${cardStyle.front_title_margin_left || '0'}px`,
-                                    marginRight: `${cardStyle.front_title_margin_right || '0'}px`
-                                  }
-                                : {
-                                    marginTop: `${cardStyle.front_title_margin_top || '0'}px`,
-                                    marginBottom: `${cardStyle.front_title_margin_bottom || '16'}px`,
-                                    marginLeft: `${cardStyle.front_title_margin_left || '0'}px`,
-                                    marginRight: `${cardStyle.front_title_margin_right || '0'}px`
-                                  };
-                              
-                              // 하단 정렬일 때는 답변 영역의 하단 마진을 문제 영역의 하단 마진과 동일하게 적용
-                              const contentMarginStyle = cardStyle.front_layout === 'bottom' 
-                                ? {
-                                    marginTop: `${cardStyle.front_content_margin_top || '0'}px`,
-                                    marginBottom: `${cardStyle.front_title_margin_bottom || '16'}px`,
-                                    marginLeft: `${cardStyle.front_content_margin_left || '0'}px`,
-                                    marginRight: `${cardStyle.front_content_margin_right || '0'}px`
-                                  }
-                                : {
-                                    marginTop: `${cardStyle.front_content_margin_top || '0'}px`,
-                                    marginBottom: `${cardStyle.front_content_margin_bottom || '0'}px`,
-                                    marginLeft: `${cardStyle.front_content_margin_left || '0'}px`,
-                                    marginRight: `${cardStyle.front_content_margin_right || '0'}px`
-                                  };
-                              
-                              return (
-                                <>
-                                  {/* 문제 영역 */}
-                                  <div style={titleMarginStyle}>
-                                    <p className={`w-full bg-white px-4 py-3 ${cardStyle.front_title_size} ${cardStyle.front_title_color} ${cardStyle.front_title_align} font-semibold shadow-sm`}>
-                                      {currentCard.type === 'MCQ' ? (currentCard as any).question :
-                                       currentCard.type === 'SHORT' ? (currentCard as any).prompt :
-                                       currentCard.type === 'OX' ? (currentCard as any).statement :
-                                       currentCard.type === 'CLOZE' ? (currentCard as any).text :
-                                       currentCard.type === 'ORDER' ? '다음 항목들을 올바른 순서로 배열하세요:' :
-                                       currentCard.type === 'MATCH' ? '다음 항목들을 올바르게 연결하세요:' : '문제'}
-                                    </p>
-                                  </div>
-                                  
-                                  {/* 답변 영역 */}
-                                  <div style={contentMarginStyle}>
-                                  <div className="grid gap-2">
-                                    {currentCard.type === 'MCQ' && (currentCard as any).options?.map((option: string, index: number) => (
-                                      <button
-                                        key={`${option}-${index}`}
-                                        type="button"
-                                        className={`flex items-center justify-center gap-3 px-3 py-2 ${cardStyle.front_content_align || 'text-center'} transition-colors bg-white shadow-sm cursor-pointer hover:bg-slate-100 ${cardStyle.front_content_size} ${cardStyle.front_content_color}`}
-                                      >
-                                        <span>{option}</span>
-                                      </button>
-                                    ))}
-                                    {currentCard.type === 'SHORT' && (
-                                      <input
-                                        type="text"
-                                        placeholder="답을 입력하세요..."
-                                        className={`w-full rounded-lg border border-slate-300 px-3 py-2 ${cardStyle.front_content_size} ${cardStyle.front_content_color} ${cardStyle.front_content_align} focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500`}
-                                      />
-                                    )}
-                                    {currentCard.type === 'OX' && (
-                                      <div className="flex gap-4 justify-center">
-                                        <button className={`px-6 py-3 rounded-lg bg-emerald-100 text-emerald-700 font-semibold ${cardStyle.front_content_size}`}>
-                                          O (참)
-                                        </button>
-                                        <button className={`px-6 py-3 rounded-lg bg-rose-100 text-rose-700 font-semibold ${cardStyle.front_content_size}`}>
-                                          X (거짓)
-                                        </button>
-                                      </div>
-                                    )}
-                                    {currentCard.type === 'CLOZE' && (
-                                      <input
-                                        type="text"
-                                        placeholder="빈칸에 들어갈 내용을 입력하세요..."
-                                        className={`w-full rounded-lg border border-slate-300 px-3 py-2 ${cardStyle.front_content_size} ${cardStyle.front_content_color} ${cardStyle.front_content_align} focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500`}
-                                      />
-                                    )}
-                                    {currentCard.type === 'ORDER' && (currentCard as any).items?.map((item: string, index: number) => (
-                                      <div
-                                        key={`${item}-${index}`}
-                                        className={`flex items-center gap-3 px-3 py-2 bg-white shadow-sm rounded cursor-move ${cardStyle.front_content_size} ${cardStyle.front_content_color}`}
-                                      >
-                                        <span className="text-slate-400">⋮⋮</span>
-                                        <span>{item}</span>
-                                      </div>
-                                    ))}
-                                    {currentCard.type === 'MATCH' && (
-                                      <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                          {(currentCard as any).left?.map((item: string, index: number) => (
-                                            <div key={`left-${index}`} className={`px-3 py-2 bg-blue-50 rounded ${cardStyle.front_content_size} ${cardStyle.front_content_color}`}>
-                                              {item}
-                                            </div>
-                                          ))}
-                                        </div>
-                                        <div className="space-y-2">
-                                          {(currentCard as any).right?.map((item: string, index: number) => (
-                                            <div key={`right-${index}`} className={`px-3 py-2 bg-green-50 rounded ${cardStyle.front_content_size} ${cardStyle.front_content_color}`}>
-                                              {item}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                  </div>
-                                </>
-                              );
-                            })()}
+                          <div
+                            style={{
+                              marginTop: `${cardStyle.front_content_margin_top || '0'}px`,
+                              marginBottom:
+                                cardStyle.front_layout === 'bottom'
+                                  ? `${cardStyle.front_title_margin_bottom || '16'}px`
+                                  : `${cardStyle.front_content_margin_bottom || '0'}px`,
+                              marginLeft: `${cardStyle.front_content_margin_left || '0'}px`,
+                              marginRight: `${cardStyle.front_content_margin_right || '0'}px`,
+                            }}
+                          >
+                            <CardRunner
+                              card={previewCard}
+                              disabled={false}
+                              onSubmit={handlePreviewSubmit}
+                              cardStyle={cardStyle}
+                            />
                           </div>
                         </div>
                       )}
                     </div>
                   </div>
-                  <div 
+
+                  <div
                     className="absolute inset-0 overflow-hidden rounded-[36px] border border-slate-200 shadow-[0_28px_60px_-20px_rgba(30,41,59,0.45)] [transform:rotateY(180deg)] [backface-visibility:hidden]"
                     style={{
-                      ...(selectedDeck?.back_image) 
+                      ...(previewBackImage
                         ? {
-                            backgroundImage: `url(${getCardDeckImageUrl(selectedDeck.back_image)})`,
+                            backgroundImage: `url(${previewBackImage})`,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                           }
                         : {
                             backgroundColor: '#f8fafc',
-                          }
+                          })
                     }}
                   >
                     <div className="absolute inset-0 bg-white/55" />
                     <div className={`absolute inset-0 flex h-full flex-col rounded-[36px] bg-white/94 p-6 ${
-                      cardStyle.back_layout === 'top' ? 'justify-start' :
-                      cardStyle.back_layout === 'center' ? 'justify-center' :
-                      cardStyle.back_layout === 'bottom' ? 'justify-end' :
-                      cardStyle.back_layout === 'split' ? 'justify-between' : 'justify-center'
+                      cardStyle.back_layout === 'top'
+                        ? 'justify-start'
+                        : cardStyle.back_layout === 'center'
+                        ? 'justify-center'
+                        : cardStyle.back_layout === 'bottom'
+                        ? 'justify-end'
+                        : cardStyle.back_layout === 'split'
+                        ? 'justify-between'
+                        : 'items-center justify-center'
                     }`}>
                       {cardStyle.back_layout === 'split' ? (
-                        // 상하단 정렬: 정답은 상단, 설명은 중앙, 버튼은 하단
                         <div className="flex flex-col h-full justify-between">
-                          {/* 정답 영역 - 상단 */}
-                          <div style={{
-                            marginTop: `${cardStyle.back_title_margin_top || '0'}px`,
-                            marginBottom: `${cardStyle.back_title_margin_bottom || '16'}px`,
-                            marginLeft: `${cardStyle.back_title_margin_left || '0'}px`,
-                            marginRight: `${cardStyle.back_title_margin_right || '0'}px`
-                          }}>
-                            <div className={`${cardStyle.back_title_size} ${cardStyle.back_title_color} ${cardStyle.back_title_align}`}>
-                              <div className="inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold bg-emerald-100 text-emerald-700">
-                                🎉 정답입니다!
+                          <div
+                            style={{
+                              marginTop: `${cardStyle.back_title_margin_top || '0'}px`,
+                              marginBottom: `${cardStyle.back_title_margin_bottom || '16'}px`,
+                              marginLeft: `${cardStyle.back_title_margin_left || '0'}px`,
+                              marginRight: `${cardStyle.back_title_margin_right || '0'}px`,
+                            }}
+                          >
+                            <div
+                              className={`${cardStyle.back_title_size} ${cardStyle.back_title_color} ${cardStyle.back_title_align}`}
+                            >
+                              <div
+                                className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${
+                                  previewIsCorrect
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-rose-100 text-rose-700'
+                                }`}
+                              >
+                                {previewIsCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
                               </div>
                             </div>
                           </div>
-                          
-                          {/* 설명 영역 - 중앙 */}
-                          <div style={{
-                            marginTop: `${cardStyle.back_content_margin_top || '0'}px`,
-                            marginBottom: `${cardStyle.back_content_margin_bottom || '0'}px`,
-                            marginLeft: `${cardStyle.back_content_margin_left || '0'}px`,
-                            marginRight: `${cardStyle.back_content_margin_right || '0'}px`
-                          }}>
-                            <div className={`${cardStyle.back_content_size} ${cardStyle.back_content_color} ${cardStyle.back_content_align}`}>
-                              <p className="text-sm leading-relaxed">이것은 설명 텍스트입니다.</p>
+
+                          <div
+                            style={{
+                              marginTop: `${cardStyle.back_content_margin_top || '0'}px`,
+                              marginBottom: `${cardStyle.back_content_margin_bottom || '0'}px`,
+                              marginLeft: `${cardStyle.back_content_margin_left || '0'}px`,
+                              marginRight: `${cardStyle.back_content_margin_right || '0'}px`,
+                            }}
+                          >
+                            <div
+                              className={`${cardStyle.back_content_size} ${cardStyle.back_content_color} ${cardStyle.back_content_align}`}
+                            >
+                              <p className="leading-relaxed">{previewExplanation}</p>
                             </div>
                           </div>
-                          
-                          {/* 버튼 영역 - 하단 */}
-                          <div style={{
-                            marginTop: `${cardStyle.back_button_margin_top || '0'}px`,
-                            marginBottom: `${cardStyle.back_button_margin_bottom || '0'}px`,
-                            marginLeft: `${cardStyle.back_button_margin_left || '0'}px`,
-                            marginRight: `${cardStyle.back_button_margin_right || '0'}px`
-                          }}>
+
+                          <div
+                            style={{
+                              marginTop: `${cardStyle.back_button_margin_top || '0'}px`,
+                              marginBottom: `${cardStyle.back_button_margin_bottom || '0'}px`,
+                              marginLeft: `${cardStyle.back_button_margin_left || '0'}px`,
+                              marginRight: `${cardStyle.back_button_margin_right || '0'}px`,
+                            }}
+                          >
                             <div className={`${cardStyle.back_button_align} w-full`}>
-                              <button className={`${cardStyle.back_button_size} ${cardStyle.back_button_color} rounded-xl font-medium shadow-lg transition w-full`}>
-                                다음 문제
+                              <button
+                                className={`${cardStyle.back_button_size} ${cardStyle.back_button_color} rounded-xl font-medium shadow-lg transition w-full`}
+                              >
+                                {previewNextActionLabel}
                               </button>
                             </div>
                           </div>
                         </div>
                       ) : (
-                        // 일반 레이아웃 (상단, 중앙, 하단)
                         <div className="flex flex-col gap-5 text-center">
-                          {/* 정답 영역 */}
-                          <div style={{
-                            marginTop: `${cardStyle.back_title_margin_top || '0'}px`,
-                            marginBottom: cardStyle.back_layout === 'bottom' 
-                              ? `${cardStyle.back_title_margin_top || '0'}px`
-                              : `${cardStyle.back_title_margin_bottom || '16'}px`,
-                            marginLeft: `${cardStyle.back_title_margin_left || '0'}px`,
-                            marginRight: `${cardStyle.back_title_margin_right || '0'}px`
-                          }}>
-                            <div className={`${cardStyle.back_title_size} ${cardStyle.back_title_color} ${cardStyle.back_title_align}`}>
-                              <div className="inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold bg-emerald-100 text-emerald-700">
-                                🎉 정답입니다!
+                          <div
+                            style={{
+                              marginTop: `${cardStyle.back_title_margin_top || '0'}px`,
+                              marginBottom:
+                                cardStyle.back_layout === 'bottom'
+                                  ? `${cardStyle.back_title_margin_top || '0'}px`
+                                  : `${cardStyle.back_title_margin_bottom || '16'}px`,
+                              marginLeft: `${cardStyle.back_title_margin_left || '0'}px`,
+                              marginRight: `${cardStyle.back_title_margin_right || '0'}px`,
+                            }}
+                          >
+                            <div
+                              className={`${cardStyle.back_title_size} ${cardStyle.back_title_color} ${cardStyle.back_title_align}`}
+                            >
+                              <div
+                                className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold ${
+                                  previewIsCorrect
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-rose-100 text-rose-700'
+                                }`}
+                              >
+                                {previewIsCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
                               </div>
                             </div>
                           </div>
-                          
-                          {/* 설명 영역 */}
-                          <div style={{
-                            marginTop: `${cardStyle.back_content_margin_top || '0'}px`,
-                            marginBottom: cardStyle.back_layout === 'bottom' 
-                              ? `${cardStyle.back_title_margin_bottom || '16'}px`
-                              : `${cardStyle.back_content_margin_bottom || '0'}px`,
-                            marginLeft: `${cardStyle.back_content_margin_left || '0'}px`,
-                            marginRight: `${cardStyle.back_content_margin_right || '0'}px`
-                          }}>
-                            <div className={`${cardStyle.back_content_size} ${cardStyle.back_content_color} ${cardStyle.back_content_align}`}>
-                              <p className="text-sm leading-relaxed">이것은 설명 텍스트입니다.</p>
+
+                          <div
+                            style={{
+                              marginTop: `${cardStyle.back_content_margin_top || '0'}px`,
+                              marginBottom:
+                                cardStyle.back_layout === 'bottom'
+                                  ? `${cardStyle.back_title_margin_bottom || '16'}px`
+                                  : `${cardStyle.back_content_margin_bottom || '0'}px`,
+                              marginLeft: `${cardStyle.back_content_margin_left || '0'}px`,
+                              marginRight: `${cardStyle.back_content_margin_right || '0'}px`,
+                            }}
+                          >
+                            <div
+                              className={`${cardStyle.back_content_size} ${cardStyle.back_content_color} ${cardStyle.back_content_align}`}
+                            >
+                              <p className="leading-relaxed">{previewExplanation}</p>
                             </div>
                           </div>
-                          
-                          {/* 버튼 영역 */}
-                          <div style={{
-                            marginTop: `${cardStyle.back_button_margin_top || '0'}px`,
-                            marginBottom: `${cardStyle.back_button_margin_bottom || '0'}px`,
-                            marginLeft: `${cardStyle.back_button_margin_left || '0'}px`,
-                            marginRight: `${cardStyle.back_button_margin_right || '0'}px`
-                          }}>
+
+                          <div
+                            style={{
+                              marginTop: `${cardStyle.back_button_margin_top || '0'}px`,
+                              marginBottom: `${cardStyle.back_button_margin_bottom || '0'}px`,
+                              marginLeft: `${cardStyle.back_button_margin_left || '0'}px`,
+                              marginRight: `${cardStyle.back_button_margin_right || '0'}px`,
+                            }}
+                          >
                             <div className={`${cardStyle.back_button_align} w-full`}>
-                              <button className={`${cardStyle.back_button_size} ${cardStyle.back_button_color} rounded-xl font-medium shadow-lg transition w-full`}>
-                                다음 문제
+                              <button
+                                className={`${cardStyle.back_button_size} ${cardStyle.back_button_color} rounded-xl font-medium shadow-lg transition w-full`}
+                              >
+                                {previewNextActionLabel}
                               </button>
                             </div>
                           </div>

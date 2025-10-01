@@ -746,6 +746,9 @@ class CardStyleBase(BaseModel):
     front_title_margin_bottom: str = "16"
     front_title_margin_left: str = "0"
     front_title_margin_right: str = "0"
+    front_title_background_color: str = "bg-white"
+    front_title_border_color: str = "none"
+    front_title_border_width: str = "border"
     
     # 앞면 답변 영역 스타일
     front_content_size: str = "text-sm"
@@ -820,6 +823,9 @@ class CardStyleUpdate(BaseModel):
     front_title_margin_bottom: Optional[str] = None
     front_title_margin_left: Optional[str] = None
     front_title_margin_right: Optional[str] = None
+    front_title_background_color: Optional[str] = None
+    front_title_border_color: Optional[str] = None
+    front_title_border_width: Optional[str] = None
     
     # 앞면 답변 영역 스타일
     front_content_size: Optional[str] = None

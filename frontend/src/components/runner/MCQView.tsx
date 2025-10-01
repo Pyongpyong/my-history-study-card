@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const questionClass = 'w-full bg-white px-4 py-3 text-lg font-semibold text-primary-600 text-center shadow-sm';
+const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
 
 interface MCQViewProps {
   card: any;
@@ -36,9 +36,22 @@ export default function MCQView({ card, disabled, onSubmit, cardStyle }: MCQView
     setSelected(null);
   }, [card.question]);
 
-  // 카드 스타일 적용
-  const titleClass = cardStyle 
-    ? `w-full bg-white px-4 py-3 ${cardStyle.front_title_size} ${cardStyle.front_title_color} ${cardStyle.front_title_align} font-semibold shadow-sm`
+  const titleClass = cardStyle
+    ? [
+        'w-full',
+        'px-4',
+        'py-3',
+        cardStyle.front_title_size || 'text-lg',
+        cardStyle.front_title_color || 'text-primary-600',
+        cardStyle.front_title_align || 'text-center',
+        cardStyle.front_title_background_color || 'bg-white',
+        cardStyle.front_title_border_color && cardStyle.front_title_border_color !== 'none'
+          ? `${cardStyle.front_title_border_width || 'border'} ${cardStyle.front_title_border_color}`
+          : '',
+        'font-semibold',
+      ]
+        .filter(Boolean)
+        .join(' ')
     : questionClass;
     
   const contentClass = cardStyle 
@@ -53,7 +66,7 @@ export default function MCQView({ card, disabled, onSubmit, cardStyle }: MCQView
           const isCorrect = index === Number(card.answer_index);
           const isSelected = index === selected;
 
-          let className = `flex items-center justify-center gap-3 px-3 py-2 ${cardStyle?.front_content_align || 'text-center'} transition-colors bg-white shadow-sm ${contentClass}`;
+          let className = `flex items-center justify-center gap-3 px-3 py-2 ${cardStyle?.front_content_align || 'text-center'} transition-colors bg-white ${contentClass}`;
 
           if (disabled) {
             if (isCorrect) {

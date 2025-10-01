@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
-const questionClass = 'w-full bg-white px-4 py-3 text-lg font-semibold text-primary-600 text-center shadow-sm';
+const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
 
 interface ShortViewProps {
   card: any;
@@ -19,9 +19,22 @@ export default function ShortView({ card, disabled, onSubmit, cardStyle }: Short
     return [card.answer, ...aliases].map((entry) => normalize(String(entry ?? ''))).filter(Boolean);
   }, [card.answer, card?.rubric?.aliases]);
 
-  // 카드 스타일 적용
-  const titleClass = cardStyle 
-    ? `w-full bg-white px-4 py-3 ${cardStyle.front_title_size} ${cardStyle.front_title_color} ${cardStyle.front_title_align} font-semibold shadow-sm`
+  const titleClass = cardStyle
+    ? [
+        'w-full',
+        'px-4',
+        'py-3',
+        cardStyle.front_title_size || 'text-lg',
+        cardStyle.front_title_color || 'text-primary-600',
+        cardStyle.front_title_align || 'text-center',
+        cardStyle.front_title_background_color || 'bg-white',
+        cardStyle.front_title_border_color && cardStyle.front_title_border_color !== 'none'
+          ? `${cardStyle.front_title_border_width || 'border'} ${cardStyle.front_title_border_color}`
+          : '',
+        'font-semibold',
+      ]
+        .filter(Boolean)
+        .join(' ')
     : questionClass;
 
   useEffect(() => {

@@ -679,6 +679,9 @@ export interface CardStyle {
   front_title_margin_bottom: string;
   front_title_margin_left: string;
   front_title_margin_right: string;
+  front_title_background_color: string;
+  front_title_border_color: string;
+  front_title_border_width: string;
   
   // 앞면 답변 영역 스타일
   front_content_size: string;
@@ -745,6 +748,9 @@ export interface CardStyleCreate {
   front_title_margin_bottom?: string;
   front_title_margin_left?: string;
   front_title_margin_right?: string;
+  front_title_background_color?: string;
+  front_title_border_color?: string;
+  front_title_border_width?: string;
   
   // 앞면 답변 영역 스타일
   front_content_size?: string;
@@ -808,6 +814,9 @@ export interface CardStyleUpdate {
   front_title_margin_bottom?: string;
   front_title_margin_left?: string;
   front_title_margin_right?: string;
+  front_title_background_color?: string;
+  front_title_border_color?: string;
+  front_title_border_width?: string;
   
   // 앞면 답변 영역 스타일
   front_content_size?: string;
@@ -898,4 +907,3 @@ export async function updateCardStyle(id: number, cardStyle: CardStyleUpdate): P
 export async function deleteCardStyle(id: number): Promise<void> {
   await api.delete(`/card-styles/${id}`);
 }
-

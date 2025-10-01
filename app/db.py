@@ -72,6 +72,7 @@ def init_db() -> None:
     from . import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _ensure_card_style_columns()
     _insert_default_card_deck()
     _insert_default_card_style()
     _insert_default_learning_helper()
@@ -107,6 +108,7 @@ def _insert_default_card_style() -> None:
                     front_layout, back_layout,
                     front_title_size, front_title_color, front_title_align,
                     front_title_margin_top, front_title_margin_bottom, front_title_margin_left, front_title_margin_right,
+                    front_title_background_color, front_title_border_color, front_title_border_width,
                     front_content_size, front_content_color, front_content_align,
                     front_content_margin_top, front_content_margin_bottom, front_content_margin_left, front_content_margin_right,
                     front_button_size, front_button_color, front_button_position, front_button_align,
@@ -126,6 +128,7 @@ def _insert_default_card_style() -> None:
                     'top', 'center',
                     'text-lg', 'text-primary-600', 'text-center',
                     '0', '16', '0', '0',
+                    'bg-white', 'none', 'border',
                     'text-sm', 'text-slate-900', 'text-left',
                     '0', '0', '0', '0',
                     'px-4 py-2', 'bg-primary-600 text-white', 'mt-auto', 'text-center',
@@ -158,3 +161,43 @@ def _insert_default_learning_helper() -> None:
                     NOW()
                 )
             """))
+
+
+def _ensure_card_style_columns() -> None:
+    """Ensure newly introduced card style columns exist for backward compatibility."""
+    with engine.begin() as connection:
+        background_column = connection.execute(
+            text("SHOW COLUMNS FROM card_styles LIKE 'front_title_background_color'")
+        ).fetchone()
+        if background_column is None:
+            connection.execute(
+                text(
+                    "ALTER TABLE card_styles "
+                    "ADD COLUMN front_title_background_color VARCHAR(50) NOT NULL DEFAULT 'bg-white' "
+                    "AFTER front_title_margin_right"
+                )
+            )
+
+        border_column = connection.execute(
+            text("SHOW COLUMNS FROM card_styles LIKE 'front_title_border_color'")
+        ).fetchone()
+        if border_column is None:
+            connection.execute(
+                text(
+                    "ALTER TABLE card_styles "
+                    "ADD COLUMN front_title_border_color VARCHAR(50) NOT NULL DEFAULT 'none' "
+                    "AFTER front_title_background_color"
+                )
+            )
+
+        width_column = connection.execute(
+            text("SHOW COLUMNS FROM card_styles LIKE 'front_title_border_width'")
+        ).fetchone()
+        if width_column is None:
+            connection.execute(
+                text(
+                    "ALTER TABLE card_styles "
+                    "ADD COLUMN front_title_border_width VARCHAR(30) NOT NULL DEFAULT 'border' "
+                    "AFTER front_title_border_color"
+                )
+            )

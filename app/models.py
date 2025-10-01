@@ -258,6 +258,9 @@ class CardStyle(Base):
     front_title_margin_bottom: Mapped[str] = mapped_column(String(20), nullable=False, default="16", server_default="'16'")
     front_title_margin_left: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
     front_title_margin_right: Mapped[str] = mapped_column(String(20), nullable=False, default="0", server_default="'0'")
+    front_title_background_color: Mapped[str] = mapped_column(String(50), nullable=False, default="bg-white", server_default="'bg-white'")
+    front_title_border_color: Mapped[str] = mapped_column(String(50), nullable=False, default="none", server_default="'none'")
+    front_title_border_width: Mapped[str] = mapped_column(String(30), nullable=False, default="border", server_default="'border'")
     
     # 앞면 답변 영역 스타일
     front_content_size: Mapped[str] = mapped_column(String(50), nullable=False, default="text-sm", server_default="'text-sm'")
