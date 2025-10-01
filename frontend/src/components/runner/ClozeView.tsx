@@ -35,7 +35,8 @@ export default function ClozeView({ card, disabled, onSubmit, cardStyle }: Cloze
   const inputClasses = cardStyle
     ? [
         'mx-1',
-        'w-24',
+        'w-20',
+        'inline-block',
         'rounded',
         cardStyle.cloze_input_background_color || 'bg-transparent',
         cardStyle.cloze_input_border_width || 'border-b',
@@ -48,7 +49,7 @@ export default function ClozeView({ card, disabled, onSubmit, cardStyle }: Cloze
       ]
         .filter(Boolean)
         .join(' ')
-    : 'mx-1 w-24 rounded border-b border-primary-500 bg-transparent text-center text-sm text-primary-600 focus:outline-none';
+    : 'mx-1 w-24 inline-block rounded border-b border-primary-500 bg-transparent text-center text-sm text-primary-600 focus:outline-none';
 
   const submitButtonClass = [
     'mx-auto',
@@ -65,6 +66,24 @@ export default function ClozeView({ card, disabled, onSubmit, cardStyle }: Cloze
   ]
     .filter(Boolean)
     .join(' ');
+
+  const textContainerClass = cardStyle
+    ? [
+        'leading-relaxed',
+        'rounded',
+        'px-3',
+        'py-2',
+        cardStyle.cloze_text_align === 'justify-start' ? 'text-left' : 
+        cardStyle.cloze_text_align === 'justify-end' ? 'text-right' : 'text-center',
+        cardStyle.cloze_text_font_size || 'text-base',
+        cardStyle.cloze_text_background_color || 'bg-transparent',
+        cardStyle.cloze_text_border_color && cardStyle.cloze_text_border_color !== 'none'
+          ? `${cardStyle.cloze_text_border_width || 'border'} ${cardStyle.cloze_text_border_color}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : 'text-center text-base leading-relaxed';
 
   useEffect(() => {
     setValues({});
@@ -109,7 +128,7 @@ export default function ClozeView({ card, disabled, onSubmit, cardStyle }: Cloze
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-sm text-slate-900">
       <p className={titleClass}>빈칸을 채워보세요</p>
-      <div className="flex flex-wrap items-center justify-center gap-2 text-base leading-relaxed">{renderWithInputs()}</div>
+      <div className={textContainerClass}>{renderWithInputs()}</div>
       <button
         type="submit"
         disabled={disabled}

@@ -85,7 +85,25 @@ export default function ShortView({ card, disabled, onSubmit, cardStyle }: Short
       <button
         type="submit"
         disabled={disabled}
-        className="mx-auto block rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className={
+          cardStyle
+            ? [
+                'mx-auto',
+                'block',
+                'rounded',
+                cardStyle.short_button_size || 'px-4 py-2',
+                cardStyle.short_button_color || 'bg-primary-600 text-white',
+                cardStyle.short_button_font_size || 'text-sm',
+                'font-semibold',
+                'transition',
+                'hover:opacity-90',
+                'disabled:cursor-not-allowed',
+                'disabled:bg-slate-300',
+              ]
+                .filter(Boolean)
+                .join(' ')
+            : 'mx-auto block rounded bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300'
+        }
       >
         제출
       </button>

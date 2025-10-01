@@ -43,7 +43,38 @@ export default function MatchView({ card, disabled, onSubmit, cardStyle }: Match
   const itemBorderColor = cardStyle?.match_item_border_color || 'border-slate-200';
   const itemBorderWidth = cardStyle?.match_item_border_width || 'border';
   const itemGap = Number.parseInt(cardStyle?.match_item_gap ?? '8', 10) || 0;
-  const lineOverride = cardStyle?.match_line_color && cardStyle.match_line_color !== 'default' ? cardStyle.match_line_color : null;
+  
+  // 4개 항목별 스타일 배열
+  const itemStyles = [
+    {
+      background: cardStyle?.match_item_1_background_color || 'bg-white',
+      borderColor: cardStyle?.match_item_1_border_color || 'border-slate-200',
+      borderWidth: cardStyle?.match_item_1_border_width || 'border',
+      fontSize: cardStyle?.match_item_1_font_size || 'text-sm',
+      textAlign: cardStyle?.match_item_1_text_align || 'text-left',
+    },
+    {
+      background: cardStyle?.match_item_2_background_color || 'bg-white',
+      borderColor: cardStyle?.match_item_2_border_color || 'border-slate-200',
+      borderWidth: cardStyle?.match_item_2_border_width || 'border',
+      fontSize: cardStyle?.match_item_2_font_size || 'text-sm',
+      textAlign: cardStyle?.match_item_2_text_align || 'text-left',
+    },
+    {
+      background: cardStyle?.match_item_3_background_color || 'bg-white',
+      borderColor: cardStyle?.match_item_3_border_color || 'border-slate-200',
+      borderWidth: cardStyle?.match_item_3_border_width || 'border',
+      fontSize: cardStyle?.match_item_3_font_size || 'text-sm',
+      textAlign: cardStyle?.match_item_3_text_align || 'text-left',
+    },
+    {
+      background: cardStyle?.match_item_4_background_color || 'bg-white',
+      borderColor: cardStyle?.match_item_4_border_color || 'border-slate-200',
+      borderWidth: cardStyle?.match_item_4_border_width || 'border',
+      fontSize: cardStyle?.match_item_4_font_size || 'text-sm',
+      textAlign: cardStyle?.match_item_4_text_align || 'text-left',
+    },
+  ];
 
   const buttonClass = [
     'mx-auto',
@@ -182,9 +213,18 @@ export default function MatchView({ card, disabled, onSubmit, cardStyle }: Match
           const { background, line } = getRowStyle(index);
           const rightIndex = order[index];
           const rightValue = right[rightIndex];
-          const leftBackground = customMatchBackground || background;
-          const rightBackground = customMatchBackground || background;
-          const connectorColor = lineOverride || line;
+          
+          // 항목별 스타일 적용 (최대 4개까지, 그 이상은 순환)
+          const itemStyle = itemStyles[index % itemStyles.length];
+          const leftBackground = customMatchBackground || itemStyle.background || background;
+          const rightBackground = customMatchBackground || itemStyle.background || background;
+          const leftBorderColor = itemStyle.borderColor;
+          const leftBorderWidth = itemStyle.borderWidth;
+          const rightBorderColor = itemStyle.borderColor;
+          const rightBorderWidth = itemStyle.borderWidth;
+          const itemFontSize = itemStyle.fontSize;
+          const itemTextAlign = itemStyle.textAlign;
+          
           return (
             <div
               key={`row-${index}`}
@@ -193,31 +233,34 @@ export default function MatchView({ card, disabled, onSubmit, cardStyle }: Match
               <div
                 className={[
                   'flex-1 rounded-l px-3 py-2 text-primary-100',
-                  itemBorderColor && itemBorderColor !== 'none'
-                    ? `${itemBorderWidth || 'border'} ${itemBorderColor}`
-                    : itemBorderColor === 'none'
+                  leftBorderColor && leftBorderColor !== 'none'
+                    ? `${leftBorderWidth || 'border'} ${leftBorderColor}`
+                    : leftBorderColor === 'none'
                     ? ''
-                    : itemBorderWidth || '',
+                    : leftBorderWidth || '',
                   leftBackground,
+                  itemFontSize,
+                  itemTextAlign,
                 ]
                   .filter(Boolean)
                   .join(' ')}
               >
                 <p className="font-semibold">{leftValue}</p>
               </div>
-              <div className="flex items-center justify-center px-3">
-                <span className={`block h-0.5 w-12 rounded-full ${connectorColor}`} />
+              <div className="flex items-center justify-center px-1">
               </div>
               <div
                 className={[
                   'flex-1 rounded-r px-3 py-2 text-slate-900 transition',
                   disabled ? 'cursor-default' : 'cursor-grab hover:border-primary-500',
-                  itemBorderColor && itemBorderColor !== 'none'
-                    ? `${itemBorderWidth || 'border'} ${itemBorderColor}`
-                    : itemBorderColor === 'none'
+                  rightBorderColor && rightBorderColor !== 'none'
+                    ? `${rightBorderWidth || 'border'} ${rightBorderColor}`
+                    : rightBorderColor === 'none'
                     ? ''
-                    : itemBorderWidth || '',
+                    : rightBorderWidth || '',
                   rightBackground,
+                  itemFontSize,
+                  itemTextAlign,
                   dragIndex === index ? 'ring-2 ring-primary-500' : '',
                   hoverIndex === index && dragIndex !== null && dragIndex !== index ? 'border-primary-500 bg-primary-50' : '',
                 ]
