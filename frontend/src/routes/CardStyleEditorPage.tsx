@@ -90,15 +90,6 @@ const BACK_LAYOUTS = [
   { value: 'split', label: '상하단 정렬' },
 ];
 
-const POSITIONS = [
-  { value: 'mb-2', label: '매우 작은 간격' },
-  { value: 'mb-4', label: '작은 간격' },
-  { value: 'mb-6', label: '보통 간격' },
-  { value: 'mb-8', label: '큰 간격' },
-  { value: 'mt-auto', label: '하단 고정' },
-  { value: 'my-auto', label: '중앙 고정' },
-];
-
 const BUTTON_SIZES = [
   { value: 'px-2 py-1 text-xs', label: '매우 작게' },
   { value: 'px-3 py-1.5 text-sm', label: '작게' },
@@ -807,33 +798,6 @@ export default function CardStyleEditorPage() {
                       </div>
                     </div>
 
-                    <h3 className="text-md font-medium text-slate-900 mb-3 mt-6">버튼 스타일</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <StyleField
-                        label="크기"
-                        value={cardStyle.front_button_size}
-                        onChange={(value) => updateCardStyleField('front_button_size', value)}
-                        options={BUTTON_SIZES}
-                      />
-                      <StyleField
-                        label="색상"
-                        value={cardStyle.front_button_color}
-                        onChange={(value) => updateCardStyleField('front_button_color', value)}
-                        options={BUTTON_COLORS}
-                      />
-                      <StyleField
-                        label="정렬"
-                        value={cardStyle.front_button_align}
-                        onChange={(value) => updateCardStyleField('front_button_align', value)}
-                        options={TEXT_ALIGNS}
-                      />
-                      <StyleField
-                        label="위치"
-                        value={cardStyle.front_button_position}
-                        onChange={(value) => updateCardStyleField('front_button_position', value)}
-                        options={POSITIONS}
-                      />
-                    </div>
                   </>
                 ) : (
                   // 뒷면 스타일 설정
