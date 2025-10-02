@@ -3,6 +3,7 @@ import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl, getCardDec
 import CardRunner from '../components/CardRunner';
 import { fetchLearningHelpers, fetchDefaultCardStyle, type LearningHelperPublic, type CardStyle } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { applyDefaultCardStyleValues } from '../utils/cardStyle';
 
 interface SampleCardConfig {
   card: any;
@@ -214,10 +215,54 @@ export default function HomePage() {
 
   const currentTeacherImage = helperVariants[teacherMood] ?? baseVariants.idle;
 
+  const frontLayoutClass = useMemo(() => {
+    switch (cardStyle?.front_layout) {
+      case 'top':
+        return 'justify-start';
+      case 'center':
+        return 'justify-center';
+      case 'bottom':
+        return 'justify-end';
+      case 'split':
+        return 'justify-between';
+      default:
+        return 'justify-center';
+    }
+  }, [cardStyle?.front_layout]);
+
+  const frontContentStyle = useMemo(() => ({
+    marginTop: `${cardStyle?.front_content_margin_top ?? '0'}px`,
+    marginBottom:
+      cardStyle?.front_layout === 'bottom'
+        ? `${cardStyle?.front_title_margin_bottom ?? '16'}px`
+        : `${cardStyle?.front_content_margin_bottom ?? '0'}px`,
+    marginLeft: `${cardStyle?.front_content_margin_left ?? '0'}px`,
+    marginRight: `${cardStyle?.front_content_margin_right ?? '0'}px`,
+  }), [
+    cardStyle?.front_content_margin_bottom,
+    cardStyle?.front_content_margin_left,
+    cardStyle?.front_content_margin_right,
+    cardStyle?.front_content_margin_top,
+    cardStyle?.front_layout,
+    cardStyle?.front_title_margin_bottom,
+  ]);
+
+  const splitFrontContentStyle = useMemo(() => ({
+    marginTop: `${cardStyle?.front_content_margin_top ?? '0'}px`,
+    marginBottom: `${cardStyle?.front_title_margin_bottom ?? '16'}px`,
+    marginLeft: `${cardStyle?.front_content_margin_left ?? '0'}px`,
+    marginRight: `${cardStyle?.front_content_margin_right ?? '0'}px`,
+  }), [
+    cardStyle?.front_content_margin_left,
+    cardStyle?.front_content_margin_right,
+    cardStyle?.front_content_margin_top,
+    cardStyle?.front_title_margin_bottom,
+  ]);
+
   // 기본 카드 스타일 로드
   useEffect(() => {
     fetchDefaultCardStyle()
-      .then(setCardStyle)
+      .then((style) => setCardStyle(applyDefaultCardStyleValues(style)))
       .catch((error) => {
         console.error('기본 카드 스타일 로드 실패:', error);
       });
@@ -319,17 +364,32 @@ export default function HomePage() {
                       }}
                     >
                       <div className="absolute inset-0 bg-white/55" />
-                      <div className="absolute inset-0 flex h-full flex-col items-stretch justify-center gap-6 rounded-[28px] bg-white/92 p-6">
-                        <div className="max-h-full overflow-y-auto text-slate-900">
-                          <div className="pointer-events-none select-none">
-                            <CardRunner
-                              card={sampleCards[frontIndex].card}
-                              disabled={false}
-                              onSubmit={() => {}}
-                              cardStyle={cardStyle}
-                            />
+                      <div
+                        className={`absolute inset-0 flex h-full flex-col rounded-[28px] bg-white/92 p-6 ${frontLayoutClass}`}
+                      >
+                        {cardStyle?.front_layout === 'split' ? (
+                          <div className="flex h-full flex-col justify-between">
+                            <div className="pointer-events-none select-none text-slate-900" style={splitFrontContentStyle}>
+                              <CardRunner
+                                card={sampleCards[frontIndex].card}
+                                disabled={false}
+                                onSubmit={() => {}}
+                                cardStyle={cardStyle}
+                              />
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="max-h-full overflow-y-auto text-slate-900">
+                            <div className="pointer-events-none select-none" style={frontContentStyle}>
+                              <CardRunner
+                                card={sampleCards[frontIndex].card}
+                                disabled={false}
+                                onSubmit={() => {}}
+                                cardStyle={cardStyle}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div
