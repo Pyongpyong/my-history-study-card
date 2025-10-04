@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -674,6 +674,8 @@ def update_content(
 def list_contents(
     session: Session,
     q: Optional[str],
+    period: Optional[str],
+    categories: Optional[List[str]],
     page: int,
     size: int,
     order: str,
@@ -684,6 +686,20 @@ def list_contents(
     if q:
         pattern = f"%{q.lower()}%"
         conditions.append(or_(func.lower(Content.title).like(pattern), func.lower(Content.body).like(pattern)))
+
+    if period:
+        trimmed_period = period.strip()
+        if trimmed_period and trimmed_period != "전체":
+            escaped = trimmed_period.replace("%", r"\%").replace("_", r"\_")
+            pattern = f'%"period": "{escaped}"%'
+            conditions.append(Content.eras.like(pattern, escape="\\"))
+
+    if categories:
+        normalized_categories = [item.strip() for item in categories if item and item.strip()]
+        for category in normalized_categories:
+            escaped = category.replace("%", r"\%").replace("_", r"\_")
+            pattern = f'%"{escaped}"%'
+            conditions.append(Content.category.like(pattern, escape="\\"))
 
     if not is_admin:
         if requester is None:
@@ -821,6 +837,7 @@ def list_quizzes(
     session: Session,
     content_id: Optional[int],
     quiz_type: Optional[str],
+    period: Optional[str],
     page: int,
     size: int,
     requester: Optional[User],
@@ -841,6 +858,14 @@ def list_quizzes(
 
     if quiz_type is not None:
         conditions.append(Quiz.type == quiz_type)
+
+    if period:
+        trimmed_period = period.strip()
+        if trimmed_period and trimmed_period != "전체":
+            escaped = trimmed_period.replace("%", r"\%").replace("_", r"\_")
+            pattern = f'%"period": "{escaped}"%'
+            conditions.append(Quiz.content_id.is_not(None))
+            conditions.append(Content.eras.like(pattern, escape="\\"))
 
     base_count = select(func.count()).select_from(Quiz).outerjoin(Content, Quiz.content_id == Content.id)
     base_query = select(Quiz).outerjoin(Content, Quiz.content_id == Content.id)

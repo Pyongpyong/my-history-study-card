@@ -148,6 +148,12 @@ export default function ContentEditPage() {
     setTimelineEntries((prev) => prev.filter((_, idx) => idx !== index));
   };
 
+  const updateTimelineEntry = (index: number, updates: Partial<TimelineEntry>) => {
+    setTimelineEntries((prev) =>
+      prev.map((item, idx) => (idx === index ? { ...item, ...updates } : item)),
+    );
+  };
+
   const addEraEntry = () => {
     const period = normalizeEntry(eraPeriodInput);
     const detail = eraDetailInput.trim();
@@ -166,6 +172,12 @@ export default function ContentEditPage() {
 
   const removeEraEntry = (index: number) => {
     setEraEntries((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const updateEraEntry = (index: number, updates: Partial<EraEntry>) => {
+    setEraEntries((prev) =>
+      prev.map((item, idx) => (idx === index ? { ...item, ...updates } : item)),
+    );
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -318,12 +330,23 @@ export default function ContentEditPage() {
               <ul className="space-y-2">
                 {timelineEntries.map((entry, index) => (
                   <li
-                    key={`${entry.title}-${index}`}
+                    key={`timeline-entry-${index}`}
                     className="flex items-start justify-between gap-3 rounded border border-slate-200 bg-white p-3 text-xs text-slate-700"
                   >
-                    <div className="flex-1">
-                      <p className="font-semibold text-primary-600">{entry.title}</p>
-                      {entry.description ? <p className="mt-1 text-slate-600">{entry.description}</p> : null}
+                    <div className="flex-1 space-y-2">
+                      <input
+                        value={entry.title}
+                        onChange={(event) => updateTimelineEntry(index, { title: event.target.value })}
+                        className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        placeholder="연도/기간"
+                      />
+                      <textarea
+                        value={entry.description ?? ''}
+                        onChange={(event) => updateTimelineEntry(index, { description: event.target.value })}
+                        className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        placeholder="설명"
+                        rows={2}
+                      />
                     </div>
                     <button
                       type="button"
@@ -417,12 +440,23 @@ export default function ContentEditPage() {
               <ul className="space-y-2">
                 {eraEntries.map((entry, index) => (
                   <li
-                    key={`${entry.period}-${index}`}
+                    key={`era-entry-${index}`}
                     className="flex items-start justify-between gap-3 rounded border border-slate-200 bg-white p-3 text-xs text-slate-700"
                   >
-                    <div className="flex-1">
-                      <p className="font-semibold text-primary-600">{entry.period}</p>
-                      {entry.detail ? <p className="mt-1 text-slate-600">{entry.detail}</p> : null}
+                    <div className="flex-1 space-y-2">
+                      <input
+                        value={entry.period}
+                        onChange={(event) => updateEraEntry(index, { period: event.target.value })}
+                        className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        placeholder="연대"
+                      />
+                      <textarea
+                        value={entry.detail ?? ''}
+                        onChange={(event) => updateEraEntry(index, { detail: event.target.value })}
+                        className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        placeholder="세부 연대"
+                        rows={2}
+                      />
                     </div>
                     <button
                       type="button"

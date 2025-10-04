@@ -331,6 +331,8 @@ def _process_payload(
 @app.get("/contents", response_model=ContentListOut)
 def list_contents_endpoint(
     q: Optional[str] = None,
+    period: Optional[str] = None,
+    categories: Optional[List[str]] = Query(None),
     page: int = 1,
     size: int = 20,
     order: str = "created_desc",
@@ -339,7 +341,7 @@ def list_contents_endpoint(
 ) -> ContentListOut:
     page = max(page, 1)
     size = max(min(size, 100), 1)
-    items, total = list_contents(db, q, page, size, order, user)
+    items, total = list_contents(db, q, period, categories, page, size, order, user)
     meta = PageMeta(page=page, size=size, total=total)
     return ContentListOut(items=items, meta=meta)
 
@@ -425,6 +427,7 @@ def list_content_cards(
 def list_quizzes_endpoint(
     content_id: Optional[int] = None,
     type: Optional[str] = None,
+    period: Optional[str] = None,
     page: int = 1,
     size: int = 20,
     db: Session = Depends(get_db),
@@ -438,7 +441,7 @@ def list_quizzes_endpoint(
         valid_types = {"MCQ", "SHORT", "OX", "CLOZE", "ORDER", "MATCH"}
         if quiz_type not in valid_types:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid quiz type")
-    items, total = list_quizzes(db, content_id, quiz_type, page, size, user)
+    items, total = list_quizzes(db, content_id, quiz_type, period, page, size, user)
     meta = PageMeta(page=page, size=size, total=total)
     return QuizListOut(items=items, meta=meta)
 

@@ -255,8 +255,23 @@ export interface LearningHelperListResponse {
   items: LearningHelperOut[];
 }
 
-export async function fetchContents(page = 1, size = 20): Promise<ContentListResponse> {
-  const { data } = await api.get<ContentListResponse>('/contents', { params: { page, size } });
+export interface ContentListFilters {
+  period?: string | null;
+  categories?: string[];
+}
+
+export async function fetchContents(page = 1, size = 20, filters?: ContentListFilters): Promise<ContentListResponse> {
+  const params: Record<string, unknown> = { page, size };
+
+  if (filters?.period && filters.period !== '전체') {
+    params.period = filters.period;
+  }
+
+  if (filters?.categories?.length) {
+    params.categories = filters.categories;
+  }
+
+  const { data } = await api.get<ContentListResponse>('/contents', { params });
   return data;
 }
 
@@ -303,8 +318,28 @@ export async function fetchContentCards(id: number | string): Promise<any[]> {
   }
 }
 
-export async function fetchQuizzes(page = 1, size = 20): Promise<QuizListResponse> {
-  const { data } = await api.get<QuizListResponse>('/quizzes', { params: { page, size } });
+export interface QuizListFilters {
+  period?: string | null;
+  type?: string | null;
+  contentId?: number | string | null;
+}
+
+export async function fetchQuizzes(page = 1, size = 20, filters?: QuizListFilters): Promise<QuizListResponse> {
+  const params: Record<string, unknown> = { page, size };
+
+  if (filters?.period && filters.period !== '전체') {
+    params.period = filters.period;
+  }
+
+  if (filters?.type && filters.type !== '전체') {
+    params.type = filters.type;
+  }
+
+  if (filters?.contentId != null) {
+    params.content_id = filters.contentId;
+  }
+
+  const { data } = await api.get<QuizListResponse>('/quizzes', { params });
   return data;
 }
 
