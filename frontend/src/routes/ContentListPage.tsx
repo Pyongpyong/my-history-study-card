@@ -20,11 +20,11 @@ export default function ContentListPage() {
 
   const periods = ['전체', '고대', '고려', '조선', '근대', '현대'];
 
-  const load = useCallback(async (page: number = currentPage) => {
+  const load = useCallback(async (page: number, period: string) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchContents(page, pageSize);
+      const data = await fetchContents(page, pageSize, { period });
       setContents(data.items);
       setTotalItems(data.meta.total);
       setTotalPages(Math.ceil(data.meta.total / pageSize));
@@ -36,10 +36,10 @@ export default function ContentListPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize]);
+  }, [pageSize]);
 
   useEffect(() => {
-    load();
+    void load(1, '전체');
   }, [load]);
 
   const handleDelete = async (event: MouseEvent, id: number) => {
@@ -48,7 +48,7 @@ export default function ContentListPage() {
     if (!confirm('해당 콘텐츠와 관련 퀴즈를 삭제할까요?')) return;
     try {
       await deleteContent(id);
-      await load(currentPage);
+      await load(currentPage, activePeriod);
     } catch (err: any) {
       console.error(err);
       const message = err?.response?.data?.detail ?? '삭제에 실패했습니다.';
@@ -58,8 +58,17 @@ export default function ContentListPage() {
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages && page !== currentPage) {
-      load(page);
+      void load(page, activePeriod);
     }
+  };
+
+  const handlePeriodChange = (period: string) => {
+    if (period === activePeriod) {
+      return;
+    }
+    setActivePeriod(period);
+    setCurrentPage(1);
+    void load(1, period);
   };
 
   const getPageNumbers = () => {
@@ -151,7 +160,7 @@ export default function ContentListPage() {
           {periods.map((period) => (
             <button
               key={period}
-              onClick={() => setActivePeriod(period)}
+              onClick={() => handlePeriodChange(period)}
               className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium transition ${
                 activePeriod === period
                   ? 'border-primary-500 text-primary-600'

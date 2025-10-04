@@ -122,50 +122,50 @@ export default function QuizListPage() {
     loadCardDecks();
   }, [user]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (targetPage: number, period: string, quizType: string) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchQuizzes(page, PAGE_SIZE);
-      setQuizzes(data.items);
+      const data = await fetchQuizzes(targetPage, PAGE_SIZE, { period, type: quizType });
       setMeta(data.meta);
-      
+      setPage(data.meta.page);
+
       // 콘텐츠 타이틀과 eras 정보 로드 (content_id가 null이 아닌 것만)
-      const contentIds = [...new Set(data.items.map(quiz => quiz.content_id).filter(id => id !== null))];
+      const contentIds = [...new Set(data.items.map((quiz) => quiz.content_id).filter((id) => id !== null))];
       const contentPromises = contentIds.map(async (contentId) => {
         try {
           const content = await fetchContent(contentId);
-          return { 
-            id: contentId, 
+          return {
+            id: contentId,
             title: content.title,
-            eras: content.eras || []
+            eras: content.eras || [],
           };
         } catch {
-          return { 
-            id: contentId, 
+          return {
+            id: contentId,
             title: `콘텐츠 #${contentId}`,
-            eras: []
+            eras: [],
           };
         }
       });
-      
+
       const contentData = await Promise.all(contentPromises);
       const titleMap = contentData.reduce((acc, { id, title }) => {
         acc[id] = title;
         return acc;
       }, {} as Record<number, string>);
-      
+
       // 콘텐츠별 eras 정보도 저장
       const contentErasMap = contentData.reduce((acc, { id, eras }) => {
         acc[id] = eras;
         return acc;
       }, {} as Record<number, any[]>);
-      
+
       setContentTitles(titleMap);
       // 콘텐츠 eras 정보를 퀴즈에 연결
-      const enrichedQuizzes = data.items.map(quiz => ({
+      const enrichedQuizzes = data.items.map((quiz) => ({
         ...quiz,
-        contentEras: quiz.content_id ? contentErasMap[quiz.content_id] || [] : []
+        contentEras: quiz.content_id ? contentErasMap[quiz.content_id] || [] : [],
       }));
       setQuizzes(enrichedQuizzes);
     } catch (err: any) {
@@ -175,11 +175,11 @@ export default function QuizListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, user]);
+  }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    void load(page, activePeriod, activeQuizType);
+  }, [load, page, activePeriod, activeQuizType, user]);
 
   useEffect(() => {
     setPage(1);
@@ -510,17 +510,17 @@ export default function QuizListPage() {
     }
     
     try {
-      await Promise.all(selectedQuizzes.map(quiz => deleteQuizRequest(quiz.id)));
+      await Promise.all(selectedQuizzes.map((quiz) => deleteQuizRequest(quiz.id)));
       setSelected({});
       setSelectedDetails({});
-      load();
+      await load(page, activePeriod, activeQuizType);
       alert('선택된 퀴즈가 삭제되었습니다.');
     } catch (err: any) {
       console.error(err);
       const message = err?.response?.data?.detail ?? '퀴즈 삭제에 실패했습니다.';
       alert(typeof message === 'string' ? message : JSON.stringify(message));
     }
-  }, [selectedQuizzes, load]);
+  }, [selectedQuizzes, load, page, activePeriod, activeQuizType]);
 
   const handleDeleteSingle = useCallback(async (quizId: number) => {
     if (!confirm('이 퀴즈를 삭제하시겠습니까?')) {
@@ -529,14 +529,14 @@ export default function QuizListPage() {
     
     try {
       await deleteQuizRequest(quizId);
-      load();
+      await load(page, activePeriod, activeQuizType);
       alert('퀴즈가 삭제되었습니다.');
     } catch (err: any) {
       console.error(err);
       const message = err?.response?.data?.detail ?? '퀴즈 삭제에 실패했습니다.';
       alert(typeof message === 'string' ? message : JSON.stringify(message));
     }
-  }, [load]);
+  }, [load, page, activePeriod, activeQuizType]);
 
   const handleAddToStudy = useCallback(async () => {
     if (!user) {
@@ -1073,7 +1073,11 @@ export default function QuizListPage() {
             {periods.map((period) => (
               <button
                 key={period}
-                onClick={() => setActivePeriod(period)}
+                onClick={() => {
+                  if (period === activePeriod) return;
+                  setActivePeriod(period);
+                  setPage(1);
+                }}
                 className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium transition ${
                   activePeriod === period
                     ? 'border-primary-500 text-primary-600'
@@ -1092,7 +1096,11 @@ export default function QuizListPage() {
             {quizTypes.map((type) => (
               <button
                 key={type.value}
-                onClick={() => setActiveQuizType(type.value)}
+                onClick={() => {
+                  if (type.value === activeQuizType) return;
+                  setActiveQuizType(type.value);
+                  setPage(1);
+                }}
                 className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium transition ${
                   activeQuizType === type.value
                     ? 'border-primary-500 text-primary-600'
