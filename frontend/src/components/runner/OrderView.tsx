@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+import type { OrderCard, CardStyle } from '../../api';
 
 const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
 
 interface OrderViewProps {
-  card: any;
+  card: OrderCard;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
-  cardStyle?: any;
+  cardStyle?: CardStyle | null;
 }
 
 export default function OrderView({ card, disabled, onSubmit, cardStyle }: OrderViewProps) {

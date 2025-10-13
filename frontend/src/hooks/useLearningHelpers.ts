@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchLearningHelpers, type LearningHelperOut } from '../api';
+import { extractApiErrorMessage } from '../utils/error';
 
 export function useLearningHelpers() {
   const [helpers, setHelpers] = useState<LearningHelperOut[]>([]);
@@ -12,10 +13,9 @@ export function useLearningHelpers() {
     try {
       const items = await fetchLearningHelpers();
       setHelpers(items);
-    } catch (err: any) {
-      console.error('학습 도우미 목록을 불러오는 데 실패했습니다.', err);
-      const message = err?.response?.data?.detail ?? err?.message ?? '학습 도우미 목록을 불러오지 못했습니다.';
-      setError(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error('학습 도우미 목록을 불러오는 데 실패했습니다.', error);
+      setError(extractApiErrorMessage(error, '학습 도우미 목록을 불러오지 못했습니다.'));
     } finally {
       setLoading(false);
     }

@@ -43,7 +43,6 @@ export interface ContentItem {
   title: string;
   content: string;
   keywords: string[];
-  chronology?: ContentChronology | null;
   timeline: TimelineEntry[];
   categories: string[];
   eras: EraEntry[];
@@ -59,17 +58,6 @@ export interface ContentListResponse {
     size: number;
     total: number;
   };
-}
-
-export interface ContentChronologyEvent {
-  year: number;
-  label: string;
-}
-
-export interface ContentChronology {
-  start_year?: number | null;
-  end_year?: number | null;
-  events: ContentChronologyEvent[];
 }
 
 export interface TimelineEntry {
@@ -90,6 +78,63 @@ export type QuizType = 'MCQ' | 'SHORT' | 'OX' | 'CLOZE' | 'ORDER' | 'MATCH';
 
 export type AiDifficulty = 'easy' | 'medium' | 'hard';
 
+export interface CardBase {
+  id?: number;
+  content_id?: number;
+  owner_id?: number | null;
+  created_at?: string;
+  visibility?: Visibility;
+  explain?: string | null;
+  tags?: string[];
+  attempts?: number;
+  correct?: number;
+  [key: string]: unknown;
+}
+
+export interface MCQCard extends CardBase {
+  type: 'MCQ';
+  question?: string;
+  options?: string[];
+  answer_index?: number;
+}
+
+export interface ShortCard extends CardBase {
+  type: 'SHORT';
+  prompt?: string;
+  answer?: string;
+  rubric?: {
+    aliases?: string[];
+    [key: string]: unknown;
+  };
+}
+
+export interface OXCard extends CardBase {
+  type: 'OX';
+  statement?: string;
+  answer?: boolean;
+}
+
+export interface ClozeCard extends CardBase {
+  type: 'CLOZE';
+  text?: string;
+  clozes?: Record<string, string>;
+}
+
+export interface OrderCard extends CardBase {
+  type: 'ORDER';
+  items?: string[];
+  answer_order?: number[];
+}
+
+export interface MatchCard extends CardBase {
+  type: 'MATCH';
+  left?: string[];
+  right?: string[];
+  pairs?: number[][];
+}
+
+export type QuizCard = MCQCard | ShortCard | OXCard | ClozeCard | OrderCard | MatchCard;
+
 export interface AiMeta {
   cached: boolean;
   tokens_in: number;
@@ -104,7 +149,7 @@ export interface AiGenerateRequest {
   difficulty: AiDifficulty;
   no_cache?: boolean;
   focus_mode?: 'highlight' | 'timeline';
-  timeline?: AiChronologyEvent[];
+  timeline?: AiTimelineEvent[];
 }
 
 export interface AiGenerateResponse {
@@ -122,27 +167,15 @@ export interface AiTaxonomy {
   keywords?: string[];
 }
 
-export interface AiChronoPoint {
-  year: number;
-  precision?: 'year' | 'month' | 'day';
-}
-
-export interface AiChronologyEvent {
+export interface AiTimelineEvent {
   year: number;
   label: string;
-}
-
-export interface AiChronology {
-  start?: AiChronoPoint | null;
-  end?: AiChronoPoint | null;
-  events?: AiChronologyEvent[];
 }
 
 export interface AiGenerateAndImportRequest extends AiGenerateRequest {
   title: string;
   tags: string[];
   taxonomy?: AiTaxonomy | null;
-  chronology?: AiChronology | null;
   visibility?: Visibility;
   upsert?: boolean;
 }
@@ -182,10 +215,7 @@ export interface QuizListResponse {
   };
 }
 
-export type StudySessionCard = Record<string, any> & {
-  attempts?: number;
-  correct?: number;
-};
+export type StudySessionCard = QuizCard;
 
 export interface StudySession {
   id: number;
@@ -283,9 +313,14 @@ export async function fetchContent(id: number | string): Promise<ContentDetail> 
 const isQuizListResponse = (data: unknown): data is QuizListResponse =>
   Boolean(data) && typeof data === 'object' && Array.isArray((data as QuizListResponse).items);
 
-export async function fetchContentCards(id: number | string): Promise<any[]> {
+const QUIZ_TYPES: QuizType[] = ['MCQ', 'SHORT', 'OX', 'CLOZE', 'ORDER', 'MATCH'];
+
+const isQuizType = (value: unknown): value is QuizType =>
+  typeof value === 'string' && (QUIZ_TYPES as readonly string[]).includes(value);
+
+export async function fetchContentCards(id: number | string): Promise<QuizCard[]> {
   try {
-    const { data } = await api.get<QuizListResponse | { cards?: any[] }>(`/contents/${id}/cards`, {
+    const { data } = await api.get<QuizListResponse | { cards?: unknown[] }>(`/contents/${id}/cards`, {
       params: { page: 1, size: 100 },
     });
 
@@ -296,22 +331,28 @@ export async function fetchContentCards(id: number | string): Promise<any[]> {
         : [];
 
     return rawItems
-      .filter((item): item is Record<string, any> => Boolean(item) && typeof item === 'object')
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
       .map((item) => {
-        const { payload, ...rest } = item;
-        const payloadData = typeof payload === 'object' && payload !== null ? payload : {};
+        const { payload, ...rest } = item as Record<string, unknown> & { payload?: unknown };
+        const payloadData = (typeof payload === 'object' && payload !== null ? payload : {}) as Record<string, unknown>;
+        const type = (rest.type ?? payloadData.type) as unknown;
+
+        if (!isQuizType(type)) {
+          return null;
+        }
 
         return {
-          ...payloadData,
+          ...(payloadData as Record<string, unknown>),
           ...rest,
-          id: rest.id ?? payloadData.id,
-          type: rest.type ?? payloadData.type,
-          content_id: rest.content_id ?? payloadData.content_id,
-          created_at: rest.created_at ?? payloadData.created_at,
-          visibility: rest.visibility ?? payloadData.visibility,
-          owner_id: rest.owner_id ?? payloadData.owner_id,
-        };
-      });
+          id: (rest.id ?? payloadData.id) as number | undefined,
+          type,
+          content_id: (rest.content_id ?? payloadData.content_id) as number | undefined,
+          created_at: (rest.created_at ?? payloadData.created_at) as string | undefined,
+          visibility: (rest.visibility ?? payloadData.visibility) as Visibility | undefined,
+          owner_id: (rest.owner_id ?? payloadData.owner_id) as number | null | undefined,
+        } as QuizCard;
+      })
+      .filter((card): card is QuizCard => card !== null);
   } catch (error) {
     console.error('Error fetching content cards:', error);
     return [];
@@ -508,7 +549,6 @@ export async function updateContentRequest(
   updates: Partial<{
     title: string;
     content: string;
-    chronology: any;
     keywords: string[];
     timeline: TimelineEntry[] | null;
     eras: EraEntry[] | null;

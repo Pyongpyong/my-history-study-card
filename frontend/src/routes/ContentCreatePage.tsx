@@ -1,6 +1,7 @@
 import { FormEvent, KeyboardEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createContentRequest, type EraEntry, type TimelineEntry, type Visibility } from '../api';
+import { extractApiErrorMessage } from '../utils/error';
 
 function normalizeEntry(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
@@ -145,7 +146,7 @@ export default function ContentCreatePage() {
     }
     setSubmitting(true);
     try {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         title: title.trim(),
         content: body.trim(),
         keywords,
@@ -154,15 +155,14 @@ export default function ContentCreatePage() {
         cards: [],
         visibility,
         categories,
+        eras: eraEntries,
       };
-      payload.eras = eraEntries;
       const contentId = await createContentRequest(payload);
       alert('콘텐츠가 생성되었습니다.');
       navigate(`/contents/${contentId}`);
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '콘텐츠를 생성하지 못했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '콘텐츠를 생성하지 못했습니다.'));
     } finally {
       setSubmitting(false);
     }
