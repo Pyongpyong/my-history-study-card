@@ -1,6 +1,9 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchContent, updateContentRequest, type ContentDetail, type EraEntry, type TimelineEntry, type Visibility } from '../api';
+import { extractApiErrorMessage } from '../utils/error';
+
+type ContentUpdatePayload = Parameters<typeof updateContentRequest>[1];
 
 function normalizeEntry(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
@@ -79,10 +82,9 @@ export default function ContentEditPage() {
         setCategories(detail.categories ?? []);
         setEraEntries(detail.eras ? detail.eras.map((entry) => ({ ...entry })) : []);
         setVisibility(detail.visibility);
-      } catch (err: any) {
-        console.error(err);
-        const message = err?.response?.data?.detail ?? '콘텐츠 정보를 불러오지 못했습니다.';
-        setError(typeof message === 'string' ? message : JSON.stringify(message));
+      } catch (error) {
+        console.error(error);
+        setError(extractApiErrorMessage(error, '콘텐츠 정보를 불러오지 못했습니다.'));
       } finally {
         setLoading(false);
       }
@@ -189,24 +191,21 @@ export default function ContentEditPage() {
     }
     setSubmitting(true);
     try {
-      const payload: any = {
+      const payload: ContentUpdatePayload = {
         title: title.trim(),
         content: body.trim(),
         keywords,
-        highlights: [],
         timeline: timelineEntries,
-        cards: [],
         visibility,
         categories,
+        eras: eraEntries,
       };
-      payload.eras = eraEntries;
       await updateContentRequest(id, payload);
       alert('콘텐츠가 수정되었습니다.');
       navigate(`/contents/${id}`);
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '콘텐츠를 수정하지 못했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '콘텐츠를 수정하지 못했습니다.'));
     } finally {
       setSubmitting(false);
     }

@@ -1,12 +1,13 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import type { ClozeCard, CardStyle } from '../../api';
 
 const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
 
 interface ClozeViewProps {
-  card: any;
+  card: ClozeCard;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
-  cardStyle?: any;
+  cardStyle?: CardStyle | null;
 }
 
 export default function ClozeView({ card, disabled, onSubmit, cardStyle }: ClozeViewProps) {

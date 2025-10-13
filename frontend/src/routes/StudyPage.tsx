@@ -13,6 +13,7 @@ import {
   type Reward,
   type LearningHelperPublic,
   type CardStyle,
+  type ContentDetail,
 } from '../api';
 import CardRunner from '../components/CardRunner';
 import ProgressBar from '../components/ProgressBar';
@@ -21,12 +22,17 @@ import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl, getCardDec
 import { useAuth } from '../context/AuthContext';
 import HelperPickerModal from '../components/HelperPickerModal';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
+import { extractApiErrorMessage } from '../utils/error';
 
 type TeacherMood = 'idle' | 'correct' | 'incorrect';
 
 interface QuizResult {
   correct: boolean;
 }
+
+type SessionContentSummary = Pick<ContentDetail, 'title' | 'content' | 'created_at'> & {
+  contentIds?: number[];
+};
 
 export default function StudyPage() {
   const { id } = useParams();
@@ -35,7 +41,7 @@ export default function StudyPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, refresh } = useAuth();
-  const [content, setContent] = useState<any | null>(null);
+  const [content, setContent] = useState<ContentDetail | SessionContentSummary | null>(null);
   const [session, setSession] = useState<StudySession | null>(null);
   const [cards, setCards] = useState<StudySessionCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,34 +117,39 @@ export default function StudyPage() {
       try {
         if (sessionId) {
           // 로그인 상태에 따라 공개/개인 세션 API 분기
-          const session = userId
+          const sessionData = userId
             ? await fetchStudySession(sessionId)
             : await fetchPublicStudySession(sessionId);
-          setSession(session);
-          const cardsFromSession = Array.isArray(session.cards)
-            ? session.cards.map((card: any) => ({
+          setSession(sessionData);
+          const cardsFromSession = Array.isArray(sessionData.cards)
+            ? sessionData.cards.map((card) => ({
                 ...card,
                 attempts: typeof card?.attempts === 'number' ? card.attempts : 0,
                 correct: typeof card?.correct === 'number' ? card.correct : 0,
               }))
             : [];
-          setSessionRewards(session.rewards ?? []);
-          setSessionTags(session.tags ?? []);
-          setHelper(session.helper ?? user?.selected_helper ?? null);
+          setSessionRewards(sessionData.rewards ?? []);
+          setSessionTags(sessionData.tags ?? []);
+          setHelper(sessionData.helper ?? user?.selected_helper ?? null);
           setPendingHelperId(
-            session.helper?.id ?? session.helper_id ?? user?.selected_helper_id ?? null,
+            sessionData.helper?.id ?? sessionData.helper_id ?? user?.selected_helper_id ?? null,
           );
           if (!cardsFromSession.length) {
             setError('선택된 카드가 없습니다. 학습 리스트에서 세트를 다시 생성해주세요.');
-            setContent({ title: session.title?.trim() || '학습 세트', created_at: session.created_at, content: '' });
+            setContent({
+              title: sessionData.title?.trim() || '학습 세트',
+              created_at: sessionData.created_at,
+              content: '',
+            });
             setCards([]);
           } else {
             const contentIds = cardsFromSession
-              .map((card: any) => card.content_id)
-              .filter((value: any, idx: number, arr: any[]) => value && arr.indexOf(value) === idx);
+              .map((card) => card.content_id)
+              .filter((value): value is number => typeof value === 'number')
+              .filter((value, idx, arr) => arr.indexOf(value) === idx);
             setContent({
-              title: session.title?.trim() || '학습 세트',
-              created_at: session.created_at,
+              title: sessionData.title?.trim() || '학습 세트',
+              created_at: sessionData.created_at,
               content: '',
               contentIds,
             });
@@ -148,7 +159,7 @@ export default function StudyPage() {
           const [detail, cardList] = await Promise.all([fetchContent(id), fetchContentCards(id)]);
           setContent(detail);
           setCards(
-            cardList.map((card: any) => ({
+            cardList.map((card) => ({
               ...card,
               attempts: typeof card?.attempts === 'number' ? card.attempts : 0,
               correct: typeof card?.correct === 'number' ? card.correct : 0,
@@ -185,10 +196,9 @@ export default function StudyPage() {
         } catch (styleErr) {
           console.warn('카드 스타일 로드 실패:', styleErr);
         }
-      } catch (err: any) {
-        console.error(err);
-        const message = err?.response?.data?.detail ?? err?.message ?? '학습 데이터를 불러오지 못했습니다.';
-        setError(typeof message === 'string' ? message : JSON.stringify(message));
+      } catch (error) {
+        console.error(error);
+        setError(extractApiErrorMessage(error, '학습 데이터를 불러오지 못했습니다.'));
       } finally {
         setLoading(false);
       }
@@ -227,10 +237,9 @@ export default function StudyPage() {
       setHelper(updated.helper ?? selectedHelper);
       setHelperModalOpen(false);
       refreshHelpers();
-    } catch (err: any) {
-      console.error('학습 도우미 변경 실패', err);
-      const message = err?.response?.data?.detail ?? err?.message ?? '학습 도우미를 변경하지 못했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error('학습 도우미 변경 실패', error);
+      alert(extractApiErrorMessage(error, '학습 도우미를 변경하지 못했습니다.'));
     } finally {
       setHelperSubmitting(false);
     }

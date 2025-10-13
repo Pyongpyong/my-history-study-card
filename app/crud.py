@@ -621,16 +621,6 @@ def update_content(
         content.body = data["content"].strip()
     if "keywords" in data and data["keywords"] is not None:
         content.keywords = json_dumps([keyword.strip() for keyword in data["keywords"] if keyword and keyword.strip()])
-    if "chronology" in data:
-        chronology_value = data["chronology"]
-        if chronology_value is None:
-            content.chronology = None
-            content.start_year = None
-            content.end_year = None
-        else:
-            if isinstance(chronology_value, dict):
-                chronology_value = Chronology.model_validate(chronology_value)
-            content.chronology = json_dumps(chronology_value.model_dump(exclude_none=True))
     if "timeline" in data:
         timeline_value = data["timeline"]
         if timeline_value is None:

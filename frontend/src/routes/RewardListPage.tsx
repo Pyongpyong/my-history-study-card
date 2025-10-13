@@ -6,6 +6,7 @@ import {
   deleteRewardRequest,
   type Reward,
 } from '../api';
+import { extractApiErrorMessage } from '../utils/error';
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
@@ -27,10 +28,9 @@ export default function RewardListPage() {
     try {
       const items = await fetchRewards();
       setRewards(items);
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '보상 목록을 불러오지 못했습니다.';
-      setError(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      setError(extractApiErrorMessage(error, '보상 목록을 불러오지 못했습니다.'));
     } finally {
       setLoading(false);
     }
@@ -57,10 +57,9 @@ export default function RewardListPage() {
       setDuration('');
       setValidUntil('');
       await load();
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '보상을 생성하지 못했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '보상을 생성하지 못했습니다.'));
     } finally {
       setSaving(false);
     }
@@ -76,10 +75,9 @@ export default function RewardListPage() {
     try {
       const updated = await updateRewardRequest(reward.id, { used: !reward.used });
       setRewards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '보상 상태를 변경하지 못했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '보상 상태를 변경하지 못했습니다.'));
     }
   };
 
@@ -88,10 +86,9 @@ export default function RewardListPage() {
     try {
       await deleteRewardRequest(reward.id);
       setRewards((prev) => prev.filter((item) => item.id !== reward.id));
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '보상을 삭제하지 못했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '보상을 삭제하지 못했습니다.'));
     }
   };
 

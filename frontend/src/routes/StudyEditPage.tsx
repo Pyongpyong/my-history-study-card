@@ -12,11 +12,13 @@ import {
   CardDeck,
   QuizItem,
   QuizListResponse,
+  QuizCard,
 } from '../api';
 import { useAuth } from '../context/AuthContext';
 import HelperPickerModal from '../components/HelperPickerModal';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
 import { getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
+import { extractApiErrorMessage } from '../utils/error';
 
 export default function StudyEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -33,7 +35,7 @@ export default function StudyEditPage() {
   const [newTag, setNewTag] = useState('');
 
   // 퀴즈 관련 상태
-  const [selectedCards, setSelectedCards] = useState<any[]>([]);
+  const [selectedCards, setSelectedCards] = useState<QuizCard[]>([]);
   const [quizModalOpen, setQuizModalOpen] = useState(false);
   const [availableQuizzes, setAvailableQuizzes] = useState<QuizItem[]>([]);
   const [quizzesLoading, setQuizzesLoading] = useState(false);
@@ -85,10 +87,9 @@ export default function StudyEditPage() {
       setSelectedCardDeckId(sessionData.card_deck?.id || null);
 
       setCardDecks(cardDecksData.items);
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '학습 세션을 불러오지 못했습니다.';
-      setError(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      setError(extractApiErrorMessage(error, '학습 세션을 불러오지 못했습니다.'));
     } finally {
       setLoading(false);
     }
@@ -105,10 +106,9 @@ export default function StudyEditPage() {
         tags: tags.filter(tag => tag.trim()),
       });
       alert('기본 정보가 저장되었습니다.');
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '저장에 실패했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '저장에 실패했습니다.'));
     } finally {
       setSaving(false);
     }
@@ -177,10 +177,9 @@ export default function StudyEditPage() {
       });
       alert('퀴즈가 저장되었고 정답률이 초기화되었습니다.');
       await loadData(); // 데이터 새로고침
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '퀴즈 저장에 실패했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '퀴즈 저장에 실패했습니다.'));
     } finally {
       setSaving(false);
     }
@@ -202,10 +201,9 @@ export default function StudyEditPage() {
       setHelperModalOpen(false);
       await loadData();
       alert('학습 도우미가 변경되었습니다.');
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '학습 도우미 변경에 실패했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '학습 도우미 변경에 실패했습니다.'));
     } finally {
       setHelperSubmitting(false);
     }
@@ -220,10 +218,9 @@ export default function StudyEditPage() {
       await updateStudySessionRequest(session.id, { card_deck_id: selectedCardDeckId });
       await loadData();
       alert('카드덱이 변경되었습니다.');
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '카드덱 변경에 실패했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '카드덱 변경에 실패했습니다.'));
     } finally {
       setSaving(false);
     }
@@ -239,10 +236,9 @@ export default function StudyEditPage() {
       setSelectingRewardId(null);
       await loadData();
       alert('보상이 추가되었습니다.');
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '보상 추가에 실패했습니다.';
-      alert(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '보상 추가에 실패했습니다.'));
     }
   };
 
@@ -253,9 +249,9 @@ export default function StudyEditPage() {
     try {
       const items = await fetchRewards();
       setRewards(items);
-    } catch (err: any) {
-      console.error(err);
-      alert('보상 목록을 불러오지 못했습니다.');
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '보상 목록을 불러오지 못했습니다.'));
     } finally {
       setRewardsLoading(false);
     }
@@ -268,9 +264,9 @@ export default function StudyEditPage() {
     try {
       const response = await fetchQuizzes(1, 100); // 최대 100개 퀴즈 로드
       setAvailableQuizzes(response.items);
-    } catch (err: any) {
-      console.error(err);
-      alert('퀴즈 목록을 불러오지 못했습니다.');
+    } catch (error) {
+      console.error(error);
+      alert(extractApiErrorMessage(error, '퀴즈 목록을 불러오지 못했습니다.'));
     } finally {
       setQuizzesLoading(false);
     }
@@ -491,8 +487,13 @@ export default function StudyEditPage() {
                       const payload = card.payload || card;
                       
                       // MCQ - 객관식 선택지
-                      if ((quizType === 'MCQ' || quizType === 'multiple_choice') && (payload.options || payload.choices)) {
-                        const options = payload.options || payload.choices;
+                      if (quizType === 'MCQ' || quizType === 'multiple_choice') {
+                        const optionsSource = Array.isArray(payload.options)
+                          ? payload.options
+                          : Array.isArray(payload.choices)
+                            ? payload.choices
+                            : [];
+                        const options = optionsSource.filter((option): option is string => typeof option === 'string');
                         return (
                           <div className="text-xs text-slate-600 mb-2">
                             <span className="font-medium">선택지:</span>
@@ -509,8 +510,15 @@ export default function StudyEditPage() {
                       
                       // ORDER - 순서배열
                       if (quizType === 'ORDER' || quizType === 'ordering') {
-                        const items = payload.items || payload.sequence || payload.order_items;
-                        if (items && items.length > 0) {
+                        const rawItems = Array.isArray(payload.items)
+                          ? payload.items
+                          : Array.isArray(payload.sequence)
+                            ? payload.sequence
+                            : Array.isArray(payload.order_items)
+                              ? payload.order_items
+                              : [];
+                        const items = rawItems.filter((item): item is string => typeof item === 'string');
+                        if (items.length > 0) {
                           return (
                             <div className="text-xs text-slate-600 mb-2">
                               
@@ -527,15 +535,19 @@ export default function StudyEditPage() {
                       
                       // MATCH - 연결
                       if (quizType === 'MATCH' || quizType === 'matching') {
-                        const pairlefts = payload.left;
-                        const pairrights = payload.right;
-                        if (pairlefts && pairlefts.length > 0) {
+                        const pairlefts = Array.isArray(payload.left)
+                          ? payload.left.filter((value): value is string => typeof value === 'string')
+                          : [];
+                        const pairrights = Array.isArray(payload.right)
+                          ? payload.right.filter((value): value is string => typeof value === 'string')
+                          : [];
+                        if (pairlefts.length > 0) {
                           return (
                             <div className="text-xs text-slate-600 mb-2">
                               
-                                {pairlefts.map((pair: any, pairIndex: number) => (
+                                {pairlefts.map((pair, pairIndex: number) => (
                                   <div className="flex flex-wrap gap-1 mt-1">
-                                    {pair} ↔ {pairrights[pairIndex]} 
+                                    {pair} ↔ {pairrights[pairIndex] ?? '?'}
                                   </div>
                                 ))}
                                 

@@ -222,7 +222,6 @@ async def generate_and_import_endpoint(
         highlights=payload.highlights,
         tags=payload.tags,
         taxonomy=payload.taxonomy,
-        chronology=payload.chronology,
         cards=cards_models,
         visibility=payload.visibility,
     )

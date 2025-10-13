@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { extractApiErrorMessage } from '../utils/error';
 
 export default function AuthPage() {
   const { login } = useAuth();
@@ -24,9 +25,8 @@ export default function AuthPage() {
     try {
       await login(email.trim(), password);
       navigate(from?.pathname ? from.pathname : '/contents', { replace: true });
-    } catch (err: any) {
-      const message = err?.response?.data?.detail ?? err?.message ?? '요청을 처리하지 못했습니다.';
-      setError(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      setError(extractApiErrorMessage(error, '요청을 처리하지 못했습니다.'));
     } finally {
       setSubmitting(false);
     }

@@ -1,6 +1,7 @@
 import { ChangeEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { uploadJsonFile } from '../api';
+import { extractApiErrorMessage } from '../utils/error';
 
 export default function UploadJSONPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -28,10 +29,9 @@ export default function UploadJSONPage() {
       if (entries.length === 1) {
         navigate(`/contents/${entries[0].content_id}`);
       }
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.response?.data?.detail ?? '업로드에 실패했습니다.';
-      setError(typeof message === 'string' ? message : JSON.stringify(message));
+    } catch (error) {
+      console.error(error);
+      setError(extractApiErrorMessage(error, '업로드에 실패했습니다.'));
     } finally {
       setLoading(false);
     }
