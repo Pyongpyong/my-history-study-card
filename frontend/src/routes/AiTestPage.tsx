@@ -86,6 +86,7 @@ export default function AiTestPage() {
         setSelectedType('MCQ');
       }
     } else if (!HIGHLIGHT_TYPES.includes(selectedType)) {
+      setSelectedType('MCQ');
     }
   }, [focusMode, selectedType]);
 

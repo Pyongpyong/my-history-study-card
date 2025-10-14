@@ -12,6 +12,7 @@ import {
   type QuizItem,
   type StudySession,
   type CardDeck,
+  type ContentItem,
   type EraEntry,
 } from '../api';
 import Badge from '../components/Badge';
@@ -21,13 +22,13 @@ import { useAuth } from '../context/AuthContext';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
 import { extractApiErrorMessage } from '../utils/error';
 
+type QuizListEntry = QuizItem & { contentEras?: EraEntry[] };
+
 const PAGE_SIZE = 40;
-
-
 
 export default function QuizListPage() {
   const { user } = useAuth();
-  const [quizzes, setQuizzes] = useState<Awaited<ReturnType<typeof fetchQuizzes>>['items']>([]);
+  const [quizzes, setQuizzes] = useState<QuizListEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ page: number; size: number; total: number }>({
@@ -37,13 +38,13 @@ export default function QuizListPage() {
   });
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Record<number, boolean>>({});
-  const [selectedDetails, setSelectedDetails] = useState<Record<number, QuizItem>>({});
+  const [selectedDetails, setSelectedDetails] = useState<Record<number, QuizListEntry>>({});
   const [saving, setSaving] = useState(false);
   const [studySessions, setStudySessions] = useState<StudySession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [targetQuiz, setTargetQuiz] = useState<QuizItem | null>(null);
+  const [targetQuiz, setTargetQuiz] = useState<QuizListEntry | null>(null);
   const [selection, setSelection] = useState<'existing' | 'new'>('existing');
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [newSessionTitle, setNewSessionTitle] = useState('');
@@ -77,7 +78,7 @@ export default function QuizListPage() {
   const [showQuizTypeModal, setShowQuizTypeModal] = useState(false);
   const [selectedContentForQuiz, setSelectedContentForQuiz] = useState<number | null>(null);
   const [selectedQuizType, setSelectedQuizType] = useState<string>('');
-  const [contents, setContents] = useState<any[]>([]);
+  const [contents, setContents] = useState<ContentItem[]>([]);
   const [contentsLoading, setContentsLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -152,22 +153,22 @@ export default function QuizListPage() {
       });
 
       const contentData = await Promise.all(contentPromises);
-      const titleMap = contentData.reduce((acc, { id, title }) => {
+      const titleMap = contentData.reduce<Record<number, string>>((acc, { id, title }) => {
         acc[id] = title;
         return acc;
-      }, {} as Record<number, string>);
+      }, {});
 
       // 콘텐츠별 eras 정보도 저장
-      const contentErasMap = contentData.reduce((acc, { id, eras }) => {
+      const contentErasMap = contentData.reduce<Record<number, EraEntry[]>>((acc, { id, eras }) => {
         acc[id] = eras;
         return acc;
-      }, {} as Record<number, any[]>);
+      }, {});
 
       setContentTitles(titleMap);
       // 콘텐츠 eras 정보를 퀴즈에 연결
-      const enrichedQuizzes = data.items.map((quiz) => ({
+      const enrichedQuizzes: QuizListEntry[] = data.items.map((quiz) => ({
         ...quiz,
-        contentEras: quiz.content_id ? contentErasMap[quiz.content_id] || [] : [],
+        contentEras: quiz.content_id ? contentErasMap[quiz.content_id] ?? [] : [],
       }));
       setQuizzes(enrichedQuizzes);
     } catch (error) {
@@ -240,10 +241,15 @@ export default function QuizListPage() {
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
     quizzes.forEach((quiz) => {
-      const payloadTags = Array.isArray((quiz.payload as any)?.tags) ? (quiz.payload as any).tags : [];
-      payloadTags.forEach((tag: string) => {
-        if (tag && typeof tag === 'string' && tag.trim()) {
-          tags.add(tag);
+      const rawTags = quiz.payload?.['tags'];
+      if (!Array.isArray(rawTags)) {
+        return;
+      }
+      rawTags.forEach((tag) => {
+        if (typeof tag !== 'string') return;
+        const trimmed = tag.trim();
+        if (trimmed) {
+          tags.add(trimmed);
         }
       });
     });
@@ -279,8 +285,10 @@ export default function QuizListPage() {
     // 태그 필터링
     if (activeTags.length) {
       filtered = filtered.filter((quiz) => {
-        const rawTags = Array.isArray(quiz.payload?.tags) ? quiz.payload.tags : [];
-        const normalizedTags = rawTags.filter((tag): tag is string => typeof tag === 'string');
+        const rawTags = quiz.payload?.['tags'];
+        const normalizedTags = Array.isArray(rawTags)
+          ? rawTags.filter((tag): tag is string => typeof tag === 'string')
+          : [];
         return activeTags.every((tag) => normalizedTags.includes(tag));
       });
     }
@@ -340,19 +348,15 @@ export default function QuizListPage() {
   const normalizedTargetCard = useMemo(() => {
     if (!targetQuiz) return null;
     const { payload, id, type, content_id } = targetQuiz;
-    const base = { ...payload, id, type, content_id };
-    if (typeof (base as any).attempts !== 'number') {
-      (base as any).attempts = 0;
-    }
-    if (typeof (base as any).correct !== 'number') {
-      (base as any).correct = 0;
-    }
-    return base as typeof payload & {
-      id: number;
-      type: string;
-      content_id: number;
-      attempts: number;
-      correct: number;
+    const attempts = typeof payload['attempts'] === 'number' ? (payload['attempts'] as number) : 0;
+    const correct = typeof payload['correct'] === 'number' ? (payload['correct'] as number) : 0;
+    return {
+      ...(payload as Record<string, unknown>),
+      id,
+      type,
+      content_id,
+      attempts,
+      correct,
     };
   }, [targetQuiz]);
 
@@ -969,7 +973,7 @@ export default function QuizListPage() {
           </header>
           
           <div className="space-y-2">
-            {quizTypes.map((type, index) => (
+            {quizTypes.map((type) => (
               <label
                 key={type.value}
                 className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"

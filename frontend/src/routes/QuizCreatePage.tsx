@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import CardPreview from '../components/CardPreview';
 import ContentSnapshot from '../components/ContentSnapshot';
-import QuizForm from '../components/QuizForm';
+import QuizForm, { type QuizFormPayload } from '../components/QuizForm';
 import { useAuth } from '../context/AuthContext';
 import {
   createQuizForContent,
@@ -19,7 +19,6 @@ import {
   type AiGenerateResponse,
   type AiTimelineEvent,
 } from '../api';
-import { getQuizTypeLabel } from '../utils/quiz';
 import { extractApiErrorMessage } from '../utils/error';
 
 const quizTypeLabels: Record<string, string> = {
@@ -203,7 +202,7 @@ export default function QuizCreatePage() {
     }
   };
 
-  const handleSubmit = async (payload: Record<string, any>) => {
+  const handleSubmit = async (payload: QuizFormPayload) => {
     setSubmitting(true);
     try {
       if (contentId) {

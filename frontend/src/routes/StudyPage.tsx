@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   fetchContent,
@@ -10,13 +10,11 @@ import {
   fetchCardStyleByType,
   type StudySessionCard,
   type StudySession,
-  type Reward,
   type LearningHelperPublic,
   type CardStyle,
   type ContentDetail,
 } from '../api';
 import CardRunner from '../components/CardRunner';
-import ProgressBar from '../components/ProgressBar';
 import { getQuizTypeLabel } from '../utils/quiz';
 import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
 import { useAuth } from '../context/AuthContext';
@@ -52,8 +50,6 @@ export default function StudyPage() {
   const [lastExplanation, setLastExplanation] = useState<string | null>(null);
   const [results, setResults] = useState<QuizResult[]>([]);
   const [completed, setCompleted] = useState(false);
-  const [sessionRewards, setSessionRewards] = useState<Reward[]>([]);
-  const [sessionTags, setSessionTags] = useState<string[]>([]);
   const [teacherMood, setTeacherMood] = useState<TeacherMood>('idle');
   const [finalResultFlipped, setFinalResultFlipped] = useState(false);
   const [nextActionLabel, setNextActionLabel] = useState<'➡️ 다음 문제' | '🏁 결과 보기'>('➡️ 다음 문제');
@@ -70,6 +66,13 @@ export default function StudyPage() {
   const resultResetTimer = useRef<number | null>(null);
   const restartTimer = useRef<number | null>(null);
   const { helpers, refresh: refreshHelpers } = useLearningHelpers();
+  const userSelectedHelperId = user?.selected_helper_id ?? null;
+  const lastLoadKeyRef = useRef<string | null>(null);
+  const userHelperRef = useRef<LearningHelperPublic | null>(null);
+
+  useEffect(() => {
+    userHelperRef.current = user?.selected_helper ?? null;
+  }, [user?.selected_helper]);
 
   const userId = user?.id;
 
@@ -128,11 +131,9 @@ export default function StudyPage() {
                 correct: typeof card?.correct === 'number' ? card.correct : 0,
               }))
             : [];
-          setSessionRewards(sessionData.rewards ?? []);
-          setSessionTags(sessionData.tags ?? []);
-          setHelper(sessionData.helper ?? user?.selected_helper ?? null);
+          setHelper(sessionData.helper ?? userHelperRef.current ?? null);
           setPendingHelperId(
-            sessionData.helper?.id ?? sessionData.helper_id ?? user?.selected_helper_id ?? null,
+            sessionData.helper?.id ?? sessionData.helper_id ?? userSelectedHelperId ?? null,
           );
           if (!cardsFromSession.length) {
             setError('선택된 카드가 없습니다. 학습 리스트에서 세트를 다시 생성해주세요.');
@@ -165,10 +166,8 @@ export default function StudyPage() {
               correct: typeof card?.correct === 'number' ? card.correct : 0,
             })),
           );
-          setSessionRewards([]);
-          setSessionTags([]);
-          setHelper(user?.selected_helper ?? null);
-          setPendingHelperId(user?.selected_helper_id ?? null);
+          setHelper(userHelperRef.current ?? null);
+          setPendingHelperId(userSelectedHelperId);
         }
         setIndex(0);
         setSubmitted(false);
@@ -203,8 +202,13 @@ export default function StudyPage() {
         setLoading(false);
       }
     };
+    const loadKey = `${location.pathname}|${id ?? ''}|${sessionId ?? ''}|${userId ?? 'guest'}|${userSelectedHelperId ?? 'none'}`;
+    if (lastLoadKeyRef.current === loadKey) {
+      return;
+    }
+    lastLoadKeyRef.current = loadKey;
     load();
-  }, [id, sessionId, userId, location.pathname]);
+  }, [id, sessionId, userId, location.pathname, userSelectedHelperId]);
 
   const score = useMemo(() => results.filter((item) => item?.correct).length, [results]);
 
@@ -341,7 +345,7 @@ export default function StudyPage() {
   const isResultFrame = finalResultFlipped || (finished && !restarting);
 
   // 현재 카드 유형에 맞는 스타일 로드
-  const loadCardStyleForType = async (cardType: string) => {
+  const loadCardStyleForType = useCallback(async (cardType: string) => {
     if (cardStyleCache[cardType]) {
       setCardStyle(cardStyleCache[cardType]);
       return;
@@ -357,14 +361,14 @@ export default function StudyPage() {
         setCardStyle(cardStyleCache['ALL']);
       }
     }
-  };
+  }, [cardStyleCache]);
 
   // 현재 카드가 변경될 때마다 해당 유형의 스타일 로드
   useEffect(() => {
     if (currentCard?.type) {
       loadCardStyleForType(currentCard.type);
     }
-  }, [currentCard?.type, cardStyleCache]);
+  }, [currentCard?.type, loadCardStyleForType]);
 
 
   useEffect(() => {
@@ -457,8 +461,7 @@ export default function StudyPage() {
       }),
       ...(hasAnswers ? { answers: answersPayload } : {}),
     })
-      .then(async (updated) => {
-        setSessionRewards(updated.rewards ?? []);
+      .then(async () => {
         try {
           await refresh();
         } catch (err) {
@@ -469,7 +472,7 @@ export default function StudyPage() {
         console.error('학습 결과 저장 실패', err);
         hasSyncedResult.current = false;
       });
-  }, [sessionId, completed, cardsCount, cards, results, user]);
+  }, [sessionId, completed, cardsCount, cards, results, user, refresh]);
 
   if (!id) {
     return <p className="text-sm text-rose-600">잘못된 경로입니다.</p>;

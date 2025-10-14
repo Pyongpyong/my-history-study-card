@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   fetchStudySessions,
@@ -15,7 +15,6 @@ import {
 import { useAuth } from '../context/AuthContext';
 import HelperPickerModal from '../components/HelperPickerModal';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
-import { getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
 import { extractApiErrorMessage } from '../utils/error';
 
 export default function StudyListPage() {
@@ -40,16 +39,16 @@ export default function StudyListPage() {
   const location = useLocation();
   const { helpers, loading: helpersLoading, error: helpersError, refresh: refreshHelpers } = useLearningHelpers();
 
-  const loadCardDecks = async () => {
+  const loadCardDecks = useCallback(async () => {
     try {
       const data = await fetchCardDecksRequest();
       setCardDecks(data.items);
     } catch (err) {
       console.error('Failed to load card decks:', err);
     }
-  };
+  }, []);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -76,14 +75,14 @@ export default function StudyListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    load();
+    void load();
     if (user) {
-      loadCardDecks();
+      void loadCardDecks();
     }
-  }, [location.key, location.state?.refresh, user]);
+  }, [location.key, location.state?.refresh, user, load, loadCardDecks]);
 
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
@@ -112,35 +111,6 @@ export default function StudyListPage() {
       return activeTags.every((tag) => tags.includes(tag));
     });
   }, [sessions, activeTags]);
-
-  const handleTitleBlur = async (session: StudySession, value: string, index: number) => {
-    const orderIndex = sessions.findIndex((item) => item.id === session.id);
-    const fallbackIndex = orderIndex >= 0 ? orderIndex : index;
-    const nextTitle = value.trim() || `학습 ${fallbackIndex + 1}`;
-    
-    // 제목이 변경되지 않았으면 업데이트하지 않음
-    if (nextTitle === session.title) {
-      return;
-    }
-    
-    try {
-      await updateStudySessionRequest(session.id, { title: nextTitle });
-      // 성공 시에만 로컬 상태 업데이트
-      setSessions((prev) =>
-        prev.map((item) =>
-          item.id === session.id ? { ...item, title: nextTitle } : item,
-        ),
-      );
-    } catch (err) {
-      console.error('제목 업데이트 실패:', err);
-      // 실패 시 원래 제목으로 되돌림
-      setSessions((prev) =>
-        prev.map((item) =>
-          item.id === session.id ? { ...item, title: session.title } : item,
-        ),
-      );
-    }
-  };
 
   const handleDelete = async (id: number) => {
     if (!confirm('이 학습 세트를 삭제하시겠습니까?')) return;
@@ -324,7 +294,7 @@ export default function StudyListPage() {
 
       {filteredSessions.length ? (
         <div className="grid gap-4 md:grid-cols-2">
-          {filteredSessions.map((session, index) => (
+          {filteredSessions.map((session) => (
             <div key={session.id} className="rounded-lg border border-slate-200 bg-white p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -422,7 +392,31 @@ export default function StudyListPage() {
             >
               학습 시작
             </button>
-            {!user && (
+            {user ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => openHelperModal(session)}
+                  className="rounded border border-primary-500 px-4 py-2 font-semibold text-primary-600 transition hover:bg-primary-50"
+                >
+                  도우미 변경
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openCardDeckModal(session)}
+                  className="rounded border border-slate-300 px-4 py-2 font-semibold text-slate-600 transition hover:bg-slate-50"
+                >
+                  카드덱 변경
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openRewardModal(session)}
+                  className="rounded border border-amber-500 px-4 py-2 font-semibold text-amber-600 transition hover:bg-amber-50"
+                >
+                  보상 관리
+                </button>
+              </>
+            ) : (
               <button
                 type="button"
                 onClick={() => navigate('/auth')}
