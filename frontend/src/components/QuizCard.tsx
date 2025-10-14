@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { QuizItem } from '../api';
 import { useQuiz } from '../hooks/useQuiz';

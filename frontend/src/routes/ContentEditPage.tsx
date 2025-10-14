@@ -196,7 +196,6 @@ export default function ContentEditPage() {
         content: body.trim(),
         keywords,
         timeline: timelineEntries,
-        visibility,
         categories,
         eras: eraEntries,
       };

@@ -183,6 +183,11 @@ export default function ContentDetailPage() {
 
   const handleSubmitToStudy = async () => {
     if (!normalizedCard) return;
+    if (typeof normalizedCard.id !== 'number') {
+      alert('유효하지 않은 퀴즈입니다.');
+      return;
+    }
+    const normalizedCardId = normalizedCard.id;
     if (selection === 'existing') {
       if (!selectedSessionId) {
         alert('학습 세트를 선택하세요.');
@@ -193,7 +198,7 @@ export default function ContentDetailPage() {
         alert('선택한 학습 세트를 찾을 수 없습니다.');
         return;
       }
-      const alreadyExists = session.quiz_ids?.includes(normalizedCard.id);
+      const alreadyExists = session.quiz_ids?.includes(normalizedCardId);
       if (alreadyExists) {
         alert('이미 존재합니다.');
         handleCloseModal();
@@ -202,7 +207,7 @@ export default function ContentDetailPage() {
       setSubmitting(true);
       try {
         const updated = await updateStudySessionRequest(session.id, {
-          quiz_ids: [...session.quiz_ids, normalizedCard.id],
+          quiz_ids: [...session.quiz_ids, normalizedCardId],
           cards: [...session.cards, { ...normalizedCard, attempts: 0, correct: 0 }],
         });
         setStudySessions((prev) => prev.map((item) => (item.id === session.id ? updated : item)));
@@ -234,7 +239,7 @@ export default function ContentDetailPage() {
     try {
       const created = await createStudySession({
         title,
-        quiz_ids: [normalizedCard.id],
+        quiz_ids: [normalizedCardId],
         cards: [{ ...normalizedCard, attempts: 0, correct: 0 }],
         helper_id: helperIdForCreation ?? undefined,
       });

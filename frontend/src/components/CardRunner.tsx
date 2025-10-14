@@ -15,7 +15,7 @@ interface CardRunnerProps {
 }
 
 export default function CardRunner({ card, disabled, onSubmit, cardStyle }: CardRunnerProps) {
-  switch (card?.type) {
+  switch (card.type) {
     case 'MCQ':
       return <MCQView card={card as MCQCard} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     case 'SHORT':
