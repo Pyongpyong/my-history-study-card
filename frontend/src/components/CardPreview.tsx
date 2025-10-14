@@ -1,8 +1,7 @@
 import { getQuizTypeLabel } from '../utils/quiz';
-import type { QuizCard } from '../api';
 
 interface CardPreviewProps {
-  card: QuizCard;
+  card: Record<string, any> & { type: string };
 }
 
 export default function CardPreview({ card }: CardPreviewProps) {

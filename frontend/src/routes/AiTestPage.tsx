@@ -12,7 +12,6 @@ import {
   type TimelineEntry,
 } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { extractApiErrorMessage } from '../utils/error';
 
 const HIGHLIGHT_TYPES: QuizType[] = ['MCQ', 'SHORT', 'OX', 'CLOZE', 'ORDER', 'MATCH'];
 const TIMELINE_TYPES: QuizType[] = ['MCQ', 'SHORT', 'OX', 'CLOZE', 'ORDER', 'MATCH'];
@@ -281,8 +280,9 @@ export default function AiTestPage() {
     try {
       const response = await aiGenerateRequest(buildGeneratePayload());
       setGenerateResult(response);
-    } catch (error) {
-      setError(extractApiErrorMessage(error, '생성에 실패했습니다.'));
+    } catch (err: any) {
+      const message = err?.response?.data?.detail ?? err?.message ?? '생성에 실패했습니다.';
+      setError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setLoadingGenerate(false);
     }
@@ -310,18 +310,29 @@ export default function AiTestPage() {
     setError(null);
     setLoadingImport(true);
     try {
+
+      // 새로운 구조의 데이터를 기존 API 형식으로 변환
+      const chronologyData = timelineEntries.length > 0 ? {
+        events: timelineEntries.map(entry => ({
+          year: parseInt(entry.title.match(/\d{4}/)?.[0] || '0'),
+          label: entry.description || entry.title
+        })).filter(item => item.year > 0)
+      } : undefined;
+
       const response = await aiGenerateAndImportRequest({
         ...buildGeneratePayload(),
         title: title.trim(),
         tags: keywords, // keywords를 tags로 전송
+        chronology: chronologyData,
         visibility,
         upsert,
       });
 
       setGenerateResult({ cards: response.cards, facts: response.facts, meta: response.meta });
       setImportResult(response);
-    } catch (error) {
-      setError(extractApiErrorMessage(error, '생성 및 저장에 실패했습니다.'));
+    } catch (err: any) {
+      const details = err?.response?.data?.detail ?? err?.message ?? '생성 및 저장에 실패했습니다.';
+      setError(typeof details === 'string' ? details : JSON.stringify(details));
     } finally {
       setLoadingImport(false);
     }

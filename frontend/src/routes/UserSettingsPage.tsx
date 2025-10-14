@@ -1,7 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { extractApiErrorMessage } from '../utils/error';
 
 export default function UserSettingsPage() {
   const { user, changePassword, deleteAccount } = useAuth();
@@ -42,9 +41,10 @@ export default function UserSettingsPage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (error) {
-      console.error(error);
-      setPasswordError(extractApiErrorMessage(error, '비밀번호를 변경하지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '비밀번호를 변경하지 못했습니다.';
+      setPasswordError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setPasswordSubmitting(false);
     }
@@ -69,9 +69,10 @@ export default function UserSettingsPage() {
       await deleteAccount(deletePassword);
       alert('계정이 삭제되었습니다. 그동안 이용해주셔서 감사합니다.');
       navigate('/');
-    } catch (error) {
-      console.error(error);
-      setDeleteError(extractApiErrorMessage(error, '계정을 삭제하지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '계정을 삭제하지 못했습니다.';
+      setDeleteError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setDeleteSubmitting(false);
     }

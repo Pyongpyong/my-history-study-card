@@ -7,6 +7,10 @@ type ContentSnapshotProps = {
 
 export default function ContentSnapshot({ content }: ContentSnapshotProps) {
   const timelineEntries = content.timeline ?? [];
+  const chronology = content.chronology;
+  const chronologyEvents = chronology?.events
+    ? [...chronology.events].sort((a, b) => a.year - b.year)
+    : [];
 
   return (
     <article className="space-y-4 text-sm leading-relaxed text-slate-700">
@@ -78,6 +82,30 @@ export default function ContentSnapshot({ content }: ContentSnapshotProps) {
         </div>
       ) : null}
 
+      {chronology ? (
+        <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center justify-between text-sm text-slate-700">
+            <span className="font-semibold text-primary-600">연표</span>
+            <span className="text-xs text-slate-500">
+              {chronology.start_year ?? '알 수 없음'}
+              {' '}–{' '}
+              {chronology.end_year ?? '알 수 없음'}
+            </span>
+          </div>
+          {chronologyEvents.length ? (
+            <ul className="space-y-2 text-xs text-slate-600">
+              {chronologyEvents.map((event) => (
+                <li key={`${event.year}-${event.label}`} className="flex items-start gap-3">
+                  <span className="font-semibold text-primary-600">{event.year}</span>
+                  <span>{event.label}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-slate-500">등록된 사건이 없습니다.</p>
+          )}
+        </div>
+      ) : null}
     </article>
   );
 }

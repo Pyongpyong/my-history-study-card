@@ -17,10 +17,8 @@ import {
   type AiDifficulty,
   type AiGenerateRequest,
   type AiGenerateResponse,
-  type AiTimelineEvent,
 } from '../api';
 import { getQuizTypeLabel } from '../utils/quiz';
-import { extractApiErrorMessage } from '../utils/error';
 
 const quizTypeLabels: Record<string, string> = {
   MCQ: '객관식',
@@ -123,9 +121,10 @@ export default function QuizCreatePage() {
         setContent(detail);
         setCards(cardList);
         setVisibility(detail.visibility);
-      } catch (error) {
-        console.error(error);
-        setError(extractApiErrorMessage(error, '콘텐츠 정보를 불러오지 못했습니다.'));
+      } catch (err: any) {
+        console.error(err);
+        const message = err?.response?.data?.detail ?? '콘텐츠 정보를 불러오지 못했습니다.';
+        setError(typeof message === 'string' ? message : JSON.stringify(message));
       } finally {
         setLoading(false);
       }
@@ -149,26 +148,10 @@ export default function QuizCreatePage() {
     
     // timeline 모드일 때 timeline 정보 추가
     if (focusMode === 'timeline' && content.timeline && content.timeline.length > 0) {
-      const timelineEntries: AiTimelineEvent[] = content.timeline
-        .map((entry) => {
-          const title = entry.title ?? '';
-          const yearMatch = title.match(/\d{4}/);
-          if (!yearMatch) {
-            return null;
-          }
-          const year = Number.parseInt(yearMatch[0], 10);
-          if (!Number.isFinite(year) || year <= 0) {
-            return null;
-          }
-          const label = entry.description && entry.description.trim().length
-            ? entry.description
-            : title;
-          return { year, label };
-        })
-        .filter((entry): entry is AiTimelineEvent => entry !== null);
-      if (timelineEntries.length) {
-        payload.timeline = timelineEntries;
-      }
+      (payload as any).timeline = content.timeline.map((entry: any) => ({
+        year: parseInt(entry.title?.match(/\d{4}/)?.[0] || '0'),
+        label: entry.description || entry.title
+      })).filter((item: any) => item.year > 0);
     }
     
     return payload;
@@ -195,9 +178,10 @@ export default function QuizCreatePage() {
       console.log('AI Generate Payload:', payload);
       const response = await aiGenerateRequest(payload);
       setGenerateResult(response);
-    } catch (error) {
-      console.error('AI Generate Error:', error);
-      setAiError(extractApiErrorMessage(error, '생성에 실패했습니다.'));
+    } catch (err: any) {
+      console.error('AI Generate Error:', err);
+      const message = err?.response?.data?.detail ?? err?.message ?? '생성에 실패했습니다.';
+      setAiError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setLoadingGenerate(false);
     }
@@ -217,9 +201,10 @@ export default function QuizCreatePage() {
         alert('퀴즈가 생성되었습니다.');
         navigate('/quizzes', { replace: true });
       }
-    } catch (error) {
-      console.error(error);
-      alert(extractApiErrorMessage(error, '퀴즈를 생성하지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '퀴즈를 생성하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setSubmitting(false);
     }

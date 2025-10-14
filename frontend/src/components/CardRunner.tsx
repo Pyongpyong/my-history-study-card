@@ -1,5 +1,3 @@
-import type { QuizCard, MCQCard, ShortCard, OXCard, ClozeCard, OrderCard, MatchCard, CardStyle } from '../api';
-
 import MCQView from './runner/MCQView';
 import ShortView from './runner/ShortView';
 import OXView from './runner/OXView';
@@ -8,26 +6,26 @@ import OrderView from './runner/OrderView';
 import MatchView from './runner/MatchView';
 
 interface CardRunnerProps {
-  card: QuizCard;
+  card: any;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
-  cardStyle?: CardStyle | null;
+  cardStyle?: any;
 }
 
 export default function CardRunner({ card, disabled, onSubmit, cardStyle }: CardRunnerProps) {
   switch (card?.type) {
     case 'MCQ':
-      return <MCQView card={card as MCQCard} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
+      return <MCQView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     case 'SHORT':
-      return <ShortView card={card as ShortCard} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
+      return <ShortView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     case 'OX':
-      return <OXView card={card as OXCard} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
+      return <OXView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     case 'CLOZE':
-      return <ClozeView card={card as ClozeCard} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
+      return <ClozeView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     case 'ORDER':
-      return <OrderView card={card as OrderCard} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
+      return <OrderView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     case 'MATCH':
-      return <MatchView card={card as MatchCard} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
+      return <MatchView card={card} disabled={disabled} onSubmit={onSubmit} cardStyle={cardStyle} />;
     default:
       return <p className="text-sm text-slate-600">지원하지 않는 카드 유형입니다: {card?.type}</p>;
   }

@@ -16,7 +16,6 @@ import { useAuth } from '../context/AuthContext';
 import HelperPickerModal from '../components/HelperPickerModal';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
 import { getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
-import { extractApiErrorMessage } from '../utils/error';
 
 export default function StudyListPage() {
   const { user } = useAuth();
@@ -70,9 +69,10 @@ export default function StudyListPage() {
         }),
       );
       setSessions(normalized);
-    } catch (error) {
-      console.error(error);
-      setError(extractApiErrorMessage(error, '학습 세트를 불러오지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '학습 세트를 불러오지 못했습니다.';
+      setError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setLoading(false);
     }
@@ -155,9 +155,10 @@ export default function StudyListPage() {
     try {
       const items = await fetchRewards();
       setRewards(items);
-    } catch (error) {
-      console.error(error);
-      setRewardsError(extractApiErrorMessage(error, '보상 목록을 불러오지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '보상 목록을 불러오지 못했습니다.';
+      setRewardsError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setRewardsLoading(false);
     }
@@ -179,9 +180,10 @@ export default function StudyListPage() {
       setSessions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       await load();
       closeRewardModal();
-    } catch (error) {
-      console.error(error);
-      alert(extractApiErrorMessage(error, '보상을 추가하지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '보상을 추가하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
     }
   };
 
@@ -224,9 +226,10 @@ export default function StudyListPage() {
       const updated = await updateStudySessionRequest(helperModalSession.id, { helper_id: pendingHelperId });
       setSessions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       closeHelperModal();
-    } catch (error) {
-      console.error('학습 도우미 변경 실패', error);
-      alert(extractApiErrorMessage(error, '학습 도우미를 변경하지 못했습니다.'));
+    } catch (err: any) {
+      console.error('학습 도우미 변경 실패', err);
+      const message = err?.response?.data?.detail ?? err?.message ?? '학습 도우미를 변경하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setHelperSubmitting(false);
     }
@@ -254,9 +257,10 @@ export default function StudyListPage() {
       const updated = await updateStudySessionRequest(cardDeckModalSession.id, { card_deck_id: pendingCardDeckId });
       setSessions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       closeCardDeckModal();
-    } catch (error) {
-      console.error('카드덱 변경 실패', error);
-      alert(extractApiErrorMessage(error, '카드덱을 변경하지 못했습니다.'));
+    } catch (err: any) {
+      console.error('카드덱 변경 실패', err);
+      const message = err?.response?.data?.detail ?? err?.message ?? '카드덱을 변경하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setCardDeckSubmitting(false);
     }

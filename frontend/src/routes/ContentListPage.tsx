@@ -1,7 +1,6 @@
 import { MouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { deleteContent, fetchContents } from '../api';
-import { extractApiErrorMessage } from '../utils/error';
 import Badge from '../components/Badge';
 import { useAuth } from '../context/AuthContext';
 
@@ -30,9 +29,10 @@ export default function ContentListPage() {
       setTotalItems(data.meta.total);
       setTotalPages(Math.ceil(data.meta.total / pageSize));
       setCurrentPage(page);
-    } catch (error) {
-      console.error(error);
-      setError(extractApiErrorMessage(error, '콘텐츠 목록을 불러오지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '콘텐츠 목록을 불러오지 못했습니다.';
+      setError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setLoading(false);
     }
@@ -49,9 +49,10 @@ export default function ContentListPage() {
     try {
       await deleteContent(id);
       await load(currentPage, activePeriod);
-    } catch (error) {
-      console.error(error);
-      setError(extractApiErrorMessage(error, '삭제에 실패했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '삭제에 실패했습니다.';
+      setError(typeof message === 'string' ? message : JSON.stringify(message));
     }
   };
 

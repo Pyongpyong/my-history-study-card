@@ -10,27 +10,25 @@ import {
   deleteQuizRequest,
   type StudySession,
   type ContentDetail,
-  type QuizCard,
 } from '../api';
 import Badge from '../components/Badge';
 import CardPreview from '../components/CardPreview';
 import { getQuizTypeLabel } from '../utils/quiz';
 import { useAuth } from '../context/AuthContext';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
-import { extractApiErrorMessage } from '../utils/error';
 
 export default function ContentDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
   const [content, setContent] = useState<ContentDetail | null>(null);
-  const [cards, setCards] = useState<QuizCard[]>([]);
+  const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [studySessions, setStudySessions] = useState<StudySession[]>([]);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [targetCard, setTargetCard] = useState<QuizCard | null>(null);
+  const [targetCard, setTargetCard] = useState<any | null>(null);
   const [selection, setSelection] = useState<'existing' | 'new'>('existing');
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [newSessionTitle, setNewSessionTitle] = useState('');
@@ -72,15 +70,16 @@ export default function ContentDetailPage() {
       const [detail, cardList] = await Promise.all([fetchContent(id), fetchContentCards(id)]);
       setContent(detail);
       setCards(
-        cardList.map((card) => ({
+        cardList.map((card: any) => ({
           ...card,
           attempts: typeof card?.attempts === 'number' ? card.attempts : 0,
           correct: typeof card?.correct === 'number' ? card.correct : 0,
         })),
       );
-    } catch (error) {
-      console.error(error);
-      setError(extractApiErrorMessage(error, '콘텐츠 정보를 불러오지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '콘텐츠 정보를 불러오지 못했습니다.';
+      setError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setLoading(false);
     }
@@ -102,11 +101,17 @@ export default function ContentDetailPage() {
     try {
       await deleteContent(content.id);
       navigate('/contents', { replace: true });
-    } catch (error) {
-      console.error(error);
-      setError(extractApiErrorMessage(error, '삭제에 실패했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '삭제에 실패했습니다.';
+      setError(typeof message === 'string' ? message : JSON.stringify(message));
     }
   };
+
+
+  const chronologyEvents = content?.chronology?.events
+    ? [...content.chronology.events].sort((a, b) => a.year - b.year)
+    : [];
   const timelineEntries = content?.timeline ?? [];
 
   const loadStudySessions = async () => {
@@ -115,9 +120,10 @@ export default function ContentDetailPage() {
     try {
       const data = await fetchStudySessions(1, 100);
       setStudySessions(data.items);
-    } catch (error) {
-      console.error(error);
-      setSessionError(extractApiErrorMessage(error, '학습 목록을 불러오지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '학습 목록을 불러오지 못했습니다.';
+      setSessionError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setSessionsLoading(false);
     }
@@ -128,13 +134,14 @@ export default function ContentDetailPage() {
     try {
       await deleteQuizRequest(quizId);
       await loadContent();
-    } catch (error) {
-      console.error(error);
-      alert(extractApiErrorMessage(error, '퀴즈를 삭제하지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '퀴즈를 삭제하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
     }
   };
 
-  const handleOpenModal = (card: QuizCard) => {
+  const handleOpenModal = (card: any) => {
     if (!user) {
       alert('학습 기능을 사용하려면 로그인해주세요.');
       navigate('/auth', { state: { from: location } });
@@ -208,9 +215,10 @@ export default function ContentDetailPage() {
         setStudySessions((prev) => prev.map((item) => (item.id === session.id ? updated : item)));
         alert('학습 세트에 추가되었습니다.');
         handleCloseModal();
-      } catch (error) {
-        console.error(error);
-        alert(extractApiErrorMessage(error, '학습 세트 업데이트에 실패했습니다.'));
+      } catch (err: any) {
+        console.error(err);
+        const message = err?.response?.data?.detail ?? '학습 세트 업데이트에 실패했습니다.';
+        alert(typeof message === 'string' ? message : JSON.stringify(message));
         setSubmitting(false);
       }
       return;
@@ -241,9 +249,10 @@ export default function ContentDetailPage() {
       setStudySessions((prev) => [created, ...prev]);
       alert('새 학습 세트가 생성되었습니다.');
       handleCloseModal();
-    } catch (error) {
-      console.error(error);
-      alert(extractApiErrorMessage(error, '학습 세트를 생성하지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '학습 세트를 생성하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
       setSubmitting(false);
     }
   };
@@ -358,6 +367,30 @@ export default function ContentDetailPage() {
                 </li>
               ))}
             </ul>
+          </div>
+        ) : null}
+        {content.chronology ? (
+          <div className="mt-6 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between text-sm text-slate-700">
+              <span className="font-semibold text-primary-600">연표</span>
+              <span className="text-xs text-slate-500">
+                {content.chronology.start_year ?? '알 수 없음'}
+                {' '}–{' '}
+                {content.chronology.end_year ?? '알 수 없음'}
+              </span>
+            </div>
+            {chronologyEvents.length ? (
+              <ul className="space-y-2 text-xs text-slate-600">
+                {chronologyEvents.map((event) => (
+                  <li key={`${event.year}-${event.label}`} className="flex items-start gap-3">
+                    <span className="font-semibold text-primary-600">{event.year}</span>
+                    <span>{event.label}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-slate-500">등록된 사건이 없습니다.</p>
+            )}
           </div>
         ) : null}
       </section>

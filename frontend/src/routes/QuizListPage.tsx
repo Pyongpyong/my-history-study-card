@@ -12,14 +12,12 @@ import {
   type QuizItem,
   type StudySession,
   type CardDeck,
-  type EraEntry,
 } from '../api';
 import Badge from '../components/Badge';
 import CardPreview from '../components/CardPreview';
 import { getQuizTypeLabel } from '../utils/quiz';
 import { useAuth } from '../context/AuthContext';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
-import { extractApiErrorMessage } from '../utils/error';
 
 const PAGE_SIZE = 40;
 
@@ -170,9 +168,10 @@ export default function QuizListPage() {
         contentEras: quiz.content_id ? contentErasMap[quiz.content_id] || [] : [],
       }));
       setQuizzes(enrichedQuizzes);
-    } catch (error) {
-      console.error(error);
-      setError(extractApiErrorMessage(error, '퀴즈 목록을 불러오지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '퀴즈 목록을 불러오지 못했습니다.';
+      setError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setLoading(false);
     }
@@ -263,11 +262,8 @@ export default function QuizListPage() {
     if (activePeriod !== '전체') {
       filtered = filtered.filter((quiz) => {
         if (!quiz.content_id) return false; // 독립 퀴즈는 시대별 필터에서 제외
-        const contentErasRaw = (quiz as { contentEras?: unknown }).contentEras;
-        const contentEras = Array.isArray(contentErasRaw)
-          ? contentErasRaw.filter((era): era is EraEntry => Boolean(era) && typeof era === 'object' && typeof (era as { period?: unknown }).period === 'string')
-          : [];
-        return contentEras.some((era) => era.period === activePeriod);
+        const contentEras = (quiz as any).contentEras || [];
+        return contentEras.some((era: any) => era.period === activePeriod);
       });
     }
     
@@ -279,9 +275,8 @@ export default function QuizListPage() {
     // 태그 필터링
     if (activeTags.length) {
       filtered = filtered.filter((quiz) => {
-        const rawTags = Array.isArray(quiz.payload?.tags) ? quiz.payload.tags : [];
-        const normalizedTags = rawTags.filter((tag): tag is string => typeof tag === 'string');
-        return activeTags.every((tag) => normalizedTags.includes(tag));
+        const payloadTags = Array.isArray((quiz.payload as any)?.tags) ? (quiz.payload as any).tags : [];
+        return activeTags.every((tag) => payloadTags.includes(tag));
       });
     }
     
@@ -299,9 +294,10 @@ export default function QuizListPage() {
     try {
       const data = await fetchStudySessions(1, 100);
       setStudySessions(data.items);
-    } catch (error) {
-      console.error(error);
-      setSessionError(extractApiErrorMessage(error, '학습 목록을 불러오지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '학습 목록을 불러오지 못했습니다.';
+      setSessionError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setSessionsLoading(false);
     }
@@ -381,8 +377,8 @@ export default function QuizListPage() {
       setSubmitting(true);
       try {
         // Create the update payload
-        const updatePayload: Record<string, unknown> = {
-          quiz_ids: [...session.quiz_ids, normalizedTargetCard.id],
+        const updatePayload: any = {
+          quiz_ids: [...session.quiz_ids, normalizedTargetCard.id]
         };
 
         // Only include cards if they exist in the session
@@ -391,39 +387,26 @@ export default function QuizListPage() {
         }
 
         const updated = await updateStudySessionRequest(session.id, updatePayload);
-
+        
         // Update the local state with the updated session
-        setStudySessions((prev) => prev.map((item) => (item.id === session.id ? updated : item)));
-
+        setStudySessions((prev) => 
+          prev.map((item) => (item.id === session.id ? updated : item))
+        );
+        
         alert('학습 세트에 추가되었습니다.');
         handleCloseModal();
-      } catch (error) {
-        console.error('Error updating study session:', error);
-        const axiosError = error as {
-          response?: {
-            data?: {
-              detail?: unknown;
-            };
-          };
-          message?: unknown;
-        };
-
-        const detail = axiosError.response?.data?.detail;
+      } catch (err: any) {
+        console.error('Error updating study session:', err);
         let errorMessage = '학습 세트 업데이트에 실패했습니다.';
-        if (typeof detail === 'string') {
-          errorMessage = detail;
-        } else if (detail !== undefined) {
-          try {
-            errorMessage = JSON.stringify(detail);
-          } catch {
-            errorMessage = extractApiErrorMessage(error, errorMessage);
-          }
-        } else if (typeof axiosError.message === 'string') {
-          errorMessage = axiosError.message;
-        } else {
-          errorMessage = extractApiErrorMessage(error, errorMessage);
+        
+        if (err?.response?.data?.detail) {
+          errorMessage = typeof err.response.data.detail === 'string' 
+            ? err.response.data.detail 
+            : JSON.stringify(err.response.data.detail);
+        } else if (err.message) {
+          errorMessage = err.message;
         }
-
+        
         alert(errorMessage);
         setSubmitting(false);
       }
@@ -457,9 +440,10 @@ export default function QuizListPage() {
       setStudySessions((prev) => [created, ...prev]);
       alert('새 학습 세트가 생성되었습니다.');
       handleCloseModal();
-    } catch (error) {
-      console.error(error);
-      alert(extractApiErrorMessage(error, '학습 세트를 생성하지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '학습 세트를 생성하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
       setSubmitting(false);
     }
   };
@@ -492,15 +476,14 @@ export default function QuizListPage() {
     try {
       const content = await fetchContent(contentId);
       navigate(`/contents/${contentId}`, { state: { content } });
-    } catch (error) {
-      console.error(error);
-      const axiosError = error as { response?: { status?: number } };
-      const status = axiosError.response?.status;
+    } catch (err: any) {
+      const status = err?.response?.status;
       if (status === 404 || status === 403) {
         alert('비공개 콘텐츠입니다.');
         return;
       }
-      alert(extractApiErrorMessage(error, '콘텐츠를 불러오지 못했습니다.'));
+      const message = err?.response?.data?.detail ?? err?.message ?? '콘텐츠를 불러오지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
     }
   };
 
@@ -532,9 +515,10 @@ export default function QuizListPage() {
       setSelectedDetails({});
       await load(page, activePeriod, activeQuizType);
       alert('선택된 퀴즈가 삭제되었습니다.');
-    } catch (error) {
-      console.error(error);
-      alert(extractApiErrorMessage(error, '퀴즈 삭제에 실패했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '퀴즈 삭제에 실패했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
     }
   }, [selectedQuizzes, load, page, activePeriod, activeQuizType]);
 
@@ -547,9 +531,10 @@ export default function QuizListPage() {
       await deleteQuizRequest(quizId);
       await load(page, activePeriod, activeQuizType);
       alert('퀴즈가 삭제되었습니다.');
-    } catch (error) {
-      console.error(error);
-      alert(extractApiErrorMessage(error, '퀴즈 삭제에 실패했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '퀴즈 삭제에 실패했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
     }
   }, [load, page, activePeriod, activeQuizType]);
 
@@ -613,8 +598,8 @@ export default function QuizListPage() {
     try {
       const response = await fetchContents(1, 100);
       setContents(response.items);
-    } catch (error) {
-      console.error('콘텐츠 로딩 실패:', error);
+    } catch (err: any) {
+      console.error('콘텐츠 로딩 실패:', err);
     } finally {
       setContentsLoading(false);
     }
@@ -846,9 +831,10 @@ export default function QuizListPage() {
       setSelectedDetails({});
       setShowCreateModal(false);
       navigate('/studies');
-    } catch (error) {
-      console.error(error);
-      alert(extractApiErrorMessage(error, '학습 리스트에 추가하지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '학습 리스트에 추가하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setSaving(false);
     }
