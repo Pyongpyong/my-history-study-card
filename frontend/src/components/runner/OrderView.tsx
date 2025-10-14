@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OrderCard, CardStyle } from '../../api';
 
 const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
@@ -11,10 +11,11 @@ interface OrderViewProps {
 }
 
 export default function OrderView({ card, disabled, onSubmit, cardStyle }: OrderViewProps) {
-  const items: string[] = Array.isArray(card.items) ? card.items : [];
-  const answerOrder: number[] = Array.isArray(card.answer_order)
-    ? card.answer_order
-    : items.map((_, index) => index);
+  const items = useMemo<string[]>(() => (Array.isArray(card.items) ? card.items : []), [card.items]);
+  const answerOrder = useMemo<number[]>(
+    () => (Array.isArray(card.answer_order) ? card.answer_order : items.map((_, index) => index)),
+    [card.answer_order, items],
+  );
   const [order, setOrder] = useState<number[]>(items.map((_, idx) => idx));
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);

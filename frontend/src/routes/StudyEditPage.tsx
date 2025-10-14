@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   fetchStudySessionById,
@@ -11,13 +11,12 @@ import {
   Reward,
   CardDeck,
   QuizItem,
-  QuizListResponse,
   QuizCard,
 } from '../api';
 import { useAuth } from '../context/AuthContext';
 import HelperPickerModal from '../components/HelperPickerModal';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
-import { getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
+import { getHelperAssetUrl } from '../utils/assets';
 import { extractApiErrorMessage } from '../utils/error';
 
 export default function StudyEditPage() {
@@ -56,18 +55,10 @@ export default function StudyEditPage() {
   const [rewardsLoading, setRewardsLoading] = useState(false);
   const [selectingRewardId, setSelectingRewardId] = useState<number | null>(null);
 
-  const { helpers, loading: helpersLoading, error: helpersError, refresh: refreshHelpers } = useLearningHelpers();
+  const { helpers, loading: helpersLoading, error: helpersError } = useLearningHelpers();
 
   // 데이터 로드
-  useEffect(() => {
-    if (!id || !user) {
-      navigate('/studies');
-      return;
-    }
-    loadData();
-  }, [id, user]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!id) return;
     
     setLoading(true);
@@ -93,7 +84,15 @@ export default function StudyEditPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || !user) {
+      navigate('/studies');
+      return;
+    }
+    void loadData();
+  }, [id, user, navigate, loadData]);
 
   // 기본 정보 저장
   const handleSaveBasicInfo = async () => {
@@ -522,7 +521,7 @@ export default function StudyEditPage() {
                           return (
                             <div className="text-xs text-slate-600 mb-2">
                               
-                                {items.map((item: string, itemIndex: number) => (
+                                {items.map((item: string) => (
                                   <div className="flex flex-wrap gap-1 mt-1">
                                   {item}
                                   </div>

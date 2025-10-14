@@ -63,30 +63,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  const applyAuth = (response: AuthResponse) => {
+  const applyAuth = useCallback((response: AuthResponse) => {
     persistApiKey(response.api_key);
     setApiKeyState(response.api_key);
     setUser(response.user);
     return response;
-  };
+  }, []);
 
-  const login = async (email: string, password: string) => {
-    const response = await loginUserRequest({ email, password });
-    return applyAuth(response);
-  };
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const response = await loginUserRequest({ email, password });
+      return applyAuth(response);
+    },
+    [applyAuth],
+  );
 
-  const register = async (email: string, password: string) => {
-    const response = await registerUserRequest({ email, password });
-    return applyAuth(response);
-  };
+  const register = useCallback(
+    async (email: string, password: string) => {
+      const response = await registerUserRequest({ email, password });
+      return applyAuth(response);
+    },
+    [applyAuth],
+  );
 
-  const logout = () => {
+  const logout = useCallback(() => {
     persistApiKey(null);
     setApiKeyState(null);
     setUser(null);
-  };
+  }, []);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!apiKey) {
       setUser(null);
       return null;
@@ -99,17 +105,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout();
       return null;
     }
-  };
+  }, [apiKey, logout]);
 
-  const changePassword = async (currentPassword: string, newPassword: string) => {
-    const response = await changePasswordRequest({ current_password: currentPassword, new_password: newPassword });
-    return applyAuth(response);
-  };
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      const response = await changePasswordRequest({ current_password: currentPassword, new_password: newPassword });
+      return applyAuth(response);
+    },
+    [applyAuth],
+  );
 
-  const deleteAccount = async (password: string) => {
-    await deleteAccountRequest({ password });
-    logout();
-  };
+  const deleteAccount = useCallback(
+    async (password: string) => {
+      await deleteAccountRequest({ password });
+      logout();
+    },
+    [logout],
+  );
 
   const updateUser = useCallback(
     (updater: Partial<UserProfile> | ((prev: UserProfile | null) => UserProfile | null)) => {
@@ -133,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) {

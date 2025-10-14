@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { OXCard, CardStyle } from '../../api';
 
 const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
@@ -11,10 +11,15 @@ interface OXViewProps {
 }
 
 export default function OXView({ card, disabled, onSubmit, cardStyle }: OXViewProps) {
-  const handleChoice = (value: boolean) => {
-    if (disabled) return;
-    onSubmit(Boolean(value) === Boolean(card.answer));
-  };
+  const correctAnswer = Boolean(card.answer);
+
+  const handleChoice = useCallback(
+    (value: boolean) => {
+      if (disabled) return;
+      onSubmit(value === correctAnswer);
+    },
+    [correctAnswer, disabled, onSubmit],
+  );
 
   const titleClass = cardStyle
     ? [
@@ -70,7 +75,7 @@ export default function OXView({ card, disabled, onSubmit, cardStyle }: OXViewPr
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [disabled, card.answer]);
+  }, [disabled, handleChoice]);
 
   return (
     <div className="space-y-4 text-center text-slate-900">
