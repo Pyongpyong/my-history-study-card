@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { MCQCard, CardStyle } from '../../api';
 
 const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
@@ -13,16 +13,12 @@ interface MCQViewProps {
 export default function MCQView({ card, disabled, onSubmit, cardStyle }: MCQViewProps) {
   const options: string[] = Array.isArray(card.options) ? card.options : [];
   const [selected, setSelected] = useState<number | null>(null);
-  const correctIndex = Number(card.answer_index);
 
-  const handleSelect = useCallback(
-    (index: number) => {
-      if (disabled) return;
-      setSelected(index);
-      onSubmit(index === correctIndex);
-    },
-    [correctIndex, disabled, onSubmit],
-  );
+  const handleSelect = (index: number) => {
+    if (disabled) return;
+    setSelected(index);
+    onSubmit(index === Number(card.answer_index));
+  };
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -35,7 +31,7 @@ export default function MCQView({ card, disabled, onSubmit, cardStyle }: MCQView
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [disabled, options.length, handleSelect]);
+  }, [disabled, options.length]);
 
   useEffect(() => {
     setSelected(null);

@@ -16,6 +16,7 @@ import {
   deleteCardStyle,
   exportContents,
   type UserProfile,
+  type LearningHelperOut,
   type CardDeck,
   type CardDeckCreate,
   type CardDeckUpdate,
@@ -79,6 +80,8 @@ export default function AdminPage() {
   const [cardDeckEdits, setCardDeckEdits] = useState<Record<number, CardDeckUpdate>>({});
   const [creatingCardDeck, setCreatingCardDeck] = useState(false);
   const [cardDeckStatus, setCardDeckStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [uploadingCardDeckImage, setUploadingCardDeckImage] = useState<{ id: number; type: 'front' | 'back' } | null>(null);
+  const [pendingCardDeckFiles, setPendingCardDeckFiles] = useState<Record<number, Partial<Record<'front' | 'back', File>>>>({});
   
   // 새 카드덱을 위한 파일 미리보기 상태
   const [newCardDeckFiles, setNewCardDeckFiles] = useState<{ front?: File; back?: File }>({});
@@ -94,6 +97,7 @@ export default function AdminPage() {
   const [editCardDeckPreviews, setEditCardDeckPreviews] = useState<Record<number, { front?: string; back?: string }>>({});
   
   // 학습 도우미 편집을 위한 파일 미리보기 상태
+  const [helperFiles, setHelperFiles] = useState<Record<number, Partial<Record<'idle' | 'correct' | 'incorrect', File>>>>({});
   const [helperPreviews, setHelperPreviews] = useState<Record<number, Partial<Record<'idle' | 'correct' | 'incorrect', string>>>>({});
   
   // 새 학습 도우미를 위한 파일 미리보기 상태
@@ -246,6 +250,14 @@ export default function AdminPage() {
     
     if (file) {
       // 파일 저장
+      setHelperFiles(prev => ({
+        ...prev,
+        [helperId]: {
+          ...prev[helperId],
+          [variant]: file,
+        },
+      }));
+
       // 미리보기 URL 생성
       const previewUrl = URL.createObjectURL(file);
       setHelperPreviews(prev => {
@@ -441,7 +453,7 @@ export default function AdminPage() {
     
     setCardDeckStatus(null);
     try {
-      const updateData = { ...edit };
+      let updateData = { ...edit };
       
       // 새로 선택된 파일이 있으면 업로드
       const files = editCardDeckFiles[deckId];
@@ -502,6 +514,9 @@ export default function AdminPage() {
     }
   };
 
+  const getCardDeckEdit = (deckId: number) =>
+    cardDeckEdits[deckId] ?? { name: '', description: '', front_image: '', back_image: '', is_default: false };
+
   const handleCardDeckInputChange = (deckId: number, field: keyof CardDeckUpdate, value: string | boolean) => {
     setCardDeckEdits((prev) => ({
       ...prev,
@@ -510,6 +525,77 @@ export default function AdminPage() {
         [field]: value,
       },
     }));
+  };
+
+  const handleCardDeckImageSelect = (deckId: number, type: 'front' | 'back', file: File) => {
+    setPendingCardDeckFiles((prev) => ({
+      ...prev,
+      [deckId]: {
+        ...prev[deckId],
+        [type]: file,
+      },
+    }));
+  };
+
+  const uploadCardDeckImage = async (deckId: number, type: 'front' | 'back') => {
+    const file = pendingCardDeckFiles[deckId]?.[type];
+    if (!file) return;
+
+    setUploadingCardDeckImage({ id: deckId, type });
+    try {
+      const result = await uploadCardDeckImageRequest(file);
+      const imageUrl = result.filename;
+
+      // 카드덱 편집 상태 업데이트
+      handleCardDeckInputChange(deckId, type === 'front' ? 'front_image' : 'back_image', imageUrl);
+      
+      // 업로드된 파일 제거
+      setPendingCardDeckFiles((prev) => ({
+        ...prev,
+        [deckId]: {
+          ...prev[deckId],
+          [type]: undefined,
+        },
+      }));
+
+      setCardDeckStatus({ type: 'success', message: `${type === 'front' ? '앞면' : '뒷면'} 이미지가 업로드되었습니다.` });
+    } catch (error) {
+      setCardDeckStatus({ type: 'error', message: extractApiErrorMessage(error, '이미지 업로드에 실패했습니다.') });
+    } finally {
+      setUploadingCardDeckImage(null);
+    }
+  };
+
+  const uploadNewCardDeckImage = async (type: 'front' | 'back') => {
+    const file = pendingCardDeckFiles[-1]?.[type];
+    if (!file) return;
+
+    setUploadingCardDeckImage({ id: -1, type });
+    try {
+      const result = await uploadCardDeckImageRequest(file);
+      const imageUrl = result.filename;
+
+      // 새 카드덱 상태 업데이트
+      setNewCardDeck(prev => ({
+        ...prev,
+        [type === 'front' ? 'front_image' : 'back_image']: imageUrl,
+      }));
+      
+      // 업로드된 파일 제거
+      setPendingCardDeckFiles((prev) => ({
+        ...prev,
+        [-1]: {
+          ...prev[-1],
+          [type]: undefined,
+        },
+      }));
+
+      setCardDeckStatus({ type: 'success', message: `${type === 'front' ? '앞면' : '뒷면'} 이미지가 업로드되었습니다.` });
+    } catch (error) {
+      setCardDeckStatus({ type: 'error', message: extractApiErrorMessage(error, '이미지 업로드에 실패했습니다.') });
+    } finally {
+      setUploadingCardDeckImage(null);
+    }
   };
 
   const handleNewCardDeckFileSelect = (type: 'front' | 'back', file: File) => {
@@ -622,18 +708,8 @@ export default function AdminPage() {
       const dd = String(today.getDate()).padStart(2, '0');
       const defaultName = `my_history_data_${yyyy}${mm}${dd}.json`;
 
-      type SaveFilePickerResult = {
-        createWritable: () => Promise<{ write: (blob: Blob) => Promise<void>; close: () => Promise<void> }>;
-      };
-
-      type SaveFilePickerFn = (options: {
-        suggestedName?: string;
-        types?: Array<{ description: string; accept: Record<string, string[]> }>;
-      }) => Promise<SaveFilePickerResult>;
-
-      const saveAsCandidate = (window as unknown as { showSaveFilePicker?: unknown }).showSaveFilePicker;
-      if (typeof saveAsCandidate === 'function') {
-        const saveAsDialog = saveAsCandidate as SaveFilePickerFn;
+      const saveAsDialog = (window as unknown as { showSaveFilePicker?: Function }).showSaveFilePicker;
+      if (saveAsDialog) {
         try {
           const fileHandle = await saveAsDialog({
             suggestedName: defaultName,

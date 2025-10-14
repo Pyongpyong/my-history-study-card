@@ -1,68 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import type { QuizType } from '../api';
 
-type BaseQuizPayload = {
-  type: QuizType;
-  explain?: string;
-  tags: string[];
-};
-
-type MCQPayload = BaseQuizPayload & {
-  type: 'MCQ';
-  question: string;
-  options: string[];
-  answer_index: number;
-};
-
-type ShortPayload = BaseQuizPayload & {
-  type: 'SHORT';
-  prompt: string;
-  answer: string;
-  rubric?: {
-    aliases: string[];
-  };
-};
-
-type OXPayload = BaseQuizPayload & {
-  type: 'OX';
-  statement: string;
-  answer: boolean;
-};
-
-type ClozePayload = BaseQuizPayload & {
-  type: 'CLOZE';
-  text: string;
-  clozes: Record<string, string>;
-};
-
-type OrderPayload = BaseQuizPayload & {
-  type: 'ORDER';
-  items: string[];
-  answer_order: number[];
-};
-
-type MatchPayload = BaseQuizPayload & {
-  type: 'MATCH';
-  left: string[];
-  right: string[];
-  pairs: number[][];
-};
-
-export type QuizFormPayloadMap = {
-  MCQ: MCQPayload;
-  SHORT: ShortPayload;
-  OX: OXPayload;
-  CLOZE: ClozePayload;
-  ORDER: OrderPayload;
-  MATCH: MatchPayload;
-};
-
-export type QuizFormPayload = QuizFormPayloadMap[keyof QuizFormPayloadMap];
-
-type SharedFormProps<TPayload extends BaseQuizPayload> = {
-  onSubmit: (payload: TPayload) => Promise<void>;
+type SharedFormProps = {
+  onSubmit: (payload: Record<string, any>) => Promise<void>;
   submitLabel?: string;
-  initial?: Partial<TPayload> | null;
+  initial?: Record<string, any> | null;
   keywordOptions: string[];
   initialKeywords: string[];
 };
@@ -131,7 +73,7 @@ function MCQForm({
   initial,
   keywordOptions,
   initialKeywords,
-}: SharedFormProps<MCQPayload>) {
+}: SharedFormProps) {
   const [question, setQuestion] = useState(initial?.question ?? '');
   const [options, setOptions] = useState<string[]>(
     initial?.options && initial.options.length ? [...initial.options] : ['', '', '', ''],
@@ -289,7 +231,7 @@ function ShortForm({
   initial,
   keywordOptions,
   initialKeywords,
-}: SharedFormProps<ShortPayload>) {
+}: SharedFormProps) {
   const [prompt, setPrompt] = useState(initial?.prompt ?? '');
   const [answer, setAnswer] = useState(initial?.answer ?? '');
   const [aliases, setAliases] = useState((initial?.rubric?.aliases ?? []).join(','));
@@ -399,7 +341,7 @@ function OxForm({
   initial,
   keywordOptions,
   initialKeywords,
-}: SharedFormProps<OXPayload>) {
+}: SharedFormProps) {
   const [statement, setStatement] = useState(initial?.statement ?? '');
   const [answer, setAnswer] = useState(
     typeof initial?.answer === 'boolean' ? initial.answer : true,
@@ -500,11 +442,13 @@ function ClozeForm({
   initial,
   keywordOptions,
   initialKeywords,
-}: SharedFormProps<ClozePayload>) {
+}: SharedFormProps) {
   const [text, setText] = useState(initial?.text ?? '');
   const [explain, setExplain] = useState(initial?.explain ?? '');
   const [placeholders, setPlaceholders] = useState<string[]>([]);
-  const [clozeValues, setClozeValues] = useState<Record<string, string>>(initial?.clozes ?? {});
+  const [clozeValues, setClozeValues] = useState<Record<string, string>>(
+    (initial?.clozes as Record<string, string>) ?? {},
+  );
   const [submitting, setSubmitting] = useState(false);
   const { selectedKeywords, toggleKeyword } = useKeywordSelectionState(
     initialKeywords,
@@ -512,7 +456,7 @@ function ClozeForm({
   );
 
   useEffect(() => {
-    const matches = Array.from(text.matchAll(/\{\{(.*?)\}\}/g));
+    const matches = Array.from(text.matchAll(/\{\{(.*?)\}\}/g)) as RegExpMatchArray[];
     const unique = Array.from(
       new Set(matches.map((match) => match[1] ?? '').filter((value) => value.length > 0)),
     );
@@ -530,7 +474,7 @@ function ClozeForm({
     if (!initial) return;
     setText(initial.text ?? '');
     setExplain(initial.explain ?? '');
-    setClozeValues(initial.clozes ?? {});
+    setClozeValues((initial.clozes as Record<string, string>) ?? {});
   }, [initial]);
 
   const handleSubmit = async (event: FormEvent) => {
@@ -630,7 +574,7 @@ function OrderForm({
   initial,
   keywordOptions,
   initialKeywords,
-}: SharedFormProps<OrderPayload>) {
+}: SharedFormProps) {
   const [items, setItems] = useState<string[]>(
     initial?.items && initial.items.length ? [...initial.items] : [''],
   );
@@ -750,19 +694,12 @@ function MatchForm({
   initial,
   keywordOptions,
   initialKeywords,
-}: SharedFormProps<MatchPayload>) {
-  const [pairs, setPairs] = useState<Array<{ left: string; right: string }>>(() => {
-    if (initial?.left && initial.right) {
-      const next = initial.left.map((leftValue, index) => ({
-        left: leftValue,
-        right: initial.right?.[index] ?? '',
-      }));
-      if (next.length) {
-        return next;
-      }
-    }
-    return [{ left: '', right: '' }];
-  });
+}: SharedFormProps) {
+  const [pairs, setPairs] = useState<Array<{ left: string; right: string }>>(
+    initial?.left && initial?.right
+      ? initial.left.map((left: string, index: number) => ({ left, right: initial.right[index] }))
+      : [{ left: '', right: '' }],
+  );
   const [explain, setExplain] = useState(initial?.explain ?? '');
   const [submitting, setSubmitting] = useState(false);
   const { selectedKeywords, toggleKeyword } = useKeywordSelectionState(
@@ -771,17 +708,14 @@ function MatchForm({
   );
 
   useEffect(() => {
-    if (initial?.left && initial.right) {
-      const next = initial.left.map((leftValue, index) => ({
-        left: leftValue,
-        right: initial.right?.[index] ?? '',
-      }));
-      setPairs(next.length ? next : [{ left: '', right: '' }]);
+    if (!initial) return;
+    if (initial.left && initial.right) {
+      setPairs(initial.left.map((left: string, index: number) => ({ left, right: initial.right[index] })));
     } else {
       setPairs([{ left: '', right: '' }]);
     }
-    setExplain(initial?.explain ?? '');
-  }, [initial?.left, initial?.right, initial?.explain]);
+    setExplain(initial.explain ?? '');
+  }, [initial]);
 
   const addPair = () => setPairs((prev) => [...prev, { left: '', right: '' }]);
   const removePair = (index: number) => {
@@ -898,44 +832,49 @@ function MatchForm({
   );
 }
 
-type QuizFormProps<T extends QuizType> = {
-  type: T;
-  onSubmit: (payload: QuizFormPayloadMap[T]) => Promise<void>;
+export type QuizFormProps = {
+  type: QuizType;
+  onSubmit: (payload: Record<string, any>) => Promise<void>;
   submitLabel?: string;
-  initial?: Partial<QuizFormPayloadMap[T]> | null;
+  initial?: Record<string, any> | null;
   keywordOptions?: string[];
 };
 
-export function QuizForm<T extends QuizType>({
+export function QuizForm({
   type,
   onSubmit,
   submitLabel,
   initial,
   keywordOptions = [],
-}: QuizFormProps<T>) {
+}: QuizFormProps) {
   const normalizedOptions = useMemo(() => {
     const set = new Set<string>();
     keywordOptions.forEach((item) => {
+      if (typeof item !== 'string') return;
       const trimmed = item.trim();
       if (trimmed) {
         set.add(trimmed);
       }
     });
-    initial?.tags?.forEach((tag) => {
-      const trimmed = tag.trim();
-      if (trimmed) {
-        set.add(trimmed);
-      }
-    });
+    if (initial && Array.isArray((initial as any).tags)) {
+      (initial as any).tags.forEach((tag: unknown) => {
+        if (typeof tag !== 'string') return;
+        const trimmed = tag.trim();
+        if (trimmed) {
+          set.add(trimmed);
+        }
+      });
+    }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [keywordOptions, initial]);
 
   const initialKeywords = useMemo(() => {
-    if (!initial?.tags) {
-      return [];
+    if (!initial || !Array.isArray((initial as any).tags)) {
+      return [] as string[];
     }
     const set = new Set<string>();
-    initial.tags.forEach((tag) => {
+    (initial as any).tags.forEach((tag: unknown) => {
+      if (typeof tag !== 'string') return;
       const trimmed = tag.trim();
       if (trimmed && normalizedOptions.includes(trimmed)) {
         set.add(trimmed);

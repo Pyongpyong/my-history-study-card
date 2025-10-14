@@ -11,18 +11,11 @@ interface MatchViewProps {
 }
 
 export default function MatchView({ card, disabled, onSubmit, cardStyle }: MatchViewProps) {
-  const left = useMemo<string[]>(() => (Array.isArray(card.left) ? card.left : []), [card.left]);
-  const right = useMemo<string[]>(() => (Array.isArray(card.right) ? card.right : []), [card.right]);
-  const pairs = useMemo<Array<[number, number]>>(
-    () =>
-      Array.isArray(card.pairs)
-        ? card.pairs.filter(
-            (pair): pair is [number, number] =>
-              Array.isArray(pair) && pair.length === 2 && pair.every((value) => typeof value === 'number'),
-          )
-        : [],
-    [card.pairs],
-  );
+  const left: string[] = Array.isArray(card.left) ? card.left : [];
+  const right: string[] = Array.isArray(card.right) ? card.right : [];
+  const pairs: Array<[number, number]> = Array.isArray(card.pairs)
+    ? card.pairs.filter((pair): pair is [number, number] => Array.isArray(pair) && pair.length === 2 && pair.every((value) => typeof value === 'number'))
+    : [];
 
   const [order, setOrder] = useState<number[]>(right.map((_, idx) => idx));
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -196,20 +189,20 @@ export default function MatchView({ card, disabled, onSubmit, cardStyle }: Match
   };
 
   const rowStyles = [
-    'bg-red-500/15',
-    'bg-primary-500/15',
-    'bg-orange-500/15',
-    'bg-emerald-500/15',
-    'bg-sky-500/15',
-    'bg-amber-500/15',
-    'bg-rose-500/15',
-    'bg-lime-500/15',
-    'bg-yellow-500/20',
+    { background: 'bg-red-500/15', line: 'bg-red-300/60' },
+    { background: 'bg-primary-500/15', line: 'bg-primary-300/60' },
+    { background: 'bg-orange-500/15', line: 'bg-orange-300/60' },
+    { background: 'bg-emerald-500/15', line: 'bg-emerald-300/60' },
+    { background: 'bg-sky-500/15', line: 'bg-sky-300/60' },
+    { background: 'bg-amber-500/15', line: 'bg-amber-300/60' },
+    { background: 'bg-rose-500/15', line: 'bg-rose-300/60' },
+    { background: 'bg-lime-500/15', line: 'bg-lime-300/60' },
+    { background: 'bg-yellow-500/20', line: 'bg-yellow-300/60' },
   ];
 
   const getRowStyle = (index: number) => rowStyles[index % rowStyles.length];
 
-  return (
+    return (
     <div className="space-y-4 text-sm text-slate-900">
       <p className={titleClass}>대응되는 항목을 맞춰보세요</p>
       <div className={`w-full ${cardStyle?.match_guide_align || 'text-left'}`}>
@@ -220,7 +213,7 @@ export default function MatchView({ card, disabled, onSubmit, cardStyle }: Match
         style={{ gap: `${itemGap}px` }}
       >
         {left.map((leftValue, index) => {
-          const background = getRowStyle(index);
+          const { background, line } = getRowStyle(index);
           const rightIndex = order[index];
           const rightValue = right[rightIndex];
           
