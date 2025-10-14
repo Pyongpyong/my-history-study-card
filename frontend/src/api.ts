@@ -153,8 +153,8 @@ export interface AiGenerateRequest {
 }
 
 export interface AiGenerateResponse {
-  cards: Array<Record<string, unknown>>;
-  facts: Record<string, unknown>;
+  cards: Array<Record<string, any>>;
+  facts: Record<string, any>;
   meta: AiMeta;
 }
 
@@ -200,7 +200,7 @@ export interface QuizItem {
   id: number;
   content_id: number;
   type: QuizType;
-  payload: Record<string, unknown>;
+  payload: Record<string, any>;
   created_at: string;
   visibility: Visibility;
   owner_id?: number | null;
@@ -511,17 +511,17 @@ export async function deleteLearningHelperRequest(id: number): Promise<void> {
   await api.delete(`/helpers/${id}`);
 }
 
-export async function createQuizForContent<T extends Record<string, unknown>>(contentId: number | string, payload: T): Promise<QuizItem> {
+export async function createQuizForContent<T extends Record<string, any>>(contentId: number | string, payload: T): Promise<QuizItem> {
   const { data } = await api.post<QuizItem>(`/contents/${contentId}/quizzes`, payload);
   return data;
 }
 
-export async function createQuiz<T extends Record<string, unknown>>(payload: T): Promise<QuizItem> {
+export async function createQuiz<T extends Record<string, any>>(payload: T): Promise<QuizItem> {
   const { data } = await api.post<QuizItem>('/quizzes', payload);
   return data;
 }
 
-export async function createContentRequest(payload: Record<string, unknown>): Promise<number> {
+export async function createContentRequest(payload: Record<string, any>): Promise<number> {
   const { data } = await api.post('/import/json', payload);
   if (Array.isArray(data)) {
     return data[0]?.content_id;
@@ -572,7 +572,7 @@ export async function submitQuizAnswer(quizId: number, isCorrect: boolean): Prom
   return data;
 }
 
-export async function updateQuizRequest<T extends Record<string, unknown>>(
+export async function updateQuizRequest<T extends Record<string, any>>(
   id: number | string,
   payload: T,
 ): Promise<QuizItem> {

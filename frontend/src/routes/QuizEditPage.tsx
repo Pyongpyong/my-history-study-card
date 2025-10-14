@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import CardPreview from '../components/CardPreview';
 import ContentSnapshot from '../components/ContentSnapshot';
-import QuizForm, { type QuizFormPayload } from '../components/QuizForm';
+import QuizForm from '../components/QuizForm';
 import {
   fetchContent,
   fetchQuiz,
@@ -31,56 +31,54 @@ function ensureStringRecord(value: unknown): Record<string, string> {
   return result;
 }
 
-type InitialPayload = Partial<QuizFormPayload> & { tags?: string[] };
-
-function buildInitialPayload(quiz: QuizItem): InitialPayload {
-  const payload: Record<string, unknown> = quiz.payload ?? {};
-  const tags = ensureStringArray(payload['tags'], []);
-  const explain = typeof payload['explain'] === 'string' ? (payload['explain'] as string) : '';
+function buildInitialPayload(quiz: QuizItem): Record<string, any> {
+  const payload = quiz.payload ?? {};
+  const tags = ensureStringArray((payload as any).tags, []);
+  const explain = typeof (payload as any).explain === 'string' ? (payload as any).explain : '';
 
   switch (quiz.type) {
     case 'MCQ':
       return {
-        question: typeof payload['question'] === 'string' ? (payload['question'] as string) : '',
-        options: ensureStringArray(payload['options'], ['', '', '', '']),
-        answer_index: typeof payload['answer_index'] === 'number' ? (payload['answer_index'] as number) : 0,
+        question: typeof (payload as any).question === 'string' ? (payload as any).question : '',
+        options: ensureStringArray((payload as any).options, ['', '', '', '']),
+        answer_index: typeof (payload as any).answer_index === 'number' ? (payload as any).answer_index : 0,
         explain,
         tags,
       };
     case 'SHORT':
       return {
-        prompt: typeof payload['prompt'] === 'string' ? (payload['prompt'] as string) : '',
-        answer: typeof payload['answer'] === 'string' ? (payload['answer'] as string) : '',
+        prompt: typeof (payload as any).prompt === 'string' ? (payload as any).prompt : '',
+        answer: typeof (payload as any).answer === 'string' ? (payload as any).answer : '',
         explain,
         tags,
         rubric:
-          payload['rubric'] && typeof payload['rubric'] === 'object' && Array.isArray((payload['rubric'] as { aliases?: unknown }).aliases)
-            ? { aliases: ensureStringArray((payload['rubric'] as { aliases?: unknown }).aliases) }
+          (payload as any).rubric && Array.isArray((payload as any).rubric?.aliases)
+            ? { aliases: ensureStringArray((payload as any).rubric.aliases) }
             : undefined,
       };
     case 'OX':
       return {
-        statement: typeof payload['statement'] === 'string' ? (payload['statement'] as string) : '',
-        answer: typeof payload['answer'] === 'boolean' ? (payload['answer'] as boolean) : true,
+        statement: typeof (payload as any).statement === 'string' ? (payload as any).statement : '',
+        answer: typeof (payload as any).answer === 'boolean' ? (payload as any).answer : true,
         explain,
         tags,
       };
     case 'CLOZE':
       return {
-        text: typeof payload['text'] === 'string' ? (payload['text'] as string) : '',
-        clozes: ensureStringRecord(payload['clozes']),
+        text: typeof (payload as any).text === 'string' ? (payload as any).text : '',
+        clozes: ensureStringRecord((payload as any).clozes),
         explain,
         tags,
       };
     case 'ORDER':
       return {
-        items: ensureStringArray(payload['items'], ['']),
+        items: ensureStringArray((payload as any).items, ['']),
         explain,
         tags,
       };
     case 'MATCH': {
-      const left = ensureStringArray(payload['left'], ['']);
-      let right = ensureStringArray(payload['right'], []);
+      const left = ensureStringArray((payload as any).left, ['']);
+      let right = ensureStringArray((payload as any).right, []);
       if (!left.length) {
         left.push('');
       }
@@ -154,12 +152,15 @@ export default function QuizEditPage() {
         set.add(trimmed);
       }
     });
-    initialPayload?.tags?.forEach((tag) => {
-      const trimmed = tag.trim();
-      if (trimmed) {
-        set.add(trimmed);
-      }
-    });
+    if (initialPayload && Array.isArray((initialPayload as any).tags)) {
+      (initialPayload as any).tags.forEach((tag: unknown) => {
+        if (typeof tag !== 'string') return;
+        const trimmed = tag.trim();
+        if (trimmed) {
+          set.add(trimmed);
+        }
+      });
+    }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [content, initialPayload]);
 
@@ -175,7 +176,7 @@ export default function QuizEditPage() {
     };
   }, [quiz]);
 
-  const handleSubmit = async (payload: QuizFormPayload) => {
+  const handleSubmit = async (payload: Record<string, any>) => {
     if (!id || !quiz) return;
     setSubmitting(true);
     try {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { submitQuizAnswer } from '../api';
+import { QuizItem, submitQuizAnswer } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 interface UseQuizResult {

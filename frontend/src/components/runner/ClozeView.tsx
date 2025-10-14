@@ -11,7 +11,7 @@ interface ClozeViewProps {
 }
 
 export default function ClozeView({ card, disabled, onSubmit, cardStyle }: ClozeViewProps) {
-  const clozes = useMemo<Record<string, string>>(() => card.clozes ?? {}, [card.clozes]);
+  const clozes: Record<string, string> = card.clozes ?? {};
   const placeholders = useMemo(() => Object.keys(clozes).sort(), [clozes]);
 
   const titleClass = cardStyle
