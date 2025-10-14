@@ -1,13 +1,12 @@
 import { useEffect } from 'react';
-import type { OXCard, CardStyle } from '../../api';
 
 const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
 
 interface OXViewProps {
-  card: OXCard;
+  card: any;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
-  cardStyle?: CardStyle | null;
+  cardStyle?: any;
 }
 
 export default function OXView({ card, disabled, onSubmit, cardStyle }: OXViewProps) {

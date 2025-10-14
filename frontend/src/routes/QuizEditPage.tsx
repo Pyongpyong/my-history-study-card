@@ -12,13 +12,12 @@ import {
   type Visibility,
 } from '../api';
 import { getQuizTypeLabel } from '../utils/quiz';
-import { extractApiErrorMessage } from '../utils/error';
 
-function ensureStringArray(value: unknown, fallback: string[] = []): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : fallback;
+function ensureStringArray(value: any, fallback: string[] = []): string[] {
+  return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : fallback;
 }
 
-function ensureStringRecord(value: unknown): Record<string, string> {
+function ensureStringRecord(value: any): Record<string, string> {
   if (!value || typeof value !== 'object') {
     return {};
   }
@@ -127,9 +126,10 @@ export default function QuizEditPage() {
           console.error(contentErr);
           setContent(null);
         }
-      } catch (error) {
-        console.error(error);
-        setError(extractApiErrorMessage(error, '퀴즈 정보를 불러오지 못했습니다.'));
+      } catch (err: any) {
+        console.error(err);
+        const message = err?.response?.data?.detail ?? '퀴즈 정보를 불러오지 못했습니다.';
+        setError(typeof message === 'string' ? message : JSON.stringify(message));
       } finally {
         setLoading(false);
       }
@@ -185,9 +185,10 @@ export default function QuizEditPage() {
       const contentParam = searchParams.get('content');
       const targetContentId = contentParam ?? String(quiz.content_id);
       navigate(`/contents/${targetContentId}`, { replace: true, state: { refresh: Date.now() } });
-    } catch (error) {
-      console.error(error);
-      alert(extractApiErrorMessage(error, '퀴즈를 수정하지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '퀴즈를 수정하지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setSubmitting(false);
     }

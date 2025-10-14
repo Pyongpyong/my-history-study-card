@@ -178,6 +178,11 @@ def test_generate_and_import_creates_records(client: TestClient, llm_stub: _LLMS
             "topic": ["훈민정음"],
             "entity": ["세종대왕"],
         },
+        "chronology": {
+            "start": {"year": 1418, "precision": "year"},
+            "end": {"year": 1450, "precision": "year"},
+            "events": [{"year": 1443, "label": "훈민정음 창제"}],
+        },
         "types": ["MCQ", "SHORT", "OX"],
         "difficulty": "easy",
         "visibility": "PUBLIC",
@@ -198,6 +203,8 @@ def test_generate_and_import_creates_records(client: TestClient, llm_stub: _LLMS
         assert content is not None
         assert content.era == "조선"
         assert content.sub_era == "세종"
+        assert content.start_year == 1418
+        assert content.end_year == 1450
         taxonomy = json.loads(content.taxonomy)
         assert taxonomy["topic"] == ["훈민정음"]
 

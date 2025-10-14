@@ -15,7 +15,6 @@ import { useAuth } from '../context/AuthContext';
 import { getCardDeckImageUrl } from '../utils/assets';
 import { applyDefaultCardStyleValues } from '../utils/cardStyle';
 import CardRunner from '../components/CardRunner';
-import { extractApiErrorMessage } from '../utils/error';
 
 // 스타일 옵션 정의
 const FONT_SIZES = [
@@ -1235,61 +1234,44 @@ export default function CardStyleEditorPage() {
 
       // 저장 성공 후 현재 페이지에 머물기 (관리자 페이지로 이동하지 않음)
       // navigate('/admin');
-    } catch (error) {
-      console.error('카드 스타일 저장 실패:', error);
-      const axiosError = error as {
-        response?: {
-          data?: {
-            detail?: unknown;
-          };
-        };
-      };
-      console.error('에러 응답:', axiosError.response);
-      console.error('에러 상세:', axiosError.response?.data);
-
-      const detail = axiosError.response?.data?.detail;
+    } catch (err: any) {
+      console.error('카드 스타일 저장 실패:', err);
+      console.error('에러 응답:', err.response);
+      console.error('에러 상세:', err.response?.data);
+      
+      // 상세 에러 메시지 구성
       let errorMessage = '카드 스타일 저장에 실패했습니다.';
-      if (Array.isArray(detail)) {
-        errorMessage = detail
-          .map((entry) => {
-            if (!entry || typeof entry !== 'object') {
-              return String(entry);
-            }
-            const loc = Array.isArray((entry as { loc?: unknown }).loc)
-              ? (entry as { loc?: unknown[] }).loc?.join('.')
-              : undefined;
-            const msg = (entry as { msg?: unknown }).msg;
-            return `${loc ?? 'detail'} : ${String(msg ?? '오류')}`;
-          })
-          .join(', ');
-      } else if (typeof detail === 'string') {
-        errorMessage = detail;
-      } else if (detail !== undefined) {
-        try {
-          errorMessage = JSON.stringify(detail);
-        } catch {
-          errorMessage = extractApiErrorMessage(error, errorMessage);
+      if (err.response?.data?.detail) {
+        if (Array.isArray(err.response.data.detail)) {
+          // Pydantic 검증 에러 (배열 형태)
+          errorMessage = err.response.data.detail.map((e: any) => 
+            `${e.loc?.join('.')} : ${e.msg}`
+          ).join(', ');
+        } else if (typeof err.response.data.detail === 'string') {
+          // 문자열 에러 메시지
+          errorMessage = err.response.data.detail;
+        } else {
+          // 객체 형태 에러
+          errorMessage = JSON.stringify(err.response.data.detail);
         }
-      } else {
-        errorMessage = extractApiErrorMessage(error, errorMessage);
       }
-
+      
       setError(errorMessage);
     } finally {
       setSaving(false);
     }
   };
 
-  const updateCardStyleField = <K extends keyof CardStyle>(field: K, value: CardStyle[K]) => {
+  const updateCardStyleField = (field: keyof CardStyle, value: any) => {
     if (!cardStyle) return;
     setCardStyle((prev) => {
-      const next = { ...prev, [field]: value };
+      const updated = { ...prev, [field]: value } as CardStyle;
 
       if (field === 'match_item_background_color') {
-        next.match_line_color = value && value !== 'bg-white' ? (value as CardStyle['match_line_color']) : 'default';
+        updated.match_line_color = value && value !== 'bg-white' ? value : 'default';
       }
 
-      return applyDefaultCardStyleValues(next);
+      return applyDefaultCardStyleValues(updated);
     });
   };
 

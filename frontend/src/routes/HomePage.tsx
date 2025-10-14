@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
 import CardRunner from '../components/CardRunner';
-import { fetchLearningHelpers, fetchDefaultCardStyle, type LearningHelperPublic, type CardStyle, type QuizCard } from '../api';
+import { fetchLearningHelpers, fetchDefaultCardStyle, type LearningHelperPublic, type CardStyle } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { applyDefaultCardStyleValues } from '../utils/cardStyle';
 
 interface SampleCardConfig {
-  card: QuizCard;
+  card: any;
   correct: boolean;
   explanation?: string;
 }
@@ -283,7 +283,7 @@ export default function HomePage() {
           items.find((item) => item.level_requirement === 1) ?? items.find((item) => item.unlocked) ?? items[0] ?? null;
         setFallbackHelper(defaultHelper ?? null);
       })
-      .catch((error: unknown) => {
+      .catch((error: any) => {
         if (cancelled) return;
         console.error('학습 도우미 정보를 불러오지 못했습니다.', error);
         setFallbackHelper(null);

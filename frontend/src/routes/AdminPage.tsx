@@ -25,7 +25,6 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLearningHelpers } from '../hooks/useLearningHelpers';
 import { buildTeacherFilename, getTeacherAssetUrl, getHelperAssetUrl, getCardDeckImageUrl } from '../utils/assets';
-import { extractApiErrorMessage } from '../utils/error';
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -174,10 +173,11 @@ export default function AdminPage() {
       setNewHelperPreviews({});
       
       await refreshHelpers();
-    } catch (error) {
+    } catch (err: any) {
+      const message = err?.response?.data?.detail ?? err?.message ?? '학습 도우미를 생성하지 못했습니다.';
       setHelperStatus({
         type: 'error',
-        message: extractApiErrorMessage(error, '학습 도우미를 생성하지 못했습니다.'),
+        message: typeof message === 'string' ? message : JSON.stringify(message),
       });
     } finally {
       setCreatingHelper(false);
@@ -215,11 +215,12 @@ export default function AdminPage() {
       }
       setPendingVariantFiles((prev) => ({ ...prev, [helperId]: {} }));
       await refreshHelpers();
-    } catch (error) {
+    } catch (err: any) {
       setUploadingVariant(null);
+      const message = err?.response?.data?.detail ?? err?.message ?? '학습 도우미 정보를 수정하지 못했습니다.';
       setHelperStatus({
         type: 'error',
-        message: extractApiErrorMessage(error, '학습 도우미 정보를 수정하지 못했습니다.'),
+        message: typeof message === 'string' ? message : JSON.stringify(message),
       });
     }
   };
@@ -233,10 +234,11 @@ export default function AdminPage() {
       await deleteLearningHelperRequest(helperId);
       setHelperStatus({ type: 'success', message: '학습 도우미가 삭제되었습니다.' });
       await refreshHelpers();
-    } catch (error) {
+    } catch (err: any) {
+      const message = err?.response?.data?.detail ?? err?.message ?? '학습 도우미를 삭제하지 못했습니다.';
       setHelperStatus({
         type: 'error',
-        message: extractApiErrorMessage(error, '학습 도우미를 삭제하지 못했습니다.'),
+        message: typeof message === 'string' ? message : JSON.stringify(message),
       });
     }
   };
@@ -293,9 +295,10 @@ export default function AdminPage() {
     try {
       const data = await fetchAllUsersRequest();
       setUsers(data);
-    } catch (error) {
-      console.error(error);
-      setError(extractApiErrorMessage(error, '사용자 목록을 불러오지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '사용자 목록을 불러오지 못했습니다.';
+      setError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setLoading(false);
     }
@@ -337,8 +340,9 @@ export default function AdminPage() {
       setCardDecksError(null);
       const response = await fetchCardDecksRequest(1, 100);
       setCardDecks(response.items);
-    } catch (error) {
-      setCardDecksError(extractApiErrorMessage(error, '카드덱을 불러오지 못했습니다.'));
+    } catch (err: any) {
+      const message = err?.response?.data?.detail ?? err?.message ?? '카드덱을 불러오지 못했습니다.';
+      setCardDecksError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setCardDecksLoading(false);
     }
@@ -351,8 +355,9 @@ export default function AdminPage() {
       setCardStyleError(null);
       const response = await fetchCardStyles(0, 100);
       setCardStyles(response.items);
-    } catch (error) {
-      setCardStyleError(extractApiErrorMessage(error, '카드 스타일을 불러오지 못했습니다.'));
+    } catch (err: any) {
+      const message = err?.response?.data?.detail ?? err?.message ?? '카드 스타일을 불러오지 못했습니다.';
+      setCardStyleError(message);
     } finally {
       setCardStyleLoading(false);
     }
@@ -364,8 +369,9 @@ export default function AdminPage() {
     try {
       await deleteCardStyle(styleId);
       await loadCardStyles();
-    } catch (error) {
-      setCardStyleError(extractApiErrorMessage(error, '카드 스타일을 삭제하지 못했습니다.'));
+    } catch (err: any) {
+      const message = err?.response?.data?.detail ?? err?.message ?? '카드 스타일을 삭제하지 못했습니다.';
+      setCardStyleError(message);
     }
   };
 
@@ -434,10 +440,11 @@ export default function AdminPage() {
       });
       setNewCardDeckPreviews({});
       await loadCardDecks();
-    } catch (error) {
+    } catch (err: any) {
+      const message = err?.response?.data?.detail ?? err?.message ?? '카드덱을 생성하지 못했습니다.';
       setCardDeckStatus({
         type: 'error',
-        message: extractApiErrorMessage(error, '카드덱을 생성하지 못했습니다.'),
+        message: typeof message === 'string' ? message : JSON.stringify(message),
       });
     } finally {
       setCreatingCardDeck(false);
@@ -489,10 +496,11 @@ export default function AdminPage() {
       }
       
       await loadCardDecks();
-    } catch (error) {
+    } catch (err: any) {
+      const message = err?.response?.data?.detail ?? err?.message ?? '카드덱을 업데이트하지 못했습니다.';
       setCardDeckStatus({
         type: 'error',
-        message: extractApiErrorMessage(error, '카드덱을 업데이트하지 못했습니다.'),
+        message: typeof message === 'string' ? message : JSON.stringify(message),
       });
     }
   };
@@ -506,10 +514,11 @@ export default function AdminPage() {
       await deleteCardDeckRequest(deckId);
       setCardDeckStatus({ type: 'success', message: '카드덱이 삭제되었습니다.' });
       await loadCardDecks();
-    } catch (error) {
+    } catch (err: any) {
+      const message = err?.response?.data?.detail ?? err?.message ?? '카드덱을 삭제하지 못했습니다.';
       setCardDeckStatus({
         type: 'error',
-        message: extractApiErrorMessage(error, '카드덱을 삭제하지 못했습니다.'),
+        message: typeof message === 'string' ? message : JSON.stringify(message),
       });
     }
   };
@@ -559,8 +568,8 @@ export default function AdminPage() {
       }));
 
       setCardDeckStatus({ type: 'success', message: `${type === 'front' ? '앞면' : '뒷면'} 이미지가 업로드되었습니다.` });
-    } catch (error) {
-      setCardDeckStatus({ type: 'error', message: extractApiErrorMessage(error, '이미지 업로드에 실패했습니다.') });
+    } catch (err: any) {
+      setCardDeckStatus({ type: 'error', message: err.message || '이미지 업로드에 실패했습니다.' });
     } finally {
       setUploadingCardDeckImage(null);
     }
@@ -591,8 +600,8 @@ export default function AdminPage() {
       }));
 
       setCardDeckStatus({ type: 'success', message: `${type === 'front' ? '앞면' : '뒷면'} 이미지가 업로드되었습니다.` });
-    } catch (error) {
-      setCardDeckStatus({ type: 'error', message: extractApiErrorMessage(error, '이미지 업로드에 실패했습니다.') });
+    } catch (err: any) {
+      setCardDeckStatus({ type: 'error', message: err.message || '이미지 업로드에 실패했습니다.' });
     } finally {
       setUploadingCardDeckImage(null);
     }
@@ -688,9 +697,10 @@ export default function AdminPage() {
       setPassword('');
       setMakeAdmin(true);
       await loadUsers();
-    } catch (error) {
-      console.error(error);
-      setCreateError(extractApiErrorMessage(error, '계정을 생성하지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '계정을 생성하지 못했습니다.';
+      setCreateError(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setCreating(false);
     }
@@ -723,9 +733,9 @@ export default function AdminPage() {
           const writable = await fileHandle.createWritable();
           await writable.write(exportedBlob);
           await writable.close();
-        } catch (pickerError) {
-          if ((pickerError as { name?: string })?.name !== 'AbortError') {
-            throw pickerError;
+        } catch (err: any) {
+          if (err?.name !== 'AbortError') {
+            throw err;
           }
         }
       } else {
@@ -740,9 +750,10 @@ export default function AdminPage() {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       }
-    } catch (error) {
-      console.error(error);
-      alert(extractApiErrorMessage(error, '콘텐츠를 내보내지 못했습니다.'));
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.response?.data?.detail ?? '콘텐츠를 내보내지 못했습니다.';
+      alert(typeof message === 'string' ? message : JSON.stringify(message));
     } finally {
       setExporting(false);
     }

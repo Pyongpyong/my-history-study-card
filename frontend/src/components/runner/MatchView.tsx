@@ -1,21 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MatchCard, CardStyle } from '../../api';
 
 const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
 
 interface MatchViewProps {
-  card: MatchCard;
+  card: any;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
-  cardStyle?: CardStyle | null;
+  cardStyle?: any;
 }
 
 export default function MatchView({ card, disabled, onSubmit, cardStyle }: MatchViewProps) {
   const left: string[] = Array.isArray(card.left) ? card.left : [];
   const right: string[] = Array.isArray(card.right) ? card.right : [];
-  const pairs: Array<[number, number]> = Array.isArray(card.pairs)
-    ? card.pairs.filter((pair): pair is [number, number] => Array.isArray(pair) && pair.length === 2 && pair.every((value) => typeof value === 'number'))
-    : [];
+  const pairs: Array<[number, number]> = Array.isArray(card.pairs) ? card.pairs : [];
 
   const [order, setOrder] = useState<number[]>(right.map((_, idx) => idx));
   const [dragIndex, setDragIndex] = useState<number | null>(null);

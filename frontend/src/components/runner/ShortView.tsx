@@ -1,13 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import type { ShortCard, CardStyle } from '../../api';
 
 const questionClass = 'w-full px-4 py-3 text-lg font-semibold text-primary-600 text-center bg-white';
 
 interface ShortViewProps {
-  card: ShortCard;
+  card: any;
   disabled: boolean;
   onSubmit: (correct: boolean) => void;
-  cardStyle?: CardStyle | null;
+  cardStyle?: any;
 }
 
 const normalize = (value: string) => value.trim().toLowerCase();
